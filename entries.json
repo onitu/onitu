@@ -1,0 +1,8 @@
+{
+  "root": {
+    "driver": "LocalStorage",
+    "mount_point": "/",
+    "sync": "",
+    "options": {}
+  }
+}

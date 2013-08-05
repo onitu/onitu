@@ -1,12 +1,12 @@
-from .drivers import Drivers
+from onitu.entries import Entries
 
 class Core(object):
     """Core object of the server"""
 
     def __init__(self):
-        self.drivers = Drivers()
+        self.entries = Entries()
 
     def run(self):
         """Method called to start the server and all the drivers"""
 
-        self.drivers.load()
+        self.entries.launch()

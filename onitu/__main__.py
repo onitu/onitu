@@ -3,7 +3,7 @@
 
 """
 import sys
-from .core import Core
+from onitu.core import Core
 
 
 if __name__ == '__main__':
