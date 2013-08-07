@@ -1,6 +1,8 @@
-from importlib import import_module
-
 import json
+
+from multiprocessing import Process
+
+from .entry import Entry
 
 class Entries(dict):
 
@@ -16,7 +18,7 @@ class Entries(dict):
             ids = self.keys()
 
         for id in ids:
-            self._launch_entry(self[id])
+            self[id].launch()
 
     def stop(self):
         """Stop all the entries"""
@@ -30,27 +32,7 @@ class Entries(dict):
                 self._load_entry(id, infos)
 
     def _load_entry(self, id, infos):
-        entry = infos
+        entry = Entry(infos)
 
-        self._load_driver(entry)
-
-        if entry["driver"]:
+        if entry.get("driver"):
             self[id] = entry
-
-    def _load_driver(self, entry):
-        name = entry["driver"]
-
-        try:
-            driver = import_module(name, "onitu.drivers")
-            assert driver.start
-        except (ImportError, AttributeError) as e:
-            driver = None
-            print "Imposible to load driver {} :".format(name), e
-
-        entry["driver"] = driver
-
-    def _launch_entry(entry):
-        process = Process(target=entry["driver"].start())
-        process.start()
-
-        entry["process"] = process
