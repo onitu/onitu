@@ -1,38 +1,30 @@
-from multiprocessing.managers import BaseManager
+from multiprocessing.managers import Process
 from importlib import import_module
 
 class Entry(dict):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, id, *args, **kwargs):
         super(Entry, self).__init__(*args, **kwargs)
+
+        self.id = id
+
+        self.driver = None
 
         self._load_driver()
 
     def launch(self):
-        process = Process(target=self["driver"].start())
-        process.start()
-
-        self["process"] = process
-
+        self.process = Process(target=self.driver.start, args=(self,))
+        self.process.start()
 
     def _load_driver(self):
-        name = self["driver_name"]
+        name = self.get("driver_name", "Nameless")
 
         try:
-            driver = import_module(name, "onitu.drivers")
+            driver = import_module("onitu.drivers.{}".format(name))
+            driver.plug.load(self)
             assert driver.start
         except (ImportError, AttributeError) as e:
             driver = None
-            print "Imposible to load driver {} :".format(name), e
+            print "Impossible to load driver {} :".format(name), e
 
-        self["driver"] = driver
-
-
-class EntryManager(BaseManager):
-    def __init__(self):
-        super(EntryManager, self).__init__()
-
-        self.register('Entry', Entry)
-        self.start()
-
-ProxyEntry = EntryManager().Entry
+        self.driver = driver

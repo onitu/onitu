@@ -6,7 +6,17 @@ class Core(object):
     def __init__(self):
         self.entries = Entries()
 
-    def run(self):
+    def launch(self):
         """Method called to start the server and all the drivers"""
 
         self.entries.launch()
+
+        # This is pure bullshit, we should have something like a Pool and join it
+        # Maybe circus could help
+        try:
+            for id, entry in self.entries.items():
+                print "Joining ", id
+                entry.process.join()
+        except:
+            for entry in self.entries.values():
+                entry.process.terminate()

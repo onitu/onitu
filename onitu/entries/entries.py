@@ -1,7 +1,5 @@
 import json
 
-from multiprocessing import Process
-
 from .entry import Entry
 
 class Entries(dict):
@@ -20,11 +18,6 @@ class Entries(dict):
         for id in ids:
             self[id].launch()
 
-    def stop(self):
-        """Stop all the entries"""
-
-        self.manager.stop()
-        self.clear()
 
     def _load_entries(self):
         with open("entries.json") as f:
@@ -32,7 +25,7 @@ class Entries(dict):
                 self._load_entry(id, infos)
 
     def _load_entry(self, id, infos):
-        entry = Entry(infos)
+        entry = Entry(id, infos)
 
-        if entry.get("driver"):
+        if entry.driver:
             self[id] = entry

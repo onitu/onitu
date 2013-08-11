@@ -1,8 +1,11 @@
 {
-  "root": {
-    "driver_name": "LocalStorage",
+  "Driver A": {
+    "driver_name": "local_storage",
     "mount_point": "/",
     "sync": "",
     "options": {}
+  },
+  "Driver B": {
+    "driver_name": "local_storage"
   }
 }
