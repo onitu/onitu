@@ -1,5 +1,6 @@
 from onitu.api.plug import Plug
 from os import path, makedirs
+from pyinotify import WatchManager, ThreadedNotifier, EventsCodes, ProcessEvent
 
 root = './'
 plug = Plug()
@@ -28,6 +29,17 @@ def new_file(metadatas):
         makedirs(filepath)
     open(path.join(filepath, metadatas['filename']), 'w+').close()
 
+def watch_new_file(event):
+    print 'Created %s' % path.join(event.path, event.name)
+
+class Watcher(ProcessEvent):
+    def process_IN_CREATE(self, event):
+        return watch_new_file(event)
+
 def start(*args, **kwargs):
+    wm = WatchManager()
+    notifier = ThreadedNotifier(wm, Watcher())
+    notifier.start()
+    wm.add_watch(root, EventsCodes.ALL_FLAGS['IN_CREATE'], rec=True)
     plug.start()
     plug.join()
