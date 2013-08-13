@@ -30,7 +30,11 @@ def new_file(metadatas):
     open(path.join(filepath, metadatas['filename']), 'w+').close()
 
 def watch_new_file(event):
-    print 'Created %s' % path.join(event.path, event.name)
+    metadatas = {
+        'path': path.relpath(event.path, root),
+        'filename': event.name
+    }
+    print 'New file : %s' % metadatas
 
 class Watcher(ProcessEvent):
     def process_IN_CREATE(self, event):
