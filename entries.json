@@ -1,11 +1,14 @@
 {
   "Driver A": {
     "driver_name": "local_storage",
-    "mount_point": "/",
-    "sync": "",
-    "options": {}
+    "options": {
+      "root": "~/Onitu/test/driver_a"
+    }
   },
   "Driver B": {
-    "driver_name": "local_storage"
+    "driver_name": "local_storage",
+    "options": {
+      "root": "~/onitu/test/driver_b"
+    }
   }
 }

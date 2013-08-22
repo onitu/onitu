@@ -2,6 +2,7 @@ from multiprocessing import Process
 from threading import Thread
 
 import zmq
+import redis
 
 class Plug(Thread):
     """docstring for Plug"""
@@ -11,14 +12,19 @@ class Plug(Thread):
 
         self.handlers = {}
 
-    def load(self, entry):
-        self.entry = entry
+        self.redis = redis.Redis()
 
         self.context = zmq.Context.instance()
         self.socket = self.context.socket(zmq.REP)
         self.port = self.socket.bind_to_random_port("tcp://*")
 
-        self.entry["port"] = self.port
+    def launch(self, id):
+        self.id = id
+        self.options = self.redis.hgetall("onitu:options:{}".format(self.id))
+
+        self.redis.hset("onitu:sockets:{}".format(self.id), "port", self.port)
+
+        self.start()
 
     def run(self):
         while 42:
@@ -45,7 +51,7 @@ class Plug(Thread):
         thread.start()
 
     def _default_handler(self, task):
-        print "{}: Error, unsupported message {}.".format(self.id, msg)
+        print("{}: Error, unsupported message {}.".format(self.id, msg))
         return {'error': 'Unsupported message'}
 
     def _get_handler(self, task):

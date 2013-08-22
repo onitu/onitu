@@ -4,20 +4,12 @@ from .entry import Entry
 
 class Entries(dict):
 
-    def __init__(self):
+    def __init__(self, core):
         super(Entries, self).__init__()
 
+        self.core = core
+
         self._load_entries()
-
-    def launch(self, *ids):
-        """Launch all the entries"""
-
-        if not ids:
-            ids = self.keys()
-
-        for id in ids:
-            self[id].launch()
-
 
     def _load_entries(self):
         with open("entries.json") as f:
@@ -25,7 +17,7 @@ class Entries(dict):
                 self._load_entry(id, infos)
 
     def _load_entry(self, id, infos):
-        entry = Entry(id, infos)
+        entry = Entry(id, self.core, infos)
 
-        if entry.driver:
+        if entry.ready:
             self[id] = entry

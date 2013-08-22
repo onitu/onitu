@@ -1,22 +1,25 @@
+import redis
+import circus
+
 from onitu.entries import Entries
 
 class Core(object):
     """Core object of the server"""
 
     def __init__(self):
-        self.entries = Entries()
+        # Let's assume that there isn't any Redis server started yet
+        # YOLO
+        self.arbiter = circus.get_arbiter([{'cmd': "redis-server", 'priority': 42}])
+        # We start redis before everyone else. Pretty ugly.
+        self.arbiter.watchers[0].start()
+
+        self.redis = redis.Redis()
+
+        self.entries = Entries(self)
 
     def launch(self):
         """Method called to start the server and all the drivers"""
-
-        self.entries.launch()
-
-        # This is pure bullshit, we should have something like a Pool and join it
-        # Maybe circus could help
         try:
-            for id, entry in self.entries.items():
-                print "Joining ", id
-                entry.process.join()
-        except:
-            for entry in self.entries.values():
-                entry.process.terminate()
+            self.arbiter.start()
+        finally:
+            self.arbiter.stop()
