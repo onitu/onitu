@@ -7,5 +7,5 @@ from onitu.core import Core
 
 
 if __name__ == '__main__':
-    core = Core()
+    core = Core(*sys.argv[1:])
     sys.exit(core.launch())

@@ -1,5 +1,8 @@
+import time
+
 import redis
-import circus
+
+from circus.client import CircusClient
 
 from onitu.entries import Entries
 
@@ -7,11 +10,7 @@ class Core(object):
     """Core object of the server"""
 
     def __init__(self):
-        # Let's assume that there isn't any Redis server started yet
-        # YOLO
-        self.arbiter = circus.get_arbiter([{'cmd': "redis-server", 'priority': 42}])
-        # We start redis before everyone else. Pretty ugly.
-        self.arbiter.watchers[0].start()
+        self.circus = CircusClient()
 
         self.redis = redis.Redis()
 
@@ -20,6 +19,7 @@ class Core(object):
     def launch(self):
         """Method called to start the server and all the drivers"""
         try:
-            self.arbiter.start()
+            while 42:
+                time.sleep(0.1)
         finally:
-            self.arbiter.stop()
+            exit()

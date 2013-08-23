@@ -12,7 +12,7 @@ class Entry(dict):
         self._ready = False
 
         if 'options' in self:
-            self.core.redis.hmset("onitu:options:{}".format(self.id), self['options'])
+            self.core.redis.hmset('onitu:options:{}'.format(self.id), self['options'])
 
         self._load_driver()
 
@@ -22,12 +22,15 @@ class Entry(dict):
 
     def _load_driver(self):
         try:
-            script = "onitu.drivers.{name}".format(name=self['driver_name'])
+            script = 'onitu.drivers.{name}'.format(name=self['driver_name'])
 
-            # This code will be one-lined, see https://github.com/mozilla-services/circus/pull/503
-            watcher = circus.watcher.Watcher(self.id, sys.executable, args=['-m', script, self.id])
-            self.core.arbiter.watchers.append(watcher)
-            self.core.arbiter._watchers_names[watcher.name.lower()] = watcher
+            watcher = {
+                'cmd': sys.executable,
+                'args': ['-m', script, self.id],
+                'name': self.id,
+                'start': True
+            }
+            self.core.circus.send_message('add', **watcher)
 
             self._ready = True
 
