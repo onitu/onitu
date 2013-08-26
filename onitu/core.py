@@ -12,7 +12,7 @@ class Core(object):
     def __init__(self):
         self.circus = CircusClient()
 
-        self.redis = redis.Redis()
+        self.redis = redis.Redis(unix_socket_path='redis/redis.sock')
 
         self.entries = Entries(self)
 

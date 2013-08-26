@@ -12,7 +12,7 @@ class Plug(Thread):
 
         self.handlers = {}
 
-        self.redis = redis.Redis()
+        self.redis = redis.Redis(unix_socket_path='redis/redis.sock')
 
         self.context = zmq.Context.instance()
         self.socket = self.context.socket(zmq.REP)

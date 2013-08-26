@@ -33,3 +33,8 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+
+# Redis
+redis/redis.log
+redis/redis.pid
+redis/redis.sock
