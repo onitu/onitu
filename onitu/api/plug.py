@@ -33,10 +33,7 @@ class Plug(Thread):
 
     def handler(self, task=None):
         def wrapper(handler):
-            if not task:
-                task = handler.__name__
-
-            self.handlers[task] = handler
+            self.handlers[task if task else handler.__name__] = handler
             return handler
 
         return wrapper
