@@ -10,5 +10,11 @@
     "options": {
       "root": "onitu/test/driver_b"
     }
+  },
+  "Driver client": {
+    "driver_name": "client",
+    "options": {
+      "port": 43364
+    }
   }
 }
