@@ -4,19 +4,19 @@ from pyinotify import WatchManager, ThreadedNotifier, EventsCodes, ProcessEvent
 
 plug = Plug()
 
-@plug.handler
+@plug.handler()
 def read_chunk(filename, offset, size):
     with open(filename, 'rb') as f:
         f.seek(offset)
         return f.read(size)
 
-@plug.handler
+@plug.handler()
 def write_chunk(filename, offset, chunk):
     with open(filename, 'rb') as f:
         f.seek(offset)
         return f.write(chunk)
 
-@plug.handler
+@plug.handler()
 def new_file(metadatas):
     filepath = plug.options['root'] + metadatas['path']
     if not path.exists(filepath):
