@@ -1,4 +1,4 @@
-import json
+import simplejson
 
 from .entry import Entry
 
@@ -12,12 +12,16 @@ class Entries(dict):
         self._load_entries()
 
     def _load_entries(self):
-        with open("entries.json") as f:
-            for id, infos in json.load(f).items():
-                self._load_entry(id, infos)
+        with open('entries.json') as f:
+            for name, infos in simplejson.load(f).items():
+                self._load_entry(name, infos)
 
-    def _load_entry(self, id, infos):
-        entry = Entry(id, self.core, infos)
+    def _load_entry(self, name, infos):
+        if ':' in name:
+            print("Illegal character ':' in entry name :", name)
+            return
+
+        entry = Entry(name, self.core, infos)
 
         if entry.ready:
-            self[id] = entry
+            self[name] = entry

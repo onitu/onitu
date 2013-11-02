@@ -2,13 +2,13 @@
   "Driver A": {
     "driver_name": "local_storage",
     "options": {
-      "root": "onitu/test/driver_a"
+      "root": "test/driver_a"
     }
   },
   "Driver B": {
     "driver_name": "local_storage",
     "options": {
-      "root": "onitu/test/driver_b"
+      "root": "test/driver_b"
     }
   },
   "Driver client": {

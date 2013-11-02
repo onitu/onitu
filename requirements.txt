@@ -1,0 +1,5 @@
+circus
+pyinotify
+pyzmq
+redis
+simplejson

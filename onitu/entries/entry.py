@@ -4,15 +4,15 @@ import circus
 
 class Entry(dict):
 
-    def __init__(self, id, core, *args, **kwargs):
+    def __init__(self, name, core, *args, **kwargs):
         super(Entry, self).__init__(*args, **kwargs)
 
-        self.id = id
+        self.name = name
         self.core = core
         self._ready = False
 
         if 'options' in self:
-            self.core.redis.hmset('onitu:options:{}'.format(self.id), self['options'])
+            self.core.redis.hmset('drivers:{}:options'.format(self.name), self['options'])
 
         self._load_driver()
 
@@ -22,12 +22,12 @@ class Entry(dict):
 
     def _load_driver(self):
         try:
-            script = 'onitu.drivers.{name}'.format(name=self['driver_name'])
+            script = 'onitu.drivers.{}'.format(self['driver_name'])
 
             watcher = {
                 'cmd': sys.executable,
-                'args': ['-m', script, self.id],
-                'name': self.id,
+                'args': ['-m', script, self.name],
+                'name': self.name,
                 'start': True
             }
             self.core.circus.send_message('add', **watcher)
