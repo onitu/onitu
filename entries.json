@@ -14,7 +14,8 @@
   "Driver client": {
     "driver_name": "client",
     "options": {
-      "port": 43364
+      "port": 43364,
+      "port2": 43365
     }
   }
 }
