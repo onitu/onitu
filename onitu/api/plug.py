@@ -4,8 +4,14 @@ from threading import Thread
 import zmq
 import redis
 
+from metadata import Metadata
+from router import Router
+
 class Plug(Thread):
-    """docstring for Plug"""
+    """The Plug is the common part of all the drivers
+
+    It waits for a notification from the Referee and handles it.
+    """
 
     def __init__(self):
         super(Plug, self).__init__()
@@ -15,21 +21,32 @@ class Plug(Thread):
         self.redis = redis.Redis(unix_socket_path='redis/redis.sock')
 
         self.context = zmq.Context.instance()
-        self.socket = self.context.socket(zmq.REP)
-        self.port = self.socket.bind_to_random_port("tcp://*")
 
-    def launch(self, id):
-        self.id = id
-        self.options = self.redis.hgetall("onitu:options:{}".format(self.id))
+    def launch(self, name):
+        self.name = name
+        self.options = self.redis.hgetall('drivers:{}:options'.format(self.name))
 
-        self.redis.hset("onitu:sockets:{}".format(self.id), "port", self.port)
+        self.router = Router(name, self.redis, self.handlers.get('read_chunk'))
+        self.router.start()
+
+        # check remote's files ?
+        # restart transfers ?
 
         self.start()
 
     def run(self):
-        while 42:
-            msg = self.socket.recv_json()
-            self._respond_to(msg)
+        # Is there a cleaner way to do that ?
+        publisher = 'tcp://localhost:{}'.format(self.redis.get('referee:publisher'))
+        self.sub = self.context.socket(zmq.SUB)
+        self.sub.connect(publisher)
+        self.sub.setsockopt(zmq.SUBSCRIBE, self.name)
+
+        while True:
+            _, driver, fid = self.sub.recv_multipart()
+
+            # should probably be in a thread pool, but YOLO
+            thread = Thread(target=self._get_file, args=(driver, fid))
+            thread.start()
 
     def handler(self, task=None):
         def wrapper(handler):
@@ -38,18 +55,75 @@ class Plug(Thread):
 
         return wrapper
 
-    def _respond_to(self, msg):
-        def inner():
-            handler = self._get_handler(msg.get("task"))
-            response = handler(msg)
-            self.socket.send_json(response)
+    def update_file(self, metadata):
+        fid = self.redis.hget('files', metadata.filename)
 
-        thread = Thread(target=inner)
-        thread.start()
+        if not fid:
+            fid = self.redis.incr('last_id')
+            self.redis.hset('files', metadata.filename, fid)
+            self.redis.sadd('drivers:{}:files', fid)
+            metadata.owners = self.name
 
-    def _default_handler(self, task):
-        print("{}: Error, unsupported message {}.".format(self.id, msg))
-        return {'error': 'Unsupported message'}
+        metadata.uptodate = self.name
 
-    def _get_handler(self, task):
-        return self.handlers.get(task, self._default_handler)
+        metadata.write(self.redis, fid)
+
+        self.redis.rpush('events', fid)
+
+    def in_transfer(self, filename):
+        fid = self.redis.hget('files', filename)
+
+        if not fid:
+            return False
+
+        return self.redis.sismember('drivers:{}:transfers'.format(self.name), fid)
+
+    def get_metadata(self, filename):
+        metadata = Metadata.get_by_filename(self.redis, filename)
+
+        if metadata:
+            return metadata
+        else:
+            return Metadata(filename)
+
+    def _get_file(self, driver, fid):
+        self.redis.sadd('drivers:{}:transfers'.format(self.name), fid)
+
+        transfer_key = 'drivers:{}:transfers:{}'.format(self.name, fid)
+        self.redis.hmset(transfer_key, {'from': driver, 'offset': 0})
+
+        metadata = Metadata.get_by_id(self.redis, fid)
+
+        dealer = self.context.socket(zmq.DEALER)
+        port = self.redis.get('drivers:{}:router'.format(driver))
+        dealer.connect('tcp://localhost:{}'.format(port))
+
+        offset = 0
+        end = int(metadata.size)
+        # 1 for debugging purpose
+        #Should be configurable.
+        chunk_size = '1'
+
+        while offset < end:
+            dealer.send_multipart((metadata.filename, str(offset), chunk_size))
+            chunk = dealer.recv()
+
+            with self.redis.pipeline() as pipe:
+                try:
+                    pipe.watch(transfer_key)
+
+                    assert pipe.hget(transfer_key, 'offset') == str(offset)
+
+                    self.handlers['write_chunk'](metadata.filename, offset, chunk)
+
+                    pipe.multi()
+                    pipe.hincrby(transfer_key, 'offset', len(chunk))
+                    offset = pipe.execute()[-1]
+
+                except redis.WatchError, AssertionError:
+                    # another transaction for the same file has
+                    # probably started
+                    return
+
+        self.redis.delete(transfer_key)
+        self.redis.srem('drivers:{}:transfers'.format(self.name), fid)

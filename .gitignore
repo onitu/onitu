@@ -38,3 +38,8 @@ nosetests.xml
 redis/redis.log
 redis/redis.pid
 redis/redis.sock
+redis/dump.rdb
+
+# Emacs
+*~
+\#*\#

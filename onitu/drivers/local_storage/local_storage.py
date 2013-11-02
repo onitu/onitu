@@ -1,45 +1,65 @@
-from onitu.api.plug import Plug
-from os import path, makedirs
-from pyinotify import WatchManager, ThreadedNotifier, EventsCodes, ProcessEvent
+import os
+
+import pyinotify
+
+from onitu.api import Plug
 
 plug = Plug()
 
 @plug.handler()
 def read_chunk(filename, offset, size):
+    filename = os.path.join(root, filename)
+
     with open(filename, 'rb') as f:
         f.seek(offset)
         return f.read(size)
 
 @plug.handler()
 def write_chunk(filename, offset, chunk):
-    with open(filename, 'rb') as f:
+    filename = os.path.join(root, filename)
+    dirname = os.path.dirname(filename)
+
+    mode = 'r+'
+
+    if not os.path.exists(filename):
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        mode = 'w+'
+
+    with open(filename, mode) as f:
         f.seek(offset)
         return f.write(chunk)
 
-@plug.handler()
-def new_file(metadatas):
-    filepath = plug.options['root'] + metadatas['path']
-    if not path.exists(filepath):
-        makedirs(filepath)
-    open(path.join(filepath, metadatas['filename']), 'w+').close()
-
-def watch_new_file(event):
-    metadatas = {
-        'path': path.relpath(event.path, plug.options['root']),
-        'filename': event.name
-    }
-    print 'New file : %s' % metadatas
-
-class Watcher(ProcessEvent):
+class Watcher(pyinotify.ProcessEvent):
     def process_IN_CREATE(self, event):
-        return watch_new_file(event)
+        return self.handle(event)
+
+    def process_IN_CLOSE_WRITE(self, event):
+        return self.handle(event)
+
+    def handle(self, event):
+        filename = os.path.normpath(os.path.relpath(event.pathname, root))
+
+        if plug.in_transfer(filename):
+            return
+
+        metadata = plug.get_metadata(filename)
+        metadata.size = os.path.getsize(event.pathname)
+        metadata.last_update = os.path.getmtime(event.pathname)
+
+        plug.update_file(metadata)
 
 def start(*args, **kwargs):
     plug.launch(*args, **kwargs)
 
-    wm = WatchManager()
-    notifier = ThreadedNotifier(wm, Watcher())
+    global root
+    root = plug.options['root']
+
+    manager = pyinotify.WatchManager()
+    notifier = pyinotify.ThreadedNotifier(manager, Watcher())
     notifier.start()
-    wm.add_watch(plug.options['root'], EventsCodes.ALL_FLAGS['IN_CREATE'], rec=True)
+
+    mask = pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE
+    manager.add_watch(root, mask, rec=True)
 
     plug.join()
