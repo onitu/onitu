@@ -6,8 +6,8 @@ from onitu.api import Plug
 
 plug = Plug()
 
-# List of events to ignore next time they occur
-inotify_ignore_list = []
+# Ignore the next inotify event concerning those filenames
+inotify_ignore = set()
 
 @plug.handler()
 def read_chunk(filename, offset, size):
@@ -36,15 +36,15 @@ def write_chunk(rel_filename, offset, chunk):
     with open(filename, mode) as f:
         f.seek(offset)
         f.write(chunk)
-        inotify_ignore_list.append(rel_filename)
+        inotify_ignore.add(rel_filename)
 
 class Watcher(pyinotify.ProcessEvent):
 
     def process_default(self, event):
         filename = os.path.normpath(os.path.relpath(event.pathname, root))
 
-        if filename in inotify_ignore_list:
-            inotify_ignore_list.remove(filename)
+        if filename in inotify_ignore:
+            inotify_ignore.remove(filename)
             return
 
         metadata = plug.get_metadata(filename)
