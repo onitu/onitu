@@ -9,32 +9,29 @@ context = zmq.Context()
 plug.rep = context.socket(zmq.REP)
 plug.req = context.socket(zmq.REQ)
 
-#@plug.handler()
-#def read_chunk(filename, offset, size):
-#    return ''
+@plug.handler()
+def read_chunk(filename, offset, size):
+    plug.req.send_multipart(('read_chunk', filename, str(offset), str(size)))
+    return plug.req.recv_multipart()
 
-#@plug.handler()
-#def write_chunk(filename, offset, chunk):
-#    pass
-
-#@plug.handler()
-#def new_file(metadatas):
-#    pass
+@plug.handler()
+def write_chunk(filename, offset, chunk):
+    plug.req.send_multipart(('write_chunk', filename, str(offset), chunk))
+    print plug.req.recv_multipart()
 
 def rep_handler():
     while True:
         msg = plug.rep.recv_multipart()
         if msg[0] == 'connect':
-            plug.rep.send(plug.options['port2'])
+            plug.rep.send_multipart(('accept', plug.options['port2']))
         else:
-            plug.rep.send('ok')
+            plug.rep.send_multipart(('cmd not found', msg[0]))
         print msg
 
 from time import sleep
 def test_handler():
     while True:
-        plug.req.send('toto')
-        print plug.req.recv()
+        print plug.handlers['read_chunk']('tutu', 0, 1024)
         sleep(2)
 
 def start(*args, **kwargs):
