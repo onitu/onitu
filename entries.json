@@ -12,5 +12,12 @@
       "root": "test/driver_b",
       "chunk_size": 10
     }
+  },
+  "Driver client": {
+    "driver_name": "client",
+    "options": {
+      "port": 43364,
+      "port2": 43365
+    }
   }
 }
