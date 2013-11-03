@@ -29,6 +29,10 @@ def write_chunk(rel_filename, offset, chunk):
             os.makedirs(dirname)
         mode = 'w+'
 
+    # If we are rewritting the file from the begining, we truncate it
+    if offset == 0:
+        mode = 'w+'
+
     with open(filename, mode) as f:
         f.seek(offset)
         f.write(chunk)
