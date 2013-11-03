@@ -103,7 +103,7 @@ class Plug(Thread):
         chunk_size = self.options.get('chunk_size', 1000000)
 
         while offset < end:
-            dealer.send_multipart((metadata.filename, str(offset), chunk_size))
+            dealer.send_multipart((metadata.filename, str(offset), str(chunk_size)))
             chunk = dealer.recv()
 
             with self.redis.pipeline() as pipe:
