@@ -100,9 +100,7 @@ class Plug(Thread):
 
         offset = 0
         end = int(metadata.size)
-        # 1 for debugging purpose
-        #Should be configurable.
-        chunk_size = '1'
+        chunk_size = self.options.get('chunk_size', 1000000)
 
         while offset < end:
             dealer.send_multipart((metadata.filename, str(offset), chunk_size))

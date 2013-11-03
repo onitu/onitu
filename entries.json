@@ -2,13 +2,15 @@
   "Driver A": {
     "driver_name": "local_storage",
     "options": {
-      "root": "test/driver_a"
+      "root": "test/driver_a",
+      "chunk_size": 10
     }
   },
   "Driver B": {
     "driver_name": "local_storage",
     "options": {
-      "root": "test/driver_b"
+      "root": "test/driver_b",
+      "chunk_size": 10
     }
   }
 }
