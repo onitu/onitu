@@ -22,7 +22,11 @@ class Referee(Process):
         self.redis.set('referee:publisher', port)
 
         while True:
-            _, fid = self.redis.blpop(['events'])
+            try:
+                _, fid = self.redis.blpop(['events'])
+            except redis.ConnectionError:
+                continue
+
             # delete all the newer events refering to this file
             self.redis.lrem('events', fid)
             self._handle_event(fid)
