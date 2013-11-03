@@ -3,7 +3,7 @@ from multiprocessing import Process
 import redis
 import zmq
 
-class Referee(Process):
+class Referee(object):
     """The Referee listen to all events, chooses which driver should
     sync which file according to the rules, and notify them
     """
@@ -15,12 +15,12 @@ class Referee(Process):
 
         self.redis = redis.Redis(unix_socket_path='redis/redis.sock')
 
-    def run(self):
         self.context = zmq.Context()
         self.pub = self.context.socket(zmq.PUB)
         port = self.pub.bind_to_random_port('tcp://*')
         self.redis.set('referee:publisher', port)
 
+    def listen(self):
         while True:
             try:
                 _, fid = self.redis.blpop(['events'])
