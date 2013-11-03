@@ -99,7 +99,7 @@ class Plug(Thread):
         dealer.connect('tcp://localhost:{}'.format(port))
 
         offset = 0
-        end = int(metadata.size)
+        end = metadata.size
         chunk_size = self.options.get('chunk_size', 1000000)
 
         while offset < end:
@@ -118,7 +118,7 @@ class Plug(Thread):
                     pipe.hincrby(transfer_key, 'offset', len(chunk))
                     offset = pipe.execute()[-1]
 
-                except redis.WatchError, AssertionError:
+                except (redis.WatchError, AssertionError):
                     # another transaction for the same file has
                     # probably started
                     return
