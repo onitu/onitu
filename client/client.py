@@ -1,10 +1,11 @@
 #!/usr/bin/env python2
 
-import zmq
-from time import sleep
-from threading import Thread
 import os.path
-import pyinotify
+
+import zmq
+
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 host, port = '127.0.0.1', 43364
 root = 'files'
@@ -19,39 +20,52 @@ req.connect('tcp://{}:{}'.format(host, port))
 
 nowatch_files = set()
 
-class Watcher(pyinotify.ProcessEvent):
-    def process_IN_CREATE(self, event):
-        return self.handle(event)
+class EventHandler(FileSystemEventHandler):
 
-    def process_IN_CLOSE_WRITE(self, event):
-        return self.handle(event)
+    def on_moved(self, event):
+        def handle_move(event):
+            if event.is_directory:
+                return
 
-    def handle(self, event):
-        filename = os.path.normpath(os.path.relpath(event.pathname, '.'))
-        if not filename in nowatch_files:
-            filename = os.path.normpath(os.path.relpath(filename, root))
-            print filename
-            req.send_multipart(('file_updated',
-                                filename,
-                                str(os.path.getsize(event.pathname)),
-                                str(os.path.getmtime(event.pathname))))
-            print req.recv_multipart()
-        else:
+            #if event.src_path:
+                #self._handle_deletion(event.src_path)
+            self._handle_update(event.dest_path)
+
+        handle_move(event)
+
+        if event.is_directory:
+            for subevent in event.sub_moved_events():
+                handle_move(subevent)
+
+    def on_modified(self, event):
+        if event.is_directory:
+            return
+
+        self._handle_update(event.src_path)
+
+    def _handle_update(self, abs_filename):
+        filename = os.path.normpath(os.path.relpath(abs_filename, '.'))
+
+        if filename in nowatch_files:
             nowatch_files.remove(filename)
+            return
 
-manager = pyinotify.WatchManager()
-notifier = pyinotify.ThreadedNotifier(manager, Watcher())
-notifier.start()
-mask = pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE
-manager.add_watch(root, mask, rec=True)
+        filename = os.path.normpath(os.path.relpath(filename, root))
+        req.send_multipart(('file_updated',
+                            filename,
+                            str(os.path.getsize(abs_filename)),
+                            str(os.path.getmtime(abs_filename))))
 
 req.send_multipart(('connect',))
 _, port2 = req.recv_multipart()
 rep.connect('tcp://{}:{}'.format(host, port2))
 
+observer = Observer()
+observer.schedule(EventHandler(), path=root, recursive=True)
+observer.start()
+
 while True:
     msg = rep.recv_multipart()
-    print 'msg', msg
     try:
         cmd = msg[0]
         if cmd == 'read_chunk':
