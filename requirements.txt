@@ -4,3 +4,4 @@ pyzmq
 redis
 simplejson
 logging
+logbook
