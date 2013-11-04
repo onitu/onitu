@@ -3,3 +3,4 @@ pyinotify
 pyzmq
 redis
 simplejson
+logging

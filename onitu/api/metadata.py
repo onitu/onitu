@@ -1,3 +1,5 @@
+from logbook import error
+
 class Metadata(object):
     """docstring for Metadata"""
 
@@ -42,7 +44,7 @@ class Metadata(object):
             try:
                 metadata[name] = str(self.__getattribute__(name))
             except AttributeError as e:
-                print("Error writting metadata for {}, missing attribute {}".format(fid, name))
+                error("Error writting metadata for {}, missing attribute {}".format(fid, name))
                 return
 
         redis.hmset('files:{}'.format(fid), metadata)

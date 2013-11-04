@@ -3,6 +3,7 @@ from threading import Thread
 
 import zmq
 import redis
+from logbook import Logger
 
 from metadata import Metadata
 from router import Router
@@ -17,13 +18,12 @@ class Plug(Thread):
         super(Plug, self).__init__()
 
         self.handlers = {}
-
         self.redis = redis.Redis(unix_socket_path='redis/redis.sock')
-
         self.context = zmq.Context.instance()
 
     def launch(self, name):
         self.name = name
+        self.logger = Logger(self.name)
         self.options = self.redis.hgetall('drivers:{}:options'.format(self.name))
 
         self.router = Router(name, self.redis, self.handlers.get('read_chunk'))
@@ -35,13 +35,14 @@ class Plug(Thread):
         self.start()
 
     def run(self):
-        # Is there a cleaner way to do that ?
+        # Is there a cleaner way to connect ?
         publisher = 'tcp://localhost:{}'.format(self.redis.get('referee:publisher'))
         self.sub = self.context.socket(zmq.SUB)
         self.sub.connect(publisher)
         self.sub.setsockopt(zmq.SUBSCRIBE, self.name)
 
         while True:
+            self.logger.info("Listening for orders from the Referee...")
             _, driver, fid = self.sub.recv_multipart()
 
             # should probably be in a thread pool, but YOLO
@@ -87,6 +88,8 @@ class Plug(Thread):
             return Metadata(filename)
 
     def _get_file(self, driver, fid):
+        self.logger.info("Starting to get file {} from {}".format(fid, driver))
+
         self.redis.sadd('drivers:{}:transfers'.format(self.name), fid)
 
         transfer_key = 'drivers:{}:transfers:{}'.format(self.name, fid)
@@ -106,6 +109,8 @@ class Plug(Thread):
             dealer.send_multipart((metadata.filename, str(offset), str(chunk_size)))
             chunk = dealer.recv()
 
+            self.logger.info("Received chunk of size {} from {} for file {}".format(len(chunk), driver, fid))
+
             with self.redis.pipeline() as pipe:
                 try:
                     pipe.watch(transfer_key)
@@ -121,7 +126,9 @@ class Plug(Thread):
                 except (redis.WatchError, AssertionError):
                     # another transaction for the same file has
                     # probably started
+                    self.logger.info("Aborting transfer for file {} from driver {}", fid, driver)
                     return
 
         self.redis.delete(transfer_key)
         self.redis.srem('drivers:{}:transfers'.format(self.name), fid)
+        self.logger.info("Transfer for file {} from {} successful", fid, driver)

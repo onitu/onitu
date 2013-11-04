@@ -1,8 +1,8 @@
 import time
 
 import redis
-
 from circus.client import CircusClient
+from logbook import Logger
 
 from onitu.entries import Entries
 
@@ -10,16 +10,15 @@ class Core(object):
     """Core object of the server"""
 
     def __init__(self):
+        self.logger = Logger("Core")
         self.circus = CircusClient()
-
         self.redis = redis.Redis(unix_socket_path='redis/redis.sock')
-
         self.entries = Entries(self)
 
     def launch(self):
         """Method called to start the server and all the drivers"""
         try:
-            while 42:
-                time.sleep(0.1)
+            while True:
+                time.sleep(10)
         finally:
             exit()

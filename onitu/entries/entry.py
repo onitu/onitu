@@ -21,18 +21,14 @@ class Entry(dict):
         return self._ready
 
     def _load_driver(self):
-        try:
-            script = 'onitu.drivers.{}'.format(self['driver_name'])
+        script = 'onitu.drivers.{}'.format(self['driver_name'])
 
-            watcher = {
-                'cmd': sys.executable,
-                'args': ['-m', script, self.name],
-                'name': self.name,
-                'start': True
-            }
-            self.core.circus.send_message('add', **watcher)
+        watcher = {
+            'cmd': sys.executable,
+            'args': ['-m', script, self.name],
+            'name': self.name,
+            'start': True
+        }
+        self.core.circus.send_message('add', **watcher)
 
-            self._ready = True
-
-        except (ImportError, AttributeError) as e:
-            print("Impossible to load driver {} :".format(self['driver_name']), e)
+        self._ready = True

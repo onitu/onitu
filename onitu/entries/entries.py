@@ -17,8 +17,10 @@ class Entries(dict):
                 self._load_entry(name, infos)
 
     def _load_entry(self, name, infos):
+        self.core.logger.info("Loading entry {}".format(name))
+
         if ':' in name:
-            print("Illegal character ':' in entry name :", name)
+            self.core.logger.error("Illegal character ':' in entry {}".format(name))
             return
 
         entry = Entry(name, self.core, infos)

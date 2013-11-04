@@ -1,7 +1,7 @@
-from multiprocessing import Process
-
 import redis
 import zmq
+
+from logbook import Logger
 
 class Referee(object):
     """The Referee listen to all events, chooses which driver should
@@ -10,6 +10,8 @@ class Referee(object):
 
     def __init__(self):
         super(Referee, self).__init__()
+
+        self.logger = Logger("Referee")
 
         self.entries = self._load_entries()
 
@@ -20,12 +22,16 @@ class Referee(object):
         port = self.pub.bind_to_random_port('tcp://*')
         self.redis.set('referee:publisher', port)
 
+        self.logger.info("Started")
+
     def listen(self):
         while True:
             try:
+                self.logger.info("Listening...")
                 _, fid = self.redis.blpop(['events'])
+                self.logger.info("New event about {}".format(fid))
             except redis.ConnectionError:
-                continue
+                exit()
 
             # delete all the newer events refering to this file
             self.redis.lrem('events', fid)
@@ -55,6 +61,7 @@ class Referee(object):
             self.redis.hset('files:{}'.format(fid), 'owners', value)
 
         for name in to_notify:
+            self.logger.info("Notifying {} about {}".format(name, fid))
             self.pub.send_multipart((name, uptodate[0], fid))
 
     def _load_entries(self):
