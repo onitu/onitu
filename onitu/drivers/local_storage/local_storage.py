@@ -44,7 +44,7 @@ class EventHandler(FileSystemEventHandler):
     def on_moved(self, event):
         def handle_move(event):
             if event.is_directory:
-                pass
+                return
 
             #if event.src_path:
                 #self._handle_deletion(event.src_path)
