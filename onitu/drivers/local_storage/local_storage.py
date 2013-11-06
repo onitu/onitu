@@ -1,9 +1,5 @@
 import os
 
-from threading import Lock
-
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 import pyinotify
 
 from onitu.api import Plug
