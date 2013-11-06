@@ -4,11 +4,11 @@ class Metadata(object):
     """docstring for Metadata"""
 
     PROPERTIES = {
-        'filename': str,
-        'size': int,
-        'last_update': float,
-        'owners': lambda e: e.split(':'),
-        'uptodate': lambda e: e.split(':')
+        'filename': (str, str),
+        'size': (int, str),
+        'last_update': (float, str),
+        'owners': (lambda e: e.split(':'), lambda l: ':'.join(l)),
+        'uptodate': (lambda e: e.split(':'), lambda l: ':'.join(l)),
     }
 
     def __init__(self, filename=None, size=0, last_update=None):
@@ -32,17 +32,17 @@ class Metadata(object):
         values = redis.hgetall('files:{}'.format(fid))
         metadata = cls()
 
-        for name, f in cls.PROPERTIES.items():
-            metadata.__setattr__(name, f(values.get(name)))
+        for name, t in cls.PROPERTIES.items():
+            metadata.__setattr__(name, t[0](values.get(name)))
 
         return metadata
 
     def write(self, redis, fid):
         metadata = {}
 
-        for name in self.PROPERTIES.keys():
+        for name, t in self.PROPERTIES.items():
             try:
-                metadata[name] = str(self.__getattribute__(name))
+                metadata[name] = t[1](self.__getattribute__(name))
             except AttributeError as e:
                 error("Error writting metadata for {}, missing attribute {}".format(fid, name))
                 return
