@@ -2,13 +2,13 @@
   "A": {
     "driver_name": "local_storage",
     "options": {
-      "root": "test/driver_a",
+      "root": "test/driver_a"
     }
   },
   "B": {
     "driver_name": "local_storage",
     "options": {
-      "root": "test/driver_b",
+      "root": "test/driver_b"
     }
   },
   "client": {
