@@ -62,7 +62,7 @@ class Plug(Thread):
         if not fid:
             fid = self.redis.incr('last_id')
             self.redis.hset('files', metadata.filename, fid)
-            self.redis.sadd('drivers:{}:files', fid)
+            self.redis.sadd('drivers:{}:files'.format(self.name), fid)
             metadata.owners = self.name
 
         metadata.uptodate = self.name
@@ -113,6 +113,8 @@ class Plug(Thread):
 
             with self.redis.pipeline() as pipe:
                 try:
+                    assert len(chunk) > 0
+
                     pipe.watch(transfer_key)
 
                     assert pipe.hget(transfer_key, 'offset') == str(offset)
@@ -121,7 +123,7 @@ class Plug(Thread):
 
                     pipe.multi()
                     pipe.hincrby(transfer_key, 'offset', len(chunk))
-                    offset = pipe.execute()[-1]
+                    offset = int(pipe.execute()[-1])
 
                 except (redis.WatchError, AssertionError):
                     # another transaction for the same file has
