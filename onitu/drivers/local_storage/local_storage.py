@@ -1,14 +1,17 @@
 import os
 
+from threading import Lock
+
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import pyinotify
 
 from onitu.api import Plug
 
 plug = Plug()
 
-# Ignore the next Watchdog event concerning those files
-events_to_ignore = set()
+# Ignore the next Inotify event concerning those files
+events_to_ignore = list()
 
 @plug.handler()
 def read_chunk(filename, offset, size):
@@ -23,55 +26,34 @@ def write_chunk(rel_filename, offset, chunk):
     filename = os.path.join(root, rel_filename)
     dirname = os.path.dirname(filename)
 
-    mode = 'r+'
+    mode = 'rb+'
 
     if not os.path.exists(filename):
         if not os.path.exists(dirname):
             os.makedirs(dirname)
-        mode = 'w+'
+        mode = 'wb+'
 
     # If we are rewritting the file from the begining, we truncate it
     if offset == 0:
-        mode = 'w+'
+        mode = 'wb+'
+
+    events_to_ignore.append(rel_filename)
 
     with open(filename, mode) as f:
         f.seek(offset)
         f.write(chunk)
-        events_to_ignore.add(rel_filename)
 
-class EventHandler(FileSystemEventHandler):
-
-    def on_moved(self, event):
-        def handle_move(event):
-            if event.is_directory:
-                return
-
-            #if event.src_path:
-                #self._handle_deletion(event.src_path)
-            self._handle_update(event.dest_path)
-
-        handle_move(event)
-
-        if event.is_directory:
-            for subevent in event.sub_moved_events():
-                handle_move(subevent)
-
-    def on_modified(self, event):
-        if event.is_directory:
-            return
-
-        self._handle_update(event.src_path)
-
-    def _handle_update(self, abs_filename):
-        filename = os.path.normpath(os.path.relpath(abs_filename, root))
+class Watcher(pyinotify.ProcessEvent):
+    def process_default(self, event):
+        filename = os.path.normpath(os.path.relpath(event.pathname, root))
 
         if filename in events_to_ignore:
             events_to_ignore.remove(filename)
             return
 
         metadata = plug.get_metadata(filename)
-        metadata.size = os.path.getsize(abs_filename)
-        metadata.last_update = os.path.getmtime(abs_filename)
+        metadata.size = os.path.getsize(event.pathname)
+        metadata.last_update = os.path.getmtime(event.pathname)
 
         plug.update_file(metadata)
 
@@ -81,8 +63,11 @@ def start(*args, **kwargs):
     global root
     root = plug.options['root']
 
-    observer = Observer()
-    observer.schedule(EventHandler(), path=root, recursive=True)
-    observer.start()
+    manager = pyinotify.WatchManager()
+    notifier = pyinotify.ThreadedNotifier(manager, Watcher())
+    notifier.start()
+
+    mask = pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE
+    manager.add_watch(root, mask, rec=True, auto_add=True)
 
     plug.join()
