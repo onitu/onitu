@@ -64,20 +64,17 @@ class Plug(Thread):
             self.redis.hset('files', metadata.filename, fid)
             self.redis.sadd('drivers:{}:files'.format(self.name), fid)
             metadata.owners = self.name
+        elif self.redis.sismember('drivers:{}:transfers'.format(self.name), fid):
+            # The event has been trigerred durring a transfer, we
+            # have to cancel it.
+            self.logger.warning("About to send an event for {} when downloading it, aborting the event".format(fid))
+            return
 
         metadata.uptodate = self.name
 
         metadata.write(self.redis, fid)
 
         self.redis.rpush('events', fid)
-
-    def in_transfer(self, filename):
-        fid = self.redis.hget('files', filename)
-
-        if not fid:
-            return False
-
-        return self.redis.sismember('drivers:{}:transfers'.format(self.name), fid)
 
     def get_metadata(self, filename):
         metadata = Metadata.get_by_filename(self.redis, filename)
@@ -119,7 +116,7 @@ class Plug(Thread):
 
                     assert pipe.hget(transfer_key, 'offset') == str(offset)
 
-                    self.handlers['write_chunk'](metadata.filename, offset, chunk)
+                    self.handlers['write_chunk'](metadata.filename, offset, chunk, metadata.size)
 
                     pipe.multi()
                     pipe.hincrby(transfer_key, 'offset', len(chunk))

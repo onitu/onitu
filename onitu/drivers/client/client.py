@@ -18,7 +18,7 @@ def read_chunk(filename, offset, size):
     return resp[1]
 
 @plug.handler()
-def write_chunk(filename, offset, chunk):
+def write_chunk(filename, offset, chunk, total):
     plug.req.send_multipart(('write_chunk', filename, str(offset), chunk))
     plug.req.recv_multipart()
 
