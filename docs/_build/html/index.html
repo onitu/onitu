@@ -1,0 +1,322 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Onitu’s documentation &mdash; Onitu 0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Onitu 0 documentation" href="#" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="#">Onitu 0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="onitu-s-documentation">
+<h1>Onitu&#8217;s documentation<a class="headerlink" href="#onitu-s-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+<ul class="simple">
+</ul>
+</div>
+<span class="target" id="module-onitu"></span><p>Onitu is a tool that can synchronize files between various places.</p>
+</div>
+<div class="section" id="how-onitu-works">
+<h1>How Onitu works<a class="headerlink" href="#how-onitu-works" title="Permalink to this headline">¶</a></h1>
+<p>TODO</p>
+</div>
+<div class="section" id="module-onitu.api">
+<span id="writing-a-driver"></span><h1>Writing a driver<a class="headerlink" href="#module-onitu.api" title="Permalink to this headline">¶</a></h1>
+<p>Creating a new Driver is simple. You just have to define a new module
+in onitu.drivers and write a <cite>__main__.py</cite> for it. Your Driver must
+instantiate a <a class="reference internal" href="#onitu.api.Plug" title="onitu.api.Plug"><tt class="xref py py-class docutils literal"><span class="pre">Plug</span></tt></a> and call <a class="reference internal" href="#onitu.api.Plug.start" title="onitu.api.Plug.start"><tt class="xref py py-func docutils literal"><span class="pre">Plug.start()</span></tt></a> when it&#8217;s ready
+to receive the notifications from Onitu.</p>
+<p>Your Driver must implement some handlers to respond to Onitu&#8217;s requests,
+see <a class="reference internal" href="#onitu.api.Plug.handler" title="onitu.api.Plug.handler"><tt class="xref py py-func docutils literal"><span class="pre">Plug.handler()</span></tt></a> for more information.</p>
+<dl class="class">
+<dt id="onitu.api.Plug">
+<em class="property">class </em><tt class="descclassname">onitu.api.</tt><tt class="descname">Plug</tt><a class="headerlink" href="#onitu.api.Plug" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Plug is the communication pipe between a Driver and Onitu.</p>
+<p>The driver should instantiate a new Plug as soon as possible, define
+his handlers (see <a class="reference internal" href="#onitu.api.Plug.handler" title="onitu.api.Plug.handler"><tt class="xref py py-func docutils literal"><span class="pre">Plug.handler()</span></tt></a>) and call <a class="reference internal" href="#onitu.api.Plug.start" title="onitu.api.Plug.start"><tt class="xref py py-func docutils literal"><span class="pre">Plug.start()</span></tt></a>
+when it&#8217;s ready to receive notifications.</p>
+<dl class="method">
+<dt id="onitu.api.Plug.get_metadata">
+<tt class="descname">get_metadata</tt><big>(</big><em>filename</em><big>)</big><a class="headerlink" href="#onitu.api.Plug.get_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a <cite>Metadata</cite> object corresponding to the given
+filename.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="onitu.api.Plug.handler">
+<tt class="descname">handler</tt><big>(</big><em>task=None</em><big>)</big><a class="headerlink" href="#onitu.api.Plug.handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decorator used to bind to a function assigned to a specific
+task. Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="nd">@plug.handler</span><span class="p">(</span><span class="s">&#39;get_chunk&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span><span class="p">):</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Currently, the supported tasks are :</p>
+<ul class="simple">
+<li><cite>get_chunk</cite>, which takes the name of the file, the offset and
+the size of the chunk in parameter, and should return a
+string.</li>
+<li><cite>start_upload</cite>, which takes a <cite>Metadata</cite> in parameter,
+returns nothing, and is called before each transfer of a
+complete file.</li>
+<li><cite>upload_chunk</cite>, which takes the name of the file, the offset
+and the chunk to be uploaded and return nothing.</li>
+<li><cite>end_upload</cite>, which takes a <cite>Metadata</cite> in parameter, returns
+nothing, and is called at the end of each transfer of a
+complete file.</li>
+</ul>
+<p>A Driver can implement any, all or none of the tasks above.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="onitu.api.Plug.start">
+<tt class="descname">start</tt><big>(</big><em>name</em><big>)</big><a class="headerlink" href="#onitu.api.Plug.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method should be called when the driver is ready to
+communicate with Onitu.</p>
+<p>Takes a parameter <cite>name</cite> that corresponds to the first
+parameter given to the Driver at start.</p>
+<p><a class="reference internal" href="#onitu.api.Plug.start" title="onitu.api.Plug.start"><tt class="xref py py-func docutils literal"><span class="pre">start()</span></tt></a> launches two threads :</p>
+<ul class="simple">
+<li>The <a class="reference internal" href="#onitu.api.worker.Worker" title="onitu.api.worker.Worker"><tt class="xref py py-class docutils literal"><span class="pre">worker.Worker</span></tt></a>, listening to notifications from the Referee and
+handling them by calling the handlers defined by the Driver</li>
+<li>The <a class="reference internal" href="#onitu.api.router.Router" title="onitu.api.router.Router"><tt class="xref py py-class docutils literal"><span class="pre">router.Router</span></tt></a>, listening to requests by other Drivers that
+need a chunk of a file and getting this chunk by calling the
+<cite>get_chunk</cite> handler.</li>
+</ul>
+</dd></dl>
+
+<dl class="method">
+<dt id="onitu.api.Plug.update_file">
+<tt class="descname">update_file</tt><big>(</big><em>metadata</em><big>)</big><a class="headerlink" href="#onitu.api.Plug.update_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method should be called by the Driver after each update
+of a file or after the creation of a file.
+It takes a <cite>Metadata</cite> object in parameter that should have been
+updated with the new value of the properties.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="onitu.api.Plug.wait">
+<tt class="descname">wait</tt><big>(</big><big>)</big><a class="headerlink" href="#onitu.api.Plug.wait" title="Permalink to this definition">¶</a></dt>
+<dd><p>Waits until the <a class="reference internal" href="#onitu.api.Plug" title="onitu.api.Plug"><tt class="xref py py-class docutils literal"><span class="pre">Plug</span></tt></a> is killed by another process.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="onitu.api.metadata.Metadata">
+<em class="property">class </em><tt class="descclassname">onitu.api.metadata.</tt><tt class="descname">Metadata</tt><big>(</big><em>filename=None</em>, <em>size=0</em>, <em>last_update=None</em><big>)</big><a class="reference internal" href="_modules/onitu/api/metadata.html#Metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#onitu.api.metadata.Metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Metadata class represent the metadata of any file in Onitu.</p>
+<p>This class should be instantiated via the
+<tt class="xref py py-func docutils literal"><span class="pre">Metadata.get_by_id()</span></tt> or <tt class="xref py py-func docutils literal"><span class="pre">Metadata.get_by_filename()</span></tt>
+class methods.</p>
+<p>The PROPERTIES class property represent each property found in the
+metadata common to all drivers. This is a dict where the key is the
+name of the property and the item is a tuple containing two
+functions, one which should be applied the metadata are extracted
+from Redis, the other one they are written.</p>
+<dl class="classmethod">
+<dt id="onitu.api.metadata.Metadata.get_by_filename">
+<em class="property">classmethod </em><tt class="descname">get_by_filename</tt><big>(</big><em>redis</em>, <em>filename</em><big>)</big><a class="reference internal" href="_modules/onitu/api/metadata.html#Metadata.get_by_filename"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#onitu.api.metadata.Metadata.get_by_filename" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instantiate a new <tt class="xref py py-class docutils literal"><span class="pre">Metadata</span></tt> object for the file
+with the given name.</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="onitu.api.metadata.Metadata.get_by_id">
+<em class="property">classmethod </em><tt class="descname">get_by_id</tt><big>(</big><em>redis</em>, <em>fid</em><big>)</big><a class="reference internal" href="_modules/onitu/api/metadata.html#Metadata.get_by_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#onitu.api.metadata.Metadata.get_by_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instantiate a new <tt class="xref py py-class docutils literal"><span class="pre">Metadata</span></tt> object for the file
+with the given id.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="onitu.api.metadata.Metadata.write">
+<tt class="descname">write</tt><big>(</big><em>redis</em>, <em>fid</em><big>)</big><a class="reference internal" href="_modules/onitu/api/metadata.html#Metadata.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#onitu.api.metadata.Metadata.write" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write the metadata for the current object in Redis.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="onitu.api.worker.Worker">
+<em class="property">class </em><tt class="descclassname">onitu.api.worker.</tt><tt class="descname">Worker</tt><big>(</big><em>name</em>, <em>options</em>, <em>redis_</em>, <em>handlers</em><big>)</big><a class="reference internal" href="_modules/onitu/api/worker.html#Worker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#onitu.api.worker.Worker" title="Permalink to this definition">¶</a></dt>
+<dd><p>Thread waiting for a notification from the Referee and handling
+it.</p>
+<dl class="method">
+<dt id="onitu.api.worker.Worker._call">
+<tt class="descname">_call</tt><big>(</big><em>handler_name</em>, <em>*args</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/onitu/api/worker.html#Worker._call"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#onitu.api.worker.Worker._call" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calls a handler defined by the Driver if it exists.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="onitu.api.worker.Worker._get_file">
+<tt class="descname">_get_file</tt><big>(</big><em>driver</em>, <em>fid</em><big>)</big><a class="reference internal" href="_modules/onitu/api/worker.html#Worker._get_file"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#onitu.api.worker.Worker._get_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transfers a file from a Driver to another.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="onitu.api.router.Router">
+<em class="property">class </em><tt class="descclassname">onitu.api.router.</tt><tt class="descname">Router</tt><big>(</big><em>name</em>, <em>redis</em>, <em>get_chunk</em><big>)</big><a class="reference internal" href="_modules/onitu/api/router.html#Router"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#onitu.api.router.Router" title="Permalink to this definition">¶</a></dt>
+<dd><p>Thread waiting for a request by another Driver and responding to
+it with the chunked asked.</p>
+<dl class="method">
+<dt id="onitu.api.router.Router._respond_to">
+<tt class="descname">_respond_to</tt><big>(</big><em>identity</em>, <em>filename</em>, <em>offset</em>, <em>size</em><big>)</big><a class="reference internal" href="_modules/onitu/api/router.html#Router._respond_to"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#onitu.api.router.Router._respond_to" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calls the <cite>get_chunk</cite> handler defined by the Driver to get
+the chunk and send it to the addressee.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-onitu.referee">
+<span id="the-referee"></span><h1>The Referee<a class="headerlink" href="#module-onitu.referee" title="Permalink to this headline">¶</a></h1>
+<p>The Referee listen to all the events sent by the entries and
+dispatch the files among the entries according to the rules.</p>
+<p>At this point the Referee doesn&#8217;t do anything interesting as all the
+entries are synchronised without any specific rule, but this should
+change in a near future.</p>
+<dl class="class">
+<dt id="onitu.referee.Referee">
+<em class="property">class </em><tt class="descclassname">onitu.referee.</tt><tt class="descname">Referee</tt><a class="headerlink" href="#onitu.referee.Referee" title="Permalink to this definition">¶</a></dt>
+<dd><p>Referee class, receive all events and deal with them.</p>
+<p>The events are represented as Redis List &#8216;events&#8217; that should be
+appended with RPUSH. Each item is the file id (fid) of the file
+which triggered the event.</p>
+<p>The Referee give orders to the entries via his PUB ZMQ socket,
+whose port is stored in the Redis &#8216;referee:publisher&#8217; key.
+The Plug of each entry should subscribe to this port with a PULL
+socket and subscribe to all the events starting by their name.</p>
+<p>The notifications are sent to the publishers as multipart
+messages with three parts :</p>
+<ul class="simple">
+<li>The name of the addressee (the channel)</li>
+<li>The name of the entry from which the file should be transferred</li>
+<li>The id of the file</li>
+</ul>
+<dl class="method">
+<dt id="onitu.referee.Referee._handle_event">
+<tt class="descname">_handle_event</tt><big>(</big><em>fid</em><big>)</big><a class="headerlink" href="#onitu.referee.Referee._handle_event" title="Permalink to this definition">¶</a></dt>
+<dd><p>Choose who are the entries that are concerned by the event
+and send a notification to them.</p>
+<p>For the moment all the entries are notified for each event, but
+this should change when the rules will be introduced.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="onitu.referee.Referee.listen">
+<tt class="descname">listen</tt><big>(</big><big>)</big><a class="headerlink" href="#onitu.referee.Referee.listen" title="Permalink to this definition">¶</a></dt>
+<dd><p>Listen to all the events in the the events, and handle them</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><em>Index</em></a></li>
+<li><a class="reference internal" href="py-modindex.html"><em>Module Index</em></a></li>
+<li><a class="reference internal" href="search.html"><em>Search Page</em></a></li>
+</ul>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Onitu&#8217;s documentation</a><ul>
+</ul>
+</li>
+<li><a class="reference internal" href="#how-onitu-works">How Onitu works</a></li>
+<li><a class="reference internal" href="#module-onitu.api">Writing a driver</a></li>
+<li><a class="reference internal" href="#module-onitu.referee">The Referee</a></li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/index.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="#">Onitu 0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Yannick Péroux, Alexandre Baron, Antoine Rozo, Wannes Rombouts, Louis Roche, Maxime Constantinian, Morgan Faget, Mathis Dupuy.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

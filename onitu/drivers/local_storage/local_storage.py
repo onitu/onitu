@@ -12,6 +12,8 @@ events_to_ignore = set()
 # Store the mtime of the last write of each transfered file
 last_mtime = {}
 
+root = None
+
 
 @plug.handler()
 def get_chunk(filename, offset, size):
@@ -35,7 +37,7 @@ def start_upload(metadata):
     # We ignore the next Watchdog events concerning this file
     events_to_ignore.add(metadata.filename)
 
-    open(filename, 'wb+').close()
+    open(filename, 'w+').close()
 
 
 @plug.handler()
@@ -53,7 +55,7 @@ def end_upload(metadata):
 def upload_chunk(rel_filename, offset, chunk):
     filename = os.path.join(root, rel_filename)
 
-    with open(filename, 'rb+') as f:
+    with open(filename, 'wb+') as f:
         f.seek(offset)
         f.write(chunk)
 
@@ -101,7 +103,7 @@ class EventHandler(FileSystemEventHandler):
 
 
 def start(*args, **kwargs):
-    plug.launch(*args, **kwargs)
+    plug.start(*args, **kwargs)
 
     global root
     root = plug.options['root']
@@ -110,4 +112,4 @@ def start(*args, **kwargs):
     observer.schedule(EventHandler(), path=root, recursive=True)
     observer.start()
 
-    plug.join()
+    plug.wait()

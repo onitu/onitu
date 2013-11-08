@@ -1,11 +1,27 @@
 import redis
 import zmq
+import simplejson
 
 from logbook import Logger
 
 class Referee(object):
-    """The Referee listen to all events, chooses which driver should
-    sync which file according to the rules, and notify them
+    """Referee class, receive all events and deal with them.
+
+    The events are represented as Redis List 'events' that should be
+    appended with RPUSH. Each item is the file id (fid) of the file
+    which triggered the event.
+
+    The Referee give orders to the entries via his PUB ZMQ socket,
+    whose port is stored in the Redis 'referee:publisher' key.
+    The Plug of each entry should subscribe to this port with a PULL
+    socket and subscribe to all the events starting by their name.
+
+    The notifications are sent to the publishers as multipart
+    messages with three parts :
+
+    - The name of the addressee (the channel)
+    - The name of the entry from which the file should be transferred
+    - The id of the file
     """
 
     def __init__(self):
@@ -13,7 +29,8 @@ class Referee(object):
 
         self.logger = Logger("Referee")
 
-        self.entries = self._load_entries()
+        with open('entries.json') as f:
+            self.entries = simplejson.load(f)
 
         self.redis = redis.Redis(unix_socket_path='redis/redis.sock')
 
@@ -25,6 +42,8 @@ class Referee(object):
         self.logger.info("Started")
 
     def listen(self):
+        """Listen to all the events in the the events, and handle them
+        """
         while True:
             try:
                 self.logger.info("Listening...")
@@ -33,11 +52,17 @@ class Referee(object):
             except redis.ConnectionError:
                 exit()
 
-            # delete all the newer events refering to this file
+            # delete all the newer events referring to this file
             self.redis.lrem('events', fid)
             self._handle_event(fid)
 
     def _handle_event(self, fid):
+        """Choose who are the entries that are concerned by the event
+        and send a notification to them.
+
+        For the moment all the entries are notified for each event, but
+        this should change when the rules will be introduced.
+        """
         metadata = self.redis.hgetall('files:{}'.format(fid))
         owners = metadata['owners'].split(':')
         uptodate = metadata['uptodate'].split(':')
@@ -45,7 +70,7 @@ class Referee(object):
         to_notify = []
         new_owners = []
 
-        for name, entry in self.entries:
+        for name in self.entries.keys():
             if name in uptodate:
                 continue
 
@@ -63,11 +88,3 @@ class Referee(object):
         for name in to_notify:
             self.logger.info("Notifying {} about {}".format(name, fid))
             self.pub.send_multipart((name, uptodate[0], fid))
-
-    def _load_entries(self):
-        # We need simplejson here as it handles the encoding
-        # better than the builtin json module
-        import simplejson
-
-        with open('entries.json') as f:
-            return simplejson.load(f).items()
