@@ -1,0 +1,46 @@
+Onitu's documentation
+=================================
+.. toctree::
+   :maxdepth: 2
+
+.. automodule:: onitu
+
+How Onitu works
+==================
+
+TODO
+
+Writing a driver
+==================
+.. automodule:: onitu.api
+.. autoclass:: onitu.api.Plug
+  :members:
+  :private-members:
+
+.. autoclass:: onitu.api.metadata.Metadata
+  :members:
+  :private-members:
+
+.. autoclass:: onitu.api.worker.Worker
+  :members:
+  :private-members:
+
+.. autoclass:: onitu.api.router.Router
+  :members:
+  :private-members:
+
+The Referee
+==================
+.. automodule:: onitu.referee
+
+.. autoclass:: onitu.referee.Referee
+  :members:
+  :private-members:
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
+

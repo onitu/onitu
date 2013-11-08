@@ -3,8 +3,9 @@ from logbook import error
 class Metadata(object):
     """The Metadata class represent the metadata of any file in Onitu.
 
-    This class should be instantiated via the `get_by_id` or
-    `get_by_filename` class methods.
+    This class should be instantiated via the
+    :func:`Metadata.get_by_id` or :func:`Metadata.get_by_filename`
+    class methods.
 
     The PROPERTIES class property represent each property found in the
     metadata common to all drivers. This is a dict where the key is the
@@ -30,8 +31,8 @@ class Metadata(object):
 
     @classmethod
     def get_by_filename(cls, redis, filename):
-        """Instantiate a new Metadata object for the file with the
-        given name.
+        """Instantiate a new :class:`Metadata` object for the file
+        with the given name.
         """
         fid = redis.hget('files', filename)
 
@@ -42,8 +43,8 @@ class Metadata(object):
 
     @classmethod
     def get_by_id(cls, redis, fid):
-        """Instantiate a new Metadata object for the file with the
-        given id.
+        """Instantiate a new :class:`Metadata` object for the file
+        with the given id.
         """
         values = redis.hgetall('files:{}'.format(fid))
         metadata = cls()

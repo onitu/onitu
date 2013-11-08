@@ -14,8 +14,8 @@ class Plug(object):
     """The Plug is the communication pipe between a Driver and Onitu.
 
     The driver should instantiate a new Plug as soon as possible, define
-    his handlers (see `Plug.handler`) and call `Plug.start` when it's ready
-    to receive notifications.
+    his handlers (see :func:`Plug.handler`) and call :func:`Plug.start`
+    when it's ready to receive notifications.
     """
 
     def __init__(self):
@@ -37,12 +37,13 @@ class Plug(object):
         Takes a parameter `name` that corresponds to the first
         parameter given to the Driver at start.
 
-        `start` launches two threads :
-        - The `Worker`, listening to notifications from the Referee and
-        handling them by calling the handlers defined by the Driver
-        - The `Dealer`, listening to requests by other Drivers that
-        need a chunk of a file and getting this chunk by calling the
-        `get_chunk` handler.
+        :func:`start` launches two threads :
+
+        - The :class:`worker.Worker`, listening to notifications from the Referee and
+          handling them by calling the handlers defined by the Driver
+        - The :class:`router.Router`, listening to requests by other Drivers that
+          need a chunk of a file and getting this chunk by calling the
+          `get_chunk` handler.
         """
         self.name = name
         self.logger = Logger(self.name)
@@ -58,12 +59,12 @@ class Plug(object):
         # restart transfers ?
 
     def wait(self):
-        """Waits until the Plug is killed by another process.
+        """Waits until the :class:`Plug` is killed by another process.
         """
         self.router.join()
 
     def handler(self, task=None):
-        """The decorator to bind to a function assigned to a specific
+        """Decorator used to bind to a function assigned to a specific
         task. Example::
 
             @plug.handler('get_chunk')
@@ -73,15 +74,18 @@ class Plug(object):
                     return f.read(size)
 
         Currently, the supported tasks are :
+
         - `get_chunk`, which takes the name of the file, the offset and
-        the size of the chunk in parameter, and should return a string.
-        - `start_upload`, which takes a `Metadata` in parameter, returns
-        nothing, and is called before each transfer of a complete file.
+          the size of the chunk in parameter, and should return a
+          string.
+        - `start_upload`, which takes a `Metadata` in parameter,
+          returns nothing, and is called before each transfer of a
+          complete file.
         - `upload_chunk`, which takes the name of the file, the offset
-        and the chunk to be uploaded and return nothing.
+          and the chunk to be uploaded and return nothing.
         - `end_upload`, which takes a `Metadata` in parameter, returns
-        nothing, and is called at the end of each transfer of a
-        complete file.
+          nothing, and is called at the end of each transfer of a
+          complete file.
 
         A Driver can implement any, all or none of the tasks above.
         """

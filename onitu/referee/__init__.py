@@ -5,3 +5,5 @@ At this point the Referee doesn't do anything interesting as all the
 entries are synchronised without any specific rule, but this should
 change in a near future.
 """
+
+from .referee import Referee

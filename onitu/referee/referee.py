@@ -18,6 +18,7 @@ class Referee(object):
 
     The notifications are sent to the publishers as multipart
     messages with three parts :
+
     - The name of the addressee (the channel)
     - The name of the entry from which the file should be transferred
     - The id of the file
