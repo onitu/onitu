@@ -1,7 +1,17 @@
 from logbook import error
 
 class Metadata(object):
-    """docstring for Metadata"""
+    """The Metadata class represent the metadata of any file in Onitu.
+
+    This class should be instantiated via the `get_by_id` or
+    `get_by_filename` class methods.
+
+    The PROPERTIES class property represent each property found in the
+    metadata common to all drivers. This is a dict where the key is the
+    name of the property and the item is a tuple containing two
+    functions, one which should be applied the metadata are extracted
+    from Redis, the other one they are written.
+    """
 
     PROPERTIES = {
         'filename': (str, str),
@@ -20,6 +30,9 @@ class Metadata(object):
 
     @classmethod
     def get_by_filename(cls, redis, filename):
+        """Instantiate a new Metadata object for the file with the
+        given name.
+        """
         fid = redis.hget('files', filename)
 
         if fid:
@@ -29,22 +42,28 @@ class Metadata(object):
 
     @classmethod
     def get_by_id(cls, redis, fid):
+        """Instantiate a new Metadata object for the file with the
+        given id.
+        """
         values = redis.hgetall('files:{}'.format(fid))
         metadata = cls()
 
-        for name, t in cls.PROPERTIES.items():
-            metadata.__setattr__(name, t[0](values.get(name)))
+        for name, (deserialize, _) in cls.PROPERTIES.items():
+            metadata.__setattr__(name, deserialize(values.get(name)))
 
         return metadata
 
     def write(self, redis, fid):
+        """Write the metadata for the current object in Redis.
+        """
         metadata = {}
 
-        for name, t in self.PROPERTIES.items():
+        for name, (_, serialize) in self.PROPERTIES.items():
             try:
-                metadata[name] = t[1](self.__getattribute__(name))
-            except AttributeError as e:
-                error("Error writting metadata for {}, missing attribute {}".format(fid, name))
+                metadata[name] = serialize(self.__getattribute__(name))
+            except AttributeError:
+                error("Error writing metadata for {}, missing attribute {}"
+                        .format(fid, name))
                 return
 
         redis.hmset('files:{}'.format(fid), metadata)

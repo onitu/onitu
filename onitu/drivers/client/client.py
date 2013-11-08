@@ -38,10 +38,10 @@ def rep_handler():
             plug.rep.send_multipart(('ko', 'cmd not found', msg[0]))
 
 def start(*args, **kwargs):
-    plug.launch(*args, **kwargs)
+    plug.start(*args, **kwargs)
     port, port2 = plug.options['port'], plug.options['port2']
     plug.rep.bind('tcp://*:{}'.format(port))
     plug.req.bind('tcp://*:{}'.format(port2))
     rep_thread = Thread(None, rep_handler, 'rep')
     rep_thread.start()
-    plug.join()
+    plug.wait()
