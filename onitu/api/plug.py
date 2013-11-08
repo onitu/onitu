@@ -17,16 +17,17 @@ class Plug(Thread):
     def __init__(self):
         super(Plug, self).__init__()
 
-        self.handlers = {}
         self.redis = redis.Redis(unix_socket_path='redis/redis.sock')
         self.context = zmq.Context.instance()
+
+        self._handlers = {}
 
     def launch(self, name):
         self.name = name
         self.logger = Logger(self.name)
         self.options = self.redis.hgetall('drivers:{}:options'.format(self.name))
 
-        self.router = Router(name, self.redis, self.handlers.get('read_chunk'))
+        self.router = Router(name, self.redis, self._handlers.get('get_chunk'))
         self.router.start()
 
         # check remote's files ?
@@ -51,7 +52,7 @@ class Plug(Thread):
 
     def handler(self, task=None):
         def wrapper(handler):
-            self.handlers[task if task else handler.__name__] = handler
+            self._handlers[task if task else handler.__name__] = handler
             return handler
 
         return wrapper
@@ -84,6 +85,12 @@ class Plug(Thread):
         else:
             return Metadata(filename)
 
+    def _call(self, handler_name, *args, **kwargs):
+        handler = self._handlers.get(handler_name)
+
+        if handler:
+            return handler(*args, **kwargs)
+
     def _get_file(self, driver, fid):
         self.logger.info("Starting to get file {} from {}".format(fid, driver))
 
@@ -102,6 +109,8 @@ class Plug(Thread):
         end = metadata.size
         chunk_size = self.options.get('chunk_size', 1000000)
 
+        self._call('start_upload', metadata)
+
         while offset < end:
             dealer.send_multipart((metadata.filename, str(offset), str(chunk_size)))
             chunk = dealer.recv()
@@ -116,7 +125,7 @@ class Plug(Thread):
 
                     assert pipe.hget(transfer_key, 'offset') == str(offset)
 
-                    self.handlers['write_chunk'](metadata.filename, offset, chunk, metadata.size)
+                    self._call('upload_chunk', metadata.filename, offset, chunk)
 
                     pipe.multi()
                     pipe.hincrby(transfer_key, 'offset', len(chunk))
@@ -127,6 +136,8 @@ class Plug(Thread):
                     # probably started
                     self.logger.info("Aborting transfer for file {} from driver {}", fid, driver)
                     return
+
+        self._call('end_upload', metadata)
 
         self.redis.delete(transfer_key)
         self.redis.srem('drivers:{}:transfers'.format(self.name), fid)

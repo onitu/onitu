@@ -6,12 +6,12 @@ from logbook import Logger
 class Router(Thread):
     """Thread waiting and for requests concerning a chunk of file"""
 
-    def __init__(self, name, redis, read_chunk):
+    def __init__(self, name, redis, get_chunk):
         super(Router, self).__init__()
 
         self.name = name
         self.redis = redis
-        self.read_chunk = read_chunk
+        self.get_chunk = get_chunk
 
         self.logger = Logger("{} - Router".format(self.name))
 
@@ -29,6 +29,6 @@ class Router(Thread):
 
     def _respond_to(self, identity, filename, offset, size):
         self.logger.info("Getting chunk of size {} from offset {} in {}".format(size, offset, filename))
-        chunk = self.read_chunk(filename, int(offset), int(size))
+        chunk = self.get_chunk(filename, int(offset), int(size))
         self.router.send_multipart((identity, chunk))
         self.logger.info("Chunk sended")
