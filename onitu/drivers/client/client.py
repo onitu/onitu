@@ -10,7 +10,7 @@ plug.rep = context.socket(zmq.REP)
 plug.req = context.socket(zmq.REQ)
 
 @plug.handler()
-def read_chunk(filename, offset, size):
+def get_chunk(filename, offset, size):
     plug.req.send_multipart(('read_chunk', filename, str(offset), str(size)))
     resp = plug.req.recv_multipart()
     if resp[0] != 'ok':
@@ -18,7 +18,7 @@ def read_chunk(filename, offset, size):
     return resp[1]
 
 @plug.handler()
-def write_chunk(filename, offset, chunk, total):
+def upload_chunk(filename, offset, chunk):
     plug.req.send_multipart(('write_chunk', filename, str(offset), chunk))
     plug.req.recv_multipart()
 
