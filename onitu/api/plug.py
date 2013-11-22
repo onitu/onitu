@@ -116,7 +116,7 @@ class Plug(object):
                                 " it, aborting the event".format(fid))
             return
 
-        metadata.uptodate = self.name
+        metadata.uptodate = [self.name]
 
         metadata.write(self.redis, fid)
 
