@@ -98,7 +98,7 @@ class EventHandler(FileSystemEventHandler):
 
         metadata = plug.get_metadata(filename)
         metadata.size = os.path.getsize(abs_filename)
-        metadata.last_update = mtime
+        metadata.revision = mtime
         plug.update_file(metadata)
 
 

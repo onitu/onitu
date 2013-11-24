@@ -52,7 +52,7 @@ class Plug(object):
         self.router = Router(name, self.redis, self._handlers.get('get_chunk'))
         self.router.start()
 
-        self.worker = Worker(name, self.options, self.redis, self._handlers)
+        self.worker = Worker(self)
         self.worker.start()
 
         # check files in remote ?
@@ -106,8 +106,9 @@ class Plug(object):
         if not fid:
             fid = self.redis.incr('last_id')
             self.redis.hset('files', metadata.filename, fid)
-            self.redis.sadd('drivers:{}:files'.format(self.name), fid)
+            self.redis.hset('drivers:{}:files'.format(self.name), fid, "")
             metadata.owners = self.name
+            metadata._fid = fid
         elif self.redis.sismember('drivers:{}:transfers'
                                     .format(self.name), fid):
             # The event has been triggered during a transfer, we
@@ -118,7 +119,7 @@ class Plug(object):
 
         metadata.uptodate = [self.name]
 
-        metadata.write(self.redis, fid)
+        metadata.write()
 
         self.redis.rpush('events', fid)
 
@@ -126,9 +127,10 @@ class Plug(object):
         """Returns a `Metadata` object corresponding to the given
         filename.
         """
-        metadata = Metadata.get_by_filename(self.redis, filename)
+        metadata = Metadata.get_by_filename(self, filename)
 
-        if metadata:
-            return metadata
-        else:
-            return Metadata(filename)
+        if not metadata:
+            metadata = Metadata(plug=self, filename=filename)
+
+        metadata.entry = self.name
+        return metadata
