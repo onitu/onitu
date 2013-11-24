@@ -55,6 +55,20 @@ def upload_chunk(filename, offset, chunk):
         f.write(chunk)
 
 
+def check_changes():
+    for abs_path in root.walkfiles():
+        filename = abs_path.relpath(root).normpath()
+
+        metadata = plug.get_metadata(filename)
+        revision = metadata.revision
+        revision = float(revision) if revision else .0
+
+        if abs_path.mtime > revision:
+            metadata.revision = abs_path.mtime
+            metadata.size = abs_path.size
+            plug.update_file(metadata)
+
+
 class EventHandler(FileSystemEventHandler):
     def on_moved(self, event):
         def handle_move(event):
@@ -103,6 +117,8 @@ def start(*args, **kwargs):
 
     global root
     root = path(plug.options['root'])
+
+    check_changes()
 
     observer = Observer()
     observer.schedule(EventHandler(), path=root, recursive=True)
