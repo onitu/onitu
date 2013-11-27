@@ -14,12 +14,18 @@ class EntryBase(object):
     @property
     def dump(self):
         return {'driver': self.driver, 'options': self.options}
+    def __hash__(self):
+        return hash((self.driver, self.name))
+    def __eq__(self, other):
+        return hash(self) == hash(other)
 
 class LocalStorageEntry(EntryBase):
     def __init__(self, *args, **kwargs):
         super(LocalStorageEntry, self).__init__(*args, **kwargs)
         if not 'root' in self.options:
             self.options['root'] = 'test/driver_' + slugify(self.name)
+    def __hash__(self):
+        return hash((self.driver, self.options['root']))
 
 class Entry(EntryBase):
     _types = {
@@ -34,14 +40,14 @@ class Entry(EntryBase):
 
 class Entries(object):
     def __init__(self):
-        self._items = {}
-    def add(self, driver, name=None):
+        self._items = set()
+    def add(self, driver, name=None, options=None):
         if name is None:
             name = driver
-        self._items[name] = Entry(driver, name)
+        self._items.add(Entry(driver, name, options))
     @property
     def dump(self):
-        return {k:v.dump for (k, v) in self._items.items()}
+        return {e.name:e.dump for e in self._items}
     @property
     def json(self):
         return json.dumps(self.dump, indent=2)
