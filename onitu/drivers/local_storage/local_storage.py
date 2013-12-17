@@ -45,6 +45,9 @@ def end_upload(metadata):
     # this set of writes will be propagated to the Referee
     last_mtime[metadata.filename] = filename.mtime
 
+    metadata.revision = filename.mtime
+    metadata.write_revision()
+
 
 @plug.handler()
 def upload_chunk(filename, offset, chunk):
