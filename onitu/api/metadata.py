@@ -74,13 +74,26 @@ class Metadata(object):
     def revision(self, value):
         """Set the current revision of the file for this entry.
 
-        The value will only be save when :func:`Meta.write` will be
+        The value is only saved when either
+        :func:`Metadata.write_revision` or :func:`Metadata.write` is
         called.
         """
         self._revision = value
 
+    def write_revision(self):
+        if not self._revision:
+            return
+
+        self.plug.redis.hset(
+            'drivers:{}:files'.format(self.plug.name),
+            self._fid,
+            self._revision
+        )
+
+        self._revision = None
+
     def write(self):
-        """Write the metadata for the current object the database.
+        """Write the metadata for the current object in the database.
         """
         metadata = {}
 
@@ -88,17 +101,10 @@ class Metadata(object):
             try:
                 metadata[name] = serialize(self.__getattribute__(name))
             except AttributeError:
-                self.plug.error("Error writing metadata for {}, "
-                      "missing attribute {}".format(self._fid, name))
+                self.plug.error("Error writing metadata for {}, missing"
+                                "attribute {}".format(self._fid, name))
                 return
 
         self.plug.redis.hmset('files:{}'.format(self._fid), metadata)
 
-        if self._revision:
-            self.plug.redis.hset(
-                'drivers:{}:files'.format(self.plug.name),
-                self._fid,
-                self._revision
-            )
-
-            self._revision = None
+        self.write_revision()
