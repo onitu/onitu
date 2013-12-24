@@ -29,7 +29,7 @@ def start_upload(metadata):
 
     if not filename.exists():
         filename.dirname().makedirs_p()
-        filename.touch()
+        filename.open('wb').close()
 
 
 @plug.handler()
@@ -53,7 +53,7 @@ def upload_chunk(filename, offset, chunk):
     # We ignore the next Watchdog events concerning this file
     events_to_ignore.add(filename)
 
-    with open(abs_path, 'wb+') as f:
+    with open(abs_path, 'r+b') as f:
         f.seek(offset)
         f.write(chunk)
 
