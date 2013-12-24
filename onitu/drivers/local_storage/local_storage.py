@@ -1,5 +1,4 @@
-import os
-
+from path import path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -17,7 +16,7 @@ root = None
 
 @plug.handler()
 def get_chunk(filename, offset, size):
-    filename = os.path.join(root, filename)
+    filename = root.joinpath(filename)
 
     with open(filename, 'rb') as f:
         f.seek(offset)
@@ -26,38 +25,51 @@ def get_chunk(filename, offset, size):
 
 @plug.handler()
 def start_upload(metadata):
-    filename = os.path.join(root, metadata.filename)
+    filename = root.joinpath(metadata.filename)
 
-    if not os.path.exists(filename):
-        dirname = os.path.dirname(filename)
-
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
-
-    # We ignore the next Watchdog events concerning this file
-    events_to_ignore.add(metadata.filename)
-
-    open(filename, 'w+').close()
+    if not filename.exists():
+        filename.dirname().makedirs_p()
+        filename.open('wb').close()
 
 
 @plug.handler()
 def end_upload(metadata):
-    filename = os.path.join(root, metadata.filename)
+    filename = root.joinpath(metadata.filename)
 
     # If this is the last chunk we stop ignoring event
     events_to_ignore.remove(metadata.filename)
     # this is to make sure that no further event concerning
     # this set of writes will be propagated to the Referee
-    last_mtime[metadata.filename] = os.path.getmtime(filename)
+    last_mtime[metadata.filename] = filename.mtime
+
+    metadata.revision = filename.mtime
+    metadata.write_revision()
 
 
 @plug.handler()
-def upload_chunk(rel_filename, offset, chunk):
-    filename = os.path.join(root, rel_filename)
+def upload_chunk(filename, offset, chunk):
+    abs_path = root.joinpath(filename)
 
-    with open(filename, 'wb+') as f:
+    # We ignore the next Watchdog events concerning this file
+    events_to_ignore.add(filename)
+
+    with open(abs_path, 'r+b') as f:
         f.seek(offset)
         f.write(chunk)
+
+
+def check_changes():
+    for abs_path in root.walkfiles():
+        filename = abs_path.relpath(root).normpath()
+
+        metadata = plug.get_metadata(filename)
+        revision = metadata.revision
+        revision = float(revision) if revision else .0
+
+        if abs_path.mtime > revision:
+            metadata.revision = abs_path.mtime
+            metadata.size = abs_path.size
+            plug.update_file(metadata)
 
 
 class EventHandler(FileSystemEventHandler):
@@ -81,13 +93,14 @@ class EventHandler(FileSystemEventHandler):
 
         self._handle_update(event.src_path)
 
-    def _handle_update(self, abs_filename):
-        filename = os.path.normpath(os.path.relpath(abs_filename, root))
+    def _handle_update(self, abs_path):
+        abs_path = path(abs_path)
+        filename = root.relpathto(abs_path)
 
         if filename in events_to_ignore:
             return
 
-        mtime = os.path.getmtime(abs_filename)
+        mtime = abs_path.mtime
         if filename in last_mtime:
             if last_mtime[filename] >= mtime:
                 # This event concerns a file that hasn't been changed
@@ -97,8 +110,8 @@ class EventHandler(FileSystemEventHandler):
                 del last_mtime[filename]
 
         metadata = plug.get_metadata(filename)
-        metadata.size = os.path.getsize(abs_filename)
-        metadata.last_update = mtime
+        metadata.size = abs_path.size
+        metadata.revision = mtime
         plug.update_file(metadata)
 
 
@@ -106,7 +119,9 @@ def start(*args, **kwargs):
     plug.start(*args, **kwargs)
 
     global root
-    root = plug.options['root']
+    root = path(plug.options['root'])
+
+    check_changes()
 
     observer = Observer()
     observer.schedule(EventHandler(), path=root, recursive=True)
