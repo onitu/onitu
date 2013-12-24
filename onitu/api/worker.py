@@ -15,11 +15,8 @@ class Worker(Thread):
         super(Worker, self).__init__()
 
         self.plug = plug
-
         self.logger = Logger("{} - Worker".format(self.plug.name))
-
         self.context = zmq.Context.instance()
-
         self.sub = None
 
     def run(self):
@@ -33,19 +30,33 @@ class Worker(Thread):
             self.logger.info("Listening for orders from the Referee...")
             _, driver, fid = self.sub.recv_multipart()
 
-            # should probably be in a thread pool, but YOLO
-            thread = Thread(target=self._get_file, args=(driver, fid))
-            thread.start()
+            self.async_get_file(fid, driver=driver)
 
-    def _get_file(self, driver, fid):
+    def resume_transfers(self):
+        for fid in self.plug.redis.smembers('drivers:{}:transfers'.format(self.plug.name)):
+            self.async_get_file(fid, driver=None, restart=True)
+
+    def async_get_file(self, *args, **kwargs):
+        # should probably be in a thread pool, but YOLO
+        thread = Thread(target=self.get_file, args=args, kwargs=kwargs)
+        thread.start()
+
+    def get_file(self, fid, driver=None, restart=False):
         """Transfers a file from a Driver to another.
         """
-        self.logger.info("Starting to get file {} from {}".format(fid, driver))
-
-        self.plug.redis.sadd('drivers:{}:transfers'.format(self.plug.name), fid)
-
         transfer_key = 'drivers:{}:transfers:{}'.format(self.plug.name, fid)
-        self.plug.redis.hmset(transfer_key, {'from': driver, 'offset': 0})
+
+        if driver:
+            self.plug.redis.sadd('drivers:{}:transfers'.format(self.plug.name), fid)
+            self.plug.redis.hmset(transfer_key, {'from': driver, 'offset': 0})
+            offset = 0
+            self.logger.info("Starting to get file {} from {}".format(fid, driver))
+        else:
+            transfer = self.plug.redis.hgetall(transfer_key)
+            driver = transfer['from']
+            offset = int(transfer['offset'])
+            self.logger.info("Retarting transfer for file {} from {}"
+                                .format(fid, driver))
 
         metadata = Metadata.get_by_id(self.plug, fid)
 
@@ -54,11 +65,11 @@ class Worker(Thread):
         dealer.connect('tcp://localhost:{}'.format(port))
 
         filename = metadata.filename
-        offset = 0
         end = metadata.size
         chunk_size = self.plug.options.get('chunk_size', 1 * 1024 * 1024)
 
-        self._call('start_upload', metadata)
+        if not restart:
+            self._call('start_upload', metadata)
 
         while offset < end:
             dealer.send_multipart((filename, str(offset), str(chunk_size)))

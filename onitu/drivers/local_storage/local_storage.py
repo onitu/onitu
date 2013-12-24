@@ -31,9 +31,6 @@ def start_upload(metadata):
         filename.dirname().makedirs_p()
         filename.touch()
 
-    # We ignore the next Watchdog events concerning this file
-    events_to_ignore.add(metadata.filename)
-
 
 @plug.handler()
 def end_upload(metadata):
@@ -51,9 +48,12 @@ def end_upload(metadata):
 
 @plug.handler()
 def upload_chunk(filename, offset, chunk):
-    filename = root.joinpath(filename)
+    abs_path = root.joinpath(filename)
 
-    with open(filename, 'wb+') as f:
+    # We ignore the next Watchdog events concerning this file
+    events_to_ignore.add(filename)
+
+    with open(abs_path, 'wb+') as f:
         f.seek(offset)
         f.write(chunk)
 

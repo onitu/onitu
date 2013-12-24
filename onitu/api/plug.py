@@ -54,9 +54,7 @@ class Plug(object):
 
         self.worker = Worker(self)
         self.worker.start()
-
-        # check files in remote ?
-        # restart transfers ?
+        self.worker.resume_transfers()
 
     def wait(self):
         """Waits until the :class:`Plug` is killed by another process.
