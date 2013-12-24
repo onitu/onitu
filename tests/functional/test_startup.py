@@ -1,10 +1,11 @@
 import sh
+from utils import launch
 
 circus = None
 
 def setup_module(module):
     global circus
-    circus = sh.circusd('onitu.ini', _bg=True)
+    circus = launch(directory='../..')
 
 
 def teardown_module(module):
