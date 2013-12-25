@@ -4,13 +4,16 @@ import signal
 import simplejson
 import circus
 
+from circus.exc import ConflictError
 from redis import Redis
 from zmq.eventloop import ioloop
 from logbook import Logger
+from tornado import gen
 
 from utils import connect_to_redis
 
 
+@gen.coroutine
 def load_drivers(*args, **kwargs):
     redis = connect_to_redis()
 
@@ -29,14 +32,26 @@ def load_drivers(*args, **kwargs):
         if 'options' in conf:
             redis.hmset('drivers:{}:options'.format(name), conf['options'])
 
-        arbiter.add_watcher(
+        watcher = arbiter.add_watcher(
             name,
             sys.executable,
             args=['-m', script, name],
-            copy_env=True
+            copy_env=True,
         )
 
+        loop.add_callback(start_watcher, watcher)
+
     logger.info("Entries loaded")
+
+@gen.coroutine
+def start_watcher(watcher):
+    try:
+        watcher.start()
+    except ConflictError as e:
+        loop.add_callback(start_watcher, watcher)
+    except Exception as e:
+        logger.warning("Can't start entry {} : {}", watcher.name, e)
+        return
 
 
 if __name__ == '__main__':
