@@ -3,4 +3,4 @@ onitu
 
 Onitu - One cloud to sync them all
 
-Launch it with ```./onitu.sh```
+Launch it with ```python -m onitu```
