@@ -1,4 +1,5 @@
 import sys
+import signal
 
 import simplejson
 import circus
@@ -49,6 +50,9 @@ if __name__ == '__main__':
     ioloop.install()
     loop = ioloop.IOLoop.instance()
 
+    sigint_handler = signal.getsignal(signal.SIGINT)
+    sigterm_handler = signal.getsignal(signal.SIGTERM)
+
     arbiter = circus.get_arbiter(
         [
             {
@@ -67,11 +71,14 @@ if __name__ == '__main__':
         loop=loop
     )
 
+    signal.signal(signal.SIGINT, sigint_handler)
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
     try:
         future = arbiter.start()
         loop.add_future(future, load_drivers)
         arbiter.start_io_loop()
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         pass
     finally:
         arbiter.stop()
