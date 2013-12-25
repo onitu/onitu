@@ -7,9 +7,11 @@ from redis import Redis
 from zmq.eventloop import ioloop
 from logbook import Logger
 
+from utils import connect_to_redis
 
-def load_drivers(arg):
-    redis = Redis(unix_socket_path='redis/redis.sock')
+
+def load_drivers(*args, **kwargs):
+    redis = connect_to_redis()
 
     with open(entries_file) as f:
         entries = simplejson.load(f)

@@ -1,8 +1,10 @@
-import redis
 import zmq
 import simplejson
 
 from logbook import Logger
+
+from onitu.utils import connect_to_redis
+
 
 class Referee(object):
     """Referee class, receive all events and deal with them.
@@ -32,7 +34,7 @@ class Referee(object):
         with open('entries.json') as f:
             self.entries = simplejson.load(f)
 
-        self.redis = redis.Redis(unix_socket_path='redis/redis.sock')
+        self.redis = connect_to_redis()
 
         self.context = zmq.Context()
         self.pub = self.context.socket(zmq.PUB)
