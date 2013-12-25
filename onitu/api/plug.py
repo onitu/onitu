@@ -3,12 +3,13 @@ The Plug is the part of any Driver that communicates with the rest of
 Onitu. This part is common between all the drivers.
 """
 
-import redis
 from logbook import Logger
 
 from .metadata import Metadata
 from .router import Router
 from .worker import Worker
+
+from onitu.utils import connect_to_redis
 
 class Plug(object):
     """The Plug is the communication pipe between a Driver and Onitu.
@@ -21,7 +22,7 @@ class Plug(object):
     def __init__(self):
         super(Plug, self).__init__()
 
-        self.redis = redis.Redis(unix_socket_path='redis/redis.sock')
+        self.redis = connect_to_redis()
 
         self.name = None
         self.logger = None
