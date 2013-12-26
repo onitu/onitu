@@ -3,6 +3,7 @@ from threading import Thread
 import zmq
 from logbook import Logger
 
+
 class Router(Thread):
     """Thread waiting for a request by another Driver and responding to
     it with the chunked asked.
@@ -35,7 +36,7 @@ class Router(Thread):
         the chunk and send it to the addressee.
         """
         self.logger.info("Getting chunk of size {} from offset {} in {}"
-                            .format(size, offset, filename))
+                         .format(size, offset, filename))
         chunk = self.get_chunk(filename, int(offset), int(size))
         self.router.send_multipart((identity, chunk))
         self.logger.info("Chunk sended")

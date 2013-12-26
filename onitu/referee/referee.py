@@ -1,6 +1,8 @@
 import zmq
 import simplejson
 
+import redis
+
 from logbook import Logger
 
 from onitu.utils import connect_to_redis

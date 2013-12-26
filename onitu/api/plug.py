@@ -11,6 +11,7 @@ from .worker import Worker
 
 from onitu.utils import connect_to_redis
 
+
 class Plug(object):
     """The Plug is the communication pipe between a Driver and Onitu.
 
@@ -40,10 +41,11 @@ class Plug(object):
 
         :func:`start` launches two threads :
 
-        - The :class:`worker.Worker`, listening to notifications from the Referee and
-          handling them by calling the handlers defined by the Driver
-        - The :class:`router.Router`, listening to requests by other Drivers that
-          need a chunk of a file and getting this chunk by calling the
+        - The :class:`worker.Worker`, listening to notifications from the
+          Referee and handling them by calling the handlers defined by the
+          Driver
+        - The :class:`router.Router`, listening to requests by other Drivers
+          that need a chunk of a file and getting this chunk by calling the
           `get_chunk` handler.
         """
         self.name = name
@@ -109,11 +111,12 @@ class Plug(object):
             metadata.owners = self.name
             metadata._fid = fid
         elif self.redis.sismember('drivers:{}:transfers'
-                                    .format(self.name), fid):
+                                  .format(self.name), fid):
             # The event has been triggered during a transfer, we
             # have to cancel it.
-            self.logger.warning("About to send an event for {} when downloading"
-                                " it, aborting the event".format(fid))
+            self.logger.warning("About to send an event for {} when"
+                                "downloading it, aborting the event"
+                                .format(fid))
             return
 
         metadata.uptodate = [self.name]

@@ -5,7 +5,6 @@ import simplejson
 import circus
 
 from circus.exc import ConflictError
-from redis import Redis
 from zmq.eventloop import ioloop
 from logbook import Logger
 from tornado import gen
@@ -42,6 +41,7 @@ def load_drivers(*args, **kwargs):
         loop.add_callback(start_watcher, watcher)
 
     logger.info("Entries loaded")
+
 
 @gen.coroutine
 def start_watcher(watcher):

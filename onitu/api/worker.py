@@ -6,6 +6,7 @@ from logbook import Logger
 
 from .metadata import Metadata
 
+
 class Worker(Thread):
     """Thread waiting for a notification from the Referee and handling
     it.
@@ -33,7 +34,8 @@ class Worker(Thread):
             self.async_get_file(fid, driver=driver)
 
     def resume_transfers(self):
-        for fid in self.plug.redis.smembers('drivers:{}:transfers'.format(self.plug.name)):
+        for fid in self.plug.redis.smembers('drivers:{}:transfers'
+                                            .format(self.plug.name)):
             self.async_get_file(fid, driver=None, restart=True)
 
     def async_get_file(self, *args, **kwargs):
@@ -47,16 +49,20 @@ class Worker(Thread):
         transfer_key = 'drivers:{}:transfers:{}'.format(self.plug.name, fid)
 
         if driver:
-            self.plug.redis.sadd('drivers:{}:transfers'.format(self.plug.name), fid)
+            self.plug.redis.sadd(
+                'drivers:{}:transfers'.format(self.plug.name),
+                fid
+            )
             self.plug.redis.hmset(transfer_key, {'from': driver, 'offset': 0})
             offset = 0
-            self.logger.info("Starting to get file {} from {}".format(fid, driver))
+            self.logger.info("Starting to get file {} from {}"
+                             .format(fid, driver))
         else:
             transfer = self.plug.redis.hgetall(transfer_key)
             driver = transfer['from']
             offset = int(transfer['offset'])
             self.logger.info("Retarting transfer for file {} from {}"
-                                .format(fid, driver))
+                             .format(fid, driver))
 
         metadata = Metadata.get_by_id(self.plug, fid)
 
@@ -76,7 +82,7 @@ class Worker(Thread):
             chunk = dealer.recv()
 
             self.logger.info("Received chunk of size {} from {} for file {}"
-                                .format(len(chunk), driver, fid))
+                             .format(len(chunk), driver, fid))
 
             with self.plug.redis.pipeline() as pipe:
                 try:
@@ -96,14 +102,20 @@ class Worker(Thread):
                     # another transaction for the same file has
                     # probably started
                     self.logger.info("Aborting transfer for file {} from {}"
-                                        .format(fid, driver))
+                                     .format(fid, driver))
                     return
 
         self._call('end_upload', metadata)
 
         self.plug.redis.delete(transfer_key)
-        self.plug.redis.srem('drivers:{}:transfers'.format(self.plug.name), fid)
-        self.logger.info("Transfer for file {} from {} successful", fid, driver)
+        self.plug.redis.srem(
+            'drivers:{}:transfers'.format(self.plug.name),
+            fid
+        )
+        self.logger.info(
+            "Transfer for file {} from {} successful",
+            fid, driver
+        )
 
     def _call(self, handler_name, *args, **kwargs):
         """Calls a handler defined by the Driver if it exists.
