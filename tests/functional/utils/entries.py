@@ -51,3 +51,6 @@ class Entries(object):
     @property
     def json(self):
         return json.dumps(self.dump, indent=2)
+    def save(self, filename):
+        with open(filename, 'w+') as f:
+            json.dump(self.dump, f, indent=2)
