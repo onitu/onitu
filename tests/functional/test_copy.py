@@ -2,7 +2,6 @@ from utils import launch
 from utils.entries import Entries
 from utils.files import generate, checksum
 from os import mkdir
-import time
 
 circus = None
 
@@ -20,5 +19,4 @@ def teardown_module(module):
 
 def test_simple_copy():
     generate('../../test/driver_rep1/foo', 100)
-    time.sleep(1)
     assert(checksum('../../test/driver_rep1/foo') == checksum('../../test/driver_rep1/foo'))
