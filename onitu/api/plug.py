@@ -114,7 +114,7 @@ class Plug(object):
                                   .format(self.name), fid):
             # The event has been triggered during a transfer, we
             # have to cancel it.
-            self.logger.warning("About to send an event for {} when"
+            self.logger.warning("About to send an event for {} when "
                                 "downloading it, aborting the event"
                                 .format(fid))
             return

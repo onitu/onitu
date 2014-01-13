@@ -61,7 +61,7 @@ class Worker(Thread):
             transfer = self.plug.redis.hgetall(transfer_key)
             driver = transfer['from']
             offset = int(transfer['offset'])
-            self.logger.info("Retarting transfer for file {} from {}"
+            self.logger.info("Restarting transfer for file {} from {}"
                              .format(fid, driver))
 
         metadata = Metadata.get_by_id(self.plug, fid)
