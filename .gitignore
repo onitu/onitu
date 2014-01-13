@@ -44,3 +44,6 @@ redis/appendonly.aof
 # Emacs
 *~
 \#*\#
+
+# Development
+test
