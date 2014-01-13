@@ -81,8 +81,8 @@ class Worker(Thread):
             dealer.send_multipart((filename, str(offset), str(chunk_size)))
             chunk = dealer.recv()
 
-            self.logger.info("Received chunk of size {} from {} for file {}"
-                             .format(len(chunk), driver, fid))
+            self.logger.debug("Received chunk of size {} from {} for file {}"
+                              .format(len(chunk), driver, fid))
 
             with self.plug.redis.pipeline() as pipe:
                 try:
