@@ -1,10 +1,12 @@
 import sh
 import hashlib
 
+MAX_SIZE_BS = 1024 * 1024
 
-def generate(filename, size):
+
+def generate(filename, bs, count=1):
     return sh.dd('if=/dev/urandom', 'of={}'.format(filename),
-                 'bs={}'.format(size), 'count=1')
+                 'bs={}'.format(bs), 'count={}'.format(count))
 
 
 def checksum(filename):
