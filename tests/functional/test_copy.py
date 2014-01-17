@@ -1,9 +1,9 @@
 from utils import launch
 from utils.entries import Entries
 from utils.files import generate, checksum
-from os import mkdir
 
 circus = None
+
 
 def setup_module(module):
     global circus
@@ -14,9 +14,12 @@ def setup_module(module):
     entries.save('../../entries.json')
     circus = launch(directory='../..')
 
+
 def teardown_module(module):
     circus.terminate()
 
+
 def test_simple_copy():
     generate('../../test/driver_rep1/foo', 100)
-    assert(checksum('../../test/driver_rep1/foo') == checksum('../../test/driver_rep1/foo'))
+    assert(checksum('../../test/driver_rep1/foo') ==
+           checksum('../../test/driver_rep1/foo'))

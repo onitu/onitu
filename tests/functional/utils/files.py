@@ -1,8 +1,11 @@
 import sh
 import hashlib
 
+
 def generate(filename, size):
-    return sh.dd('if=/dev/urandom', 'of={}'.format(filename), 'bs={}'.format(size), 'count=1')
+    return sh.dd('if=/dev/urandom', 'of={}'.format(filename),
+                 'bs={}'.format(size), 'count=1')
+
 
 def checksum(filename):
     h = hashlib.md5()

@@ -3,6 +3,7 @@ from utils import launch
 
 circus = None
 
+
 def setup_module(module):
     global circus
     circus = launch(directory='../..')
