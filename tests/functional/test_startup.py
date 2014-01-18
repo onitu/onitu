@@ -1,5 +1,6 @@
 import sh
 from utils import launch
+from time import sleep
 
 circus = None
 
@@ -14,5 +15,6 @@ def teardown_module(module):
 
 
 def test_all_active():
+    sleep(1)
     for w in ["referee", "A", "B", "loader"]:
         sh.circusctl.status(w) == "active\n"

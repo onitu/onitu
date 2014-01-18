@@ -1,2 +1,2 @@
 from entries import Entries
-from launcher import launch
+from launcher import Launcher, launch
