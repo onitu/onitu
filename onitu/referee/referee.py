@@ -46,7 +46,7 @@ class Referee(object):
         self.logger.info("Started")
 
     def listen(self):
-        """Listen to all the events in the the events, and handle them
+        """Listen to all the events, and handle them
         """
         while True:
             try:
