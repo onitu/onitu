@@ -25,7 +25,8 @@ def teardown_module(module):
 
 def test_simple_copy():
     loop.run()
-    launcher.set_event(launcher.on_end_transfer('rep1', 'rep2', 1), launcher.quit)
+    launcher.set_event(launcher.on_end_transfer('rep1', 'rep2', 1),
+                       launcher.quit)
     generate('test/driver_rep1/foo', 100)
     launcher.wait()
     assert(checksum('test/driver_rep1/foo') ==
