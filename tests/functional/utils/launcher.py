@@ -1,16 +1,15 @@
 import sh
-import os.path
-import os
 import signal
 
 
 LOG_END_TRANSFER = "{driver} - Worker: Transfer for file {fid}" \
                    " from {other} successful"
+LOG_DRIVER_STARTED = "{driver} - Worker: Listening for orders from" \
+                     " the Referee..."
 
 
 class Launcher(object):
-    def __init__(self, directory='.', ini='onitu.ini', background=True):
-        os.chdir(directory)
+    def __init__(self, ini='onitu.ini', background=True):
         self.prog = ini
         self.bg = background
         self.events = []
@@ -30,6 +29,11 @@ class Launcher(object):
     @staticmethod
     def on_end_transfer(d_from, d_to, fid):
         return LOG_END_TRANSFER.format(driver=d_to, other=d_from, fid=fid)
+
+
+    @staticmethod
+    def on_driver_started(driver):
+        return LOG_DRIVER_STARTED.format(driver=driver)
 
 
     def quit(self):

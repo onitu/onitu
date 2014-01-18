@@ -1,13 +1,20 @@
 import sh
-from utils import launch
-from time import sleep
+from utils.launcher import Launcher
+from utils.entries import Entries
+from utils.loop import EventLoop
 
 circus = None
+loop = EventLoop()
 
 
 def setup_module(module):
     global circus
-    circus = launch(directory='../..')
+    entries = Entries()
+    entries.add('local_storage', 'rep1')
+    entries.save('entries.json')
+    launcher = Launcher()
+    launcher.set_event(launcher.on_driver_started('rep1'), loop.stop)
+    circus = launcher()
 
 
 def teardown_module(module):
@@ -15,6 +22,6 @@ def teardown_module(module):
 
 
 def test_all_active():
-    sleep(1)
-    for w in ["referee", "A", "B", "loader"]:
+    loop.run()
+    for w in ["referee", "loader"]:
         sh.circusctl.status(w) == "active\n"
