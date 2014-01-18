@@ -4,8 +4,11 @@ Start the Referee.
 Launch it as : `python -m onitu.referee`
 """
 
+from logbook.queues import ZeroMQHandler
+
 from .referee import Referee
 
 if __name__ == '__main__':
-    referee = Referee()
-    referee.listen()
+    with ZeroMQHandler('tcp://127.0.0.1:5000'):
+        referee = Referee()
+        referee.listen()
