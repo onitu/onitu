@@ -50,7 +50,7 @@ class Referee(object):
         """
         while True:
             try:
-                self.logger.info("Listening...")
+                self.logger.debug("Listening...")
                 _, fid = self.redis.blpop(['events'])
                 self.logger.info("New event about {}".format(fid))
             except redis.ConnectionError:
@@ -90,5 +90,5 @@ class Referee(object):
             self.redis.hset('files:{}'.format(fid), 'owners', value)
 
         for name in to_notify:
-            self.logger.info("Notifying {} about {}".format(name, fid))
+            self.logger.debug("Notifying {} about {}".format(name, fid))
             self.pub.send_multipart((name, uptodate[0], fid))
