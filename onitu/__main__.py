@@ -75,7 +75,7 @@ def get_logs_dispatcher(debug=False):
 
     handlers.append(ColorizedStderrHandler(level=INFO))
 
-    subscriber = ZeroMQSubscriber('tcp://127.0.0.1:5000')
+    subscriber = ZeroMQSubscriber('tcp://127.0.0.1:5000', multi=True)
     return subscriber.dispatch_in_background(setup=NestedSetup(handlers))
 
 
@@ -87,7 +87,7 @@ if __name__ == '__main__':
 
     dispatcher = get_logs_dispatcher()
 
-    with ZeroMQHandler('tcp://127.0.0.1:5000'):
+    with ZeroMQHandler('tcp://127.0.0.1:5000', multi=True):
         logger = Logger("Onitu")
 
         ioloop.install()
