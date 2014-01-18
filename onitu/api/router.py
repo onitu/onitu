@@ -27,7 +27,6 @@ class Router(Thread):
         self.redis.set('drivers:{}:router'.format(self.name), port)
 
         while True:
-            self.logger.info("Listening...")
             msg = self.router.recv_multipart()
             self._respond_to(*msg)
 
@@ -39,4 +38,3 @@ class Router(Thread):
                           .format(size, offset, filename))
         chunk = self.get_chunk(filename, int(offset), int(size))
         self.router.send_multipart((identity, chunk))
-        self.logger.debug("Chunk sended")
