@@ -2,6 +2,6 @@ circus
 pyzmq
 redis
 simplejson
-logbook
+git+git://github.com/onitu/logbook.git@master
 watchdog
 path.py
