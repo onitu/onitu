@@ -1,10 +1,10 @@
 import sh
 from utils.launcher import Launcher
 from utils.entries import Entries
-from utils.loop import EventLoop
+from utils.loop import BooleanLoop
 
 circus = None
-loop = EventLoop()
+loop = BooleanLoop()
 
 
 def setup_module(module):
@@ -22,6 +22,6 @@ def teardown_module(module):
 
 
 def test_all_active():
-    loop.run()
+    loop.run(timeout=2)
     for w in ["referee", "loader"]:
         sh.circusctl.status(w) == "active\n"
