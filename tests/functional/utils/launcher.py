@@ -9,8 +9,7 @@ LOG_DRIVER_STARTED = "{driver} - Worker: Listening for orders from" \
 
 
 class Launcher(object):
-    def __init__(self, ini='onitu.ini', background=True):
-        self.prog = ini
+    def __init__(self, background=True):
         self.bg = background
         self.events = []
         self.process = None
@@ -46,9 +45,9 @@ class Launcher(object):
                 action()
 
     def __call__(self, wait=False):
-        self.process = sh.circusd(self.prog, _bg=self.bg,
+        self.process = sh.python(m='onitu', _bg=self.bg,
                                   _err=self._process_line)
-        if (wait):
+        if wait:
             self.wait()
         return self.process
 

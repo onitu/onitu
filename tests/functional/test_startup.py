@@ -23,5 +23,5 @@ def teardown_module(module):
 
 def test_all_active():
     loop.run(timeout=2)
-    for w in ["referee", "loader"]:
+    for w in ["referee", "rep1", "redis"]:
         sh.circusctl.status(w) == "active\n"
