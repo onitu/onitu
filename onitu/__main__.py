@@ -1,5 +1,6 @@
 import sys
 import signal
+import socket
 
 import simplejson
 import circus
@@ -47,7 +48,7 @@ def load_drivers(*args, **kwargs):
         watcher = arbiter.add_watcher(
             name,
             sys.executable,
-            args=['-m', script, name],
+            args=['-m', script, name, logs_uri],
             copy_env=True,
         )
 
@@ -67,7 +68,7 @@ def start_watcher(watcher):
         return
 
 
-def get_logs_dispatcher(debug=False):
+def get_logs_dispatcher(uri=None, debug=False):
     handlers = []
 
     if not debug:
@@ -75,8 +76,18 @@ def get_logs_dispatcher(debug=False):
 
     handlers.append(ColorizedStderrHandler(level=INFO))
 
-    subscriber = ZeroMQSubscriber('tcp://127.0.0.1:5000', multi=True)
-    return subscriber.dispatch_in_background(setup=NestedSetup(handlers))
+    if not uri:
+        # Find an open port.
+        # This is a race condition as the port could be used between
+        # the check and its binding. However, this is probably one of the
+        # best solution without patching Logbook.
+        tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        tmpsock.bind(('localhost', 0))
+        uri = 'tcp://{}:{}'.format(*tmpsock.getsockname())
+        tmpsock.close()
+
+    subscriber = ZeroMQSubscriber(uri, multi=True)
+    return uri, subscriber.dispatch_in_background(setup=NestedSetup(handlers))
 
 
 if __name__ == '__main__':
@@ -85,9 +96,9 @@ if __name__ == '__main__':
     else:
         entries_file = 'entries.json'
 
-    dispatcher = get_logs_dispatcher()
+    logs_uri, dispatcher = get_logs_dispatcher()
 
-    with ZeroMQHandler('tcp://127.0.0.1:5000', multi=True):
+    with ZeroMQHandler(logs_uri, multi=True):
         logger = Logger("Onitu")
 
         ioloop.install()
@@ -106,7 +117,7 @@ if __name__ == '__main__':
                 },
                 {
                     'cmd': sys.executable,
-                    'args': '-m onitu.referee',
+                    'args': ['-m', 'onitu.referee', logs_uri],
                     'copy_env': True,
                 },
             ],
@@ -124,5 +135,5 @@ if __name__ == '__main__':
         except (KeyboardInterrupt, SystemExit):
             pass
         finally:
-            dispatcher.stop()
             arbiter.stop()
+            dispatcher.stop()
