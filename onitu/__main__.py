@@ -19,6 +19,9 @@ def load_drivers(*args, **kwargs):
     with open(entries_file) as f:
         entries = simplejson.load(f)
 
+    redis.delete('entries')
+    redis.sadd('entries', *entries.keys())
+
     for name, conf in entries.items():
         logger.info("Loading entry {}".format(name))
 

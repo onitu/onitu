@@ -33,10 +33,8 @@ class Referee(object):
 
         self.logger = Logger("Referee")
 
-        with open('entries.json') as f:
-            self.entries = simplejson.load(f)
-
         self.redis = connect_to_redis()
+        self.entries = self.redis.smembers('entries')
 
         self.context = zmq.Context()
         self.pub = self.context.socket(zmq.PUB)
@@ -74,7 +72,7 @@ class Referee(object):
         to_notify = []
         new_owners = []
 
-        for name in self.entries.keys():
+        for name in self.entries:
             if name in uptodate:
                 continue
 
