@@ -54,9 +54,11 @@ class Launcher(object):
 
     def _on_event(self, name):
         log_func = getattr(self, 'log_{}'.format(name))
+
         def caller(action, *args, **kwargs):
             line = log_func(*args, **kwargs)
             self.set_event(line, action)
+
         return caller
 
     def __getattr__(self, name):

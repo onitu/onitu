@@ -3,22 +3,22 @@ from utils.launcher import Launcher
 from utils.entries import Entries
 from utils.loop import BooleanLoop
 
-circus = None
+launcher = None
 loop = BooleanLoop()
 
 
 def setup_module(module):
-    global circus
+    global launcher
     entries = Entries()
     entries.add('local_storage', 'rep1')
     entries.save('entries.json')
     launcher = Launcher()
     launcher.on_driver_started(loop.stop, 'rep1')
-    circus = launcher()
+    launcher()
 
 
 def teardown_module(module):
-    circus.terminate()
+    launcher.kill()
 
 
 def test_all_active():
