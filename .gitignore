@@ -45,5 +45,8 @@ redis/appendonly.aof
 *~
 \#*\#
 
+# Documentation
+docs/_build
+
 # Development
 test
