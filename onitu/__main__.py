@@ -16,8 +16,16 @@ from utils import connect_to_redis
 def load_drivers(*args, **kwargs):
     redis = connect_to_redis()
 
-    with open(entries_file) as f:
-        entries = simplejson.load(f)
+    try:
+        with open(entries_file) as f:
+            entries = simplejson.load(f)
+    except simplejson.JSONDecodeError as e:
+        logger.error("Error parsing {} : {}".format(entries_file, e))
+        loop.stop()
+    except Exception as e:
+        logger.error("Can't process entries file {} : {}"
+                     .format(entries_file, e))
+        loop.stop()
 
     redis.delete('entries')
     redis.sadd('entries', *entries.keys())
