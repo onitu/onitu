@@ -1,21 +1,14 @@
 {
-  "A": {
-    "driver": "local_storage",
+  "rep2": {
+    "driver": "local_storage", 
     "options": {
-      "root": "test/driver_a"
+      "root": "test/driver_rep2"
     }
-  },
-  "B": {
-    "driver": "local_storage",
+  }, 
+  "rep1": {
+    "driver": "local_storage", 
     "options": {
-      "root": "test/driver_b"
-    }
-  },
-  "client": {
-    "driver": "client",
-    "options": {
-      "port": 43364,
-      "port2": 43365
+      "root": "test/driver_rep1"
     }
   }
 }
