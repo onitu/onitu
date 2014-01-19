@@ -13,7 +13,7 @@ class EventLoop(object):
             if timeout is not None:
                 if time() - start >= timeout:
                     raise TimeoutError()
-            sleep(0.1)
+            sleep(0.001)
 
 
 class BooleanLoop(EventLoop):
