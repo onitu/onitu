@@ -1,12 +1,15 @@
 import sys
 import signal
+import socket
 
 import simplejson
 import circus
 
 from circus.exc import ConflictError
 from zmq.eventloop import ioloop
-from logbook import Logger
+from logbook import Logger, INFO, DEBUG, NullHandler, NestedSetup
+from logbook.queues import ZeroMQHandler, ZeroMQSubscriber
+from logbook.more import ColorizedStderrHandler
 from tornado import gen
 
 from utils import connect_to_redis
@@ -45,7 +48,7 @@ def load_drivers(*args, **kwargs):
         watcher = arbiter.add_watcher(
             name,
             sys.executable,
-            args=['-m', script, name],
+            args=['-m', script, name, logs_uri],
             copy_env=True,
         )
 
@@ -65,46 +68,72 @@ def start_watcher(watcher):
         return
 
 
+def get_logs_dispatcher(uri=None, debug=False):
+    handlers = []
+
+    if not debug:
+        handlers.append(NullHandler(level=DEBUG))
+
+    handlers.append(ColorizedStderrHandler(level=INFO))
+
+    if not uri:
+        # Find an open port.
+        # This is a race condition as the port could be used between
+        # the check and its binding. However, this is probably one of the
+        # best solution without patching Logbook.
+        tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        tmpsock.bind(('localhost', 0))
+        uri = 'tcp://{}:{}'.format(*tmpsock.getsockname())
+        tmpsock.close()
+
+    subscriber = ZeroMQSubscriber(uri, multi=True)
+    return uri, subscriber.dispatch_in_background(setup=NestedSetup(handlers))
+
+
 if __name__ == '__main__':
     if len(sys.argv) > 1:
         entries_file = sys.argv[1]
     else:
         entries_file = 'entries.json'
 
-    logger = Logger("Onitu")
+    logs_uri, dispatcher = get_logs_dispatcher()
 
-    ioloop.install()
-    loop = ioloop.IOLoop.instance()
+    with ZeroMQHandler(logs_uri, multi=True):
+        logger = Logger("Onitu")
 
-    sigint_handler = signal.getsignal(signal.SIGINT)
-    sigterm_handler = signal.getsignal(signal.SIGTERM)
+        ioloop.install()
+        loop = ioloop.IOLoop.instance()
 
-    arbiter = circus.get_arbiter(
-        [
-            {
-                'cmd': 'redis-server',
-                'args': 'redis/redis.conf',
-                'copy_env': True,
-                'priority': 1,
-            },
-            {
-                'cmd': sys.executable,
-                'args': '-m onitu.referee',
-                'copy_env': True,
-            },
-        ],
-        proc_name="Onitu",
-        loop=loop
-    )
+        sigint_handler = signal.getsignal(signal.SIGINT)
+        sigterm_handler = signal.getsignal(signal.SIGTERM)
 
-    signal.signal(signal.SIGINT, sigint_handler)
-    signal.signal(signal.SIGTERM, sigterm_handler)
+        arbiter = circus.get_arbiter(
+            [
+                {
+                    'cmd': 'redis-server',
+                    'args': 'redis/redis.conf',
+                    'copy_env': True,
+                    'priority': 1,
+                },
+                {
+                    'cmd': sys.executable,
+                    'args': ['-m', 'onitu.referee', logs_uri],
+                    'copy_env': True,
+                },
+            ],
+            proc_name="Onitu",
+            loop=loop
+        )
 
-    try:
-        future = arbiter.start()
-        loop.add_future(future, load_drivers)
-        arbiter.start_io_loop()
-    except (KeyboardInterrupt, SystemExit):
-        pass
-    finally:
-        arbiter.stop()
+        signal.signal(signal.SIGINT, sigint_handler)
+        signal.signal(signal.SIGTERM, sigterm_handler)
+
+        try:
+            future = arbiter.start()
+            loop.add_future(future, load_drivers)
+            arbiter.start_io_loop()
+        except (KeyboardInterrupt, SystemExit):
+            pass
+        finally:
+            arbiter.stop()
+            dispatcher.stop()

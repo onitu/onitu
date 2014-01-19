@@ -1,6 +1,9 @@
 import sys
 
+from logbook.queues import ZeroMQHandler
+
 from client import start
 
 if __name__ == '__main__':
-    start(*sys.argv[1:])
+    with ZeroMQHandler(sys.argv[2], multi=True).applicationbound():
+        start(sys.argv[1])
