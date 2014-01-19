@@ -9,7 +9,8 @@ LOG_DRIVER_STARTED = "{driver} - Worker: Listening for orders from" \
 
 
 class Launcher(object):
-    def __init__(self, background=True):
+    def __init__(self, entries='entries.json', background=True):
+        self.entries = entries
         self.bg = background
         self.events = []
         self.process = None
@@ -45,7 +46,7 @@ class Launcher(object):
                 action()
 
     def __call__(self, wait=False):
-        self.process = sh.python(m='onitu', _bg=self.bg,
+        self.process = sh.python('-m', 'onitu', self.entries, _bg=self.bg,
                                  _err=self._process_line)
         if wait:
             self.wait()

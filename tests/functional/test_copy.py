@@ -1,4 +1,5 @@
 import os.path
+from os import unlink
 from utils.launcher import Launcher
 from utils.entries import Entries
 from utils.loop import BooleanLoop, CounterLoop
@@ -9,16 +10,17 @@ launcher = None
 loop = None
 dirs = TempDirs()
 rep1, rep2 = dirs.create(), dirs.create()
+json_file = 'test_copy.json'
 
 
 def setup_module(module):
     global launcher, loop
-    launcher = Launcher()
     entries = Entries()
     entries.add('local_storage', 'rep1', {'root': rep1})
     entries.add('local_storage', 'rep2', {'root': rep2})
-    entries.save('entries.json')
+    entries.save(json_file)
     loop = CounterLoop(2)
+    launcher = Launcher(json_file)
     launcher.on_driver_started(loop.check, 'rep1')
     launcher.on_driver_started(loop.check, 'rep2')
     launcher()
@@ -26,6 +28,7 @@ def setup_module(module):
 
 def teardown_module(module):
     launcher.kill()
+    unlink(json_file)
 
 
 def test_simple_copy():

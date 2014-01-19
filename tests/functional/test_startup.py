@@ -1,4 +1,5 @@
 import sh
+from os import unlink
 from utils.launcher import Launcher
 from utils.entries import Entries
 from utils.loop import BooleanLoop
@@ -7,20 +8,22 @@ from utils.tempdirs import TempDirs
 launcher = None
 loop = BooleanLoop()
 dirs = TempDirs()
+json_file = 'test_startup.json'
 
 
 def setup_module(module):
     global launcher
     entries = Entries()
     entries.add('local_storage', 'rep1', {'root': dirs.create()})
-    entries.save('entries.json')
-    launcher = Launcher()
+    entries.save(json_file)
+    launcher = Launcher(json_file)
     launcher.on_driver_started(loop.stop, 'rep1')
     launcher()
 
 
 def teardown_module(module):
     launcher.kill()
+    unlink(json_file)
 
 
 def test_all_active():
