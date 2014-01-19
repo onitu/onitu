@@ -24,11 +24,11 @@ class Launcher(object):
         self.events.remove(event)
 
     @staticmethod
-    def on_end_transfer(d_from, d_to, fid):
+    def log_end_transfer(d_from, d_to, fid):
         return LOG_END_TRANSFER.format(driver=d_to, other=d_from, fid=fid)
 
     @staticmethod
-    def on_driver_started(driver):
+    def log_driver_started(driver):
         return LOG_DRIVER_STARTED.format(driver=driver)
 
     def quit(self):
@@ -51,6 +51,18 @@ class Launcher(object):
         if (wait):
             self.wait()
         return self.process
+
+    def _on_event(self, name):
+        log_func = getattr(self, 'log_{}'.format(name))
+        def caller(action, *args, **kwargs):
+            line = log_func(*args, **kwargs)
+            self.set_event(line, action)
+        return caller
+
+    def __getattr__(self, name):
+        if name.startswith('on_'):
+            return self._on_event(name[3:])
+        return super(Launcher, self).__getattr__(name)
 
 
 def launch(*args, **kwargs):

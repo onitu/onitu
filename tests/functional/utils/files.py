@@ -1,8 +1,6 @@
 import sh
 import hashlib
 
-MAX_SIZE_BS = 1024 * 1024
-
 
 def generate(filename, bs, count=1):
     return sh.dd('if=/dev/urandom', 'of={}'.format(filename),

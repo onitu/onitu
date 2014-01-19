@@ -13,7 +13,7 @@ def setup_module(module):
     entries.add('local_storage', 'rep1')
     entries.save('entries.json')
     launcher = Launcher()
-    launcher.set_event(launcher.on_driver_started('rep1'), loop.stop)
+    launcher.on_driver_started(loop.stop, 'rep1')
     circus = launcher()
 
 
