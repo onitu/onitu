@@ -1,19 +1,22 @@
+import os.path
 from utils.launcher import Launcher
 from utils.entries import Entries
 from utils.loop import BooleanLoop, CounterLoop
 from utils.files import generate, checksum
+from utils.tempdirs import TempDirs
 
 launcher = None
 loop = None
+dirs = TempDirs()
+rep1, rep2 = dirs.create(), dirs.create()
 
 
 def setup_module(module):
     global launcher, loop
     launcher = Launcher()
     entries = Entries()
-    entries.add('local_storage', 'rep1')
-    entries.add('local_storage', 'rep2')
-    # Driver should create its own directory
+    entries.add('local_storage', 'rep1', {'root': rep1})
+    entries.add('local_storage', 'rep2', {'root': rep2})
     entries.save('entries.json')
     loop = CounterLoop(2)
     launcher.on_driver_started(loop.check, 'rep1')
@@ -30,9 +33,9 @@ def test_simple_copy():
     loop.run(timeout=2)
     loop = BooleanLoop()
     launcher.on_end_transfer(loop.stop, 'rep1', 'rep2', 1)
-    generate('test/driver_rep1/foo', 100)
+    generate(os.path.join(rep1, 'foo'), 100)
     loop.run(timeout=5)
     launcher.quit()
     launcher.wait()
-    assert(checksum('test/driver_rep1/foo') ==
-           checksum('test/driver_rep2/foo'))
+    assert(checksum(os.path.join(rep1, 'foo')) ==
+           checksum(os.path.join(rep2, 'foo')))

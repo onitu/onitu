@@ -46,7 +46,7 @@ class Launcher(object):
 
     def __call__(self, wait=False):
         self.process = sh.python(m='onitu', _bg=self.bg,
-                                  _err=self._process_line)
+                                 _err=self._process_line)
         if wait:
             self.wait()
         return self.process
