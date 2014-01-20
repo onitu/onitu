@@ -27,6 +27,9 @@ def get_chunk(filename, offset, size):
 def start_upload(metadata):
     filename = root.joinpath(metadata.filename)
 
+    # We ignore the next Watchdog events concerning this file
+    events_to_ignore.add(metadata.filename)
+
     if not filename.exists():
         filename.dirname().makedirs_p()
         filename.open('wb').close()
@@ -50,7 +53,7 @@ def end_upload(metadata):
 def upload_chunk(filename, offset, chunk):
     abs_path = root.joinpath(filename)
 
-    # We ignore the next Watchdog events concerning this file
+    # We make sure events are ignored for this file
     events_to_ignore.add(filename)
 
     with open(abs_path, 'r+b') as f:
