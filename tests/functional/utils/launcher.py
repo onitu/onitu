@@ -2,10 +2,9 @@ import sh
 import signal
 
 
-LOG_END_TRANSFER = "{driver} - Worker: Transfer for file {fid}" \
+LOG_END_TRANSFER = "{driver} - Worker: Transfer of '{filename}'" \
                    " from {other} successful"
-LOG_DRIVER_STARTED = "{driver} - Worker: Listening for orders from" \
-                     " the Referee..."
+LOG_DRIVER_STARTED = "{driver} - Worker: Started"
 
 
 class Launcher(object):
@@ -24,8 +23,9 @@ class Launcher(object):
         self.events.remove(event)
 
     @staticmethod
-    def log_end_transfer(d_from, d_to, fid):
-        return LOG_END_TRANSFER.format(driver=d_to, other=d_from, fid=fid)
+    def log_end_transfer(d_from, d_to, filename):
+        return LOG_END_TRANSFER.format(driver=d_to, other=d_from,
+                                       filename=filename)
 
     @staticmethod
     def log_driver_started(driver):

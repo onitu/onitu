@@ -36,13 +36,10 @@ def test_startup():
     loop.run(timeout=2)
 
 
-def gen_test_copy(filename, size, fileids=[]):
-    if not filename in fileids:
-        fileids.append(filename)
-    fileid = fileids.index(filename) + 1
+def gen_test_copy(filename, size):
     def test():
         loop = BooleanLoop()
-        launcher.on_end_transfer(loop.stop, 'rep1', 'rep2', fileid)
+        launcher.on_end_transfer(loop.stop, 'rep1', 'rep2', filename)
         generate(os.path.join(rep1, filename), size)
         loop.run(timeout=5)
         assert(checksum(os.path.join(rep1, filename)) ==
