@@ -35,7 +35,7 @@ class Launcher(object):
         self.process.signal(signal.SIGINT)
 
     def kill(self):
-        self.process.signal(signal.SIGKILL)
+        self.process.signal(signal.SIGTERM)
 
     def wait(self):
         self.process.wait()
