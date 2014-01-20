@@ -104,9 +104,6 @@ if __name__ == '__main__':
         ioloop.install()
         loop = ioloop.IOLoop.instance()
 
-        sigint_handler = signal.getsignal(signal.SIGINT)
-        sigterm_handler = signal.getsignal(signal.SIGTERM)
-
         arbiter = circus.get_arbiter(
             [
                 {
@@ -125,8 +122,8 @@ if __name__ == '__main__':
             loop=loop
         )
 
-        signal.signal(signal.SIGINT, sigint_handler)
-        signal.signal(signal.SIGTERM, sigterm_handler)
+        for s in (signal.SIGINT, signal.SIGTERM, signal.SIGQUIT):
+            signal.signal(s, lambda *args, **kwargs: loop.stop())
 
         try:
             future = arbiter.start()
