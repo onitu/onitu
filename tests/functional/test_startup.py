@@ -6,7 +6,6 @@ from utils.loop import BooleanLoop
 from utils.tempdirs import TempDirs
 
 launcher = None
-loop = BooleanLoop()
 dirs = TempDirs()
 json_file = 'test_startup.json'
 
@@ -17,8 +16,14 @@ def setup_module(module):
     entries.add('local_storage', 'rep1', {'root': dirs.create()})
     entries.save(json_file)
     launcher = Launcher(json_file)
+    loop = BooleanLoop()
     launcher.on_driver_started(loop.stop, 'rep1')
     launcher()
+    try:
+        loop.run(timeout=2)
+    except:
+        teardown_module(module)
+        raise
 
 
 def teardown_module(module):
@@ -27,6 +32,5 @@ def teardown_module(module):
 
 
 def test_all_active():
-    loop.run(timeout=2)
     for w in ["referee", "rep1", "redis"]:
         sh.circusctl.status(w) == "active\n"

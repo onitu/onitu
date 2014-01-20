@@ -7,14 +7,13 @@ from utils.files import generate, checksum
 from utils.tempdirs import TempDirs
 
 launcher = None
-loop = None
 dirs = TempDirs()
 rep1, rep2 = dirs.create(), dirs.create()
 json_file = 'test_copy.json'
 
 
 def setup_module(module):
-    global launcher, loop
+    global launcher
     entries = Entries()
     entries.add('local_storage', 'rep1', {'root': rep1})
     entries.add('local_storage', 'rep2', {'root': rep2})
@@ -24,6 +23,11 @@ def setup_module(module):
     launcher.on_driver_started(loop.check, 'rep1')
     launcher.on_driver_started(loop.check, 'rep2')
     launcher()
+    try:
+        loop.run(timeout=2)
+    except:
+        teardown_module(module)
+        raise
 
 
 def teardown_module(module):
@@ -31,28 +35,28 @@ def teardown_module(module):
     unlink(json_file)
 
 
-def test_startup():
-    global loop
-    loop.run(timeout=2)
+def copy_file(filename, size):
+    loop = BooleanLoop()
+    launcher.on_end_transfer(loop.stop, 'rep1', 'rep2', filename)
+    generate(os.path.join(rep1, filename), size)
+    loop.run(timeout=5)
+    assert(checksum(os.path.join(rep1, filename)) ==
+           checksum(os.path.join(rep2, filename)))
 
 
-def gen_test_copy(filename, size):
-    def test():
-        loop = BooleanLoop()
-        launcher.on_end_transfer(loop.stop, 'rep1', 'rep2', filename)
-        generate(os.path.join(rep1, filename), size)
-        loop.run(timeout=5)
-        assert(checksum(os.path.join(rep1, filename)) ==
-               checksum(os.path.join(rep2, filename)))
-    return test
+def test_simple_copy():
+    copy_file('simple', 100)
 
 
-test_simple_copy = gen_test_copy('foo', 100)
-test_other_copy = gen_test_copy('bar', 100)
-test_bigger_copy = gen_test_copy('foo', 1000)
-test_smaller_copy = gen_test_copy('foo', 10)
+def test_other_copy():
+    copy_file('other', 100)
 
 
-def test_end():
-    launcher.quit()
-    launcher.wait()
+def test_smaller_copy():
+    copy_file('smaller', 100)
+    copy_file('smaller', 10)
+
+
+def test_bigger_copy():
+    copy_file('bigger', 100)
+    copy_file('bigger', 1000)
