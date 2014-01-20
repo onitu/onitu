@@ -20,6 +20,8 @@ class Worker(Thread):
         self.context = zmq.Context.instance()
         self.sub = None
 
+        self.logger.info("Started")
+
     def run(self):
         port = self.plug.redis.get('referee:publisher')
         publisher = 'tcp://localhost:{}'.format(port)
@@ -28,7 +30,6 @@ class Worker(Thread):
         self.sub.setsockopt(zmq.SUBSCRIBE, self.plug.name)
 
         while True:
-            self.logger.info("Listening for orders from the Referee...")
             _, driver, fid = self.sub.recv_multipart()
 
             self.async_get_file(fid, driver=driver)
@@ -46,6 +47,9 @@ class Worker(Thread):
     def get_file(self, fid, driver=None, restart=False):
         """Transfers a file from a Driver to another.
         """
+        metadata = Metadata.get_by_id(self.plug, fid)
+        filename = metadata.filename
+
         transfer_key = 'drivers:{}:transfers:{}'.format(self.plug.name, fid)
 
         if driver:
@@ -55,22 +59,19 @@ class Worker(Thread):
             )
             self.plug.redis.hmset(transfer_key, {'from': driver, 'offset': 0})
             offset = 0
-            self.logger.info("Starting to get file {} from {}"
-                             .format(fid, driver))
+            self.logger.info("Starting to get '{}' from {}", filename, driver)
         else:
             transfer = self.plug.redis.hgetall(transfer_key)
             driver = transfer['from']
             offset = int(transfer['offset'])
-            self.logger.info("Restarting transfer for file {} from {}"
-                             .format(fid, driver))
-
-        metadata = Metadata.get_by_id(self.plug, fid)
+            self.logger.info(
+                "Restarting transfer of '{}' from {}", filename, driver
+            )
 
         dealer = self.context.socket(zmq.DEALER)
         port = self.plug.redis.get('drivers:{}:router'.format(driver))
         dealer.connect('tcp://localhost:{}'.format(port))
 
-        filename = metadata.filename
         end = metadata.size
         chunk_size = self.plug.options.get('chunk_size', 1 * 1024 * 1024)
 
@@ -81,8 +82,10 @@ class Worker(Thread):
             dealer.send_multipart((filename, str(offset), str(chunk_size)))
             chunk = dealer.recv()
 
-            self.logger.debug("Received chunk of size {} from {} for file {}"
-                              .format(len(chunk), driver, fid))
+            self.logger.debug(
+                "Received chunk of size {} from {} for '{}'",
+                len(chunk), driver, filename
+            )
 
             with self.plug.redis.pipeline() as pipe:
                 try:
@@ -101,8 +104,8 @@ class Worker(Thread):
                 except (redis.WatchError, AssertionError):
                     # another transaction for the same file has
                     # probably started
-                    self.logger.info("Aborting transfer for file {} from {}"
-                                     .format(fid, driver))
+                    self.logger.info("Aborting transfer of '{}' from {}",
+                                     filename, driver)
                     return
 
         self._call('end_upload', metadata)
@@ -113,8 +116,7 @@ class Worker(Thread):
             fid
         )
         self.logger.info(
-            "Transfer for file {} from {} successful",
-            fid, driver
+            "Transfer of '{}' from {} successful", filename, driver
         )
 
     def _call(self, handler_name, *args, **kwargs):

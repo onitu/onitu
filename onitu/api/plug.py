@@ -52,6 +52,8 @@ class Plug(object):
         self.logger = Logger(self.name)
         self.options = self.redis.hgetall('drivers:{}:options'.format(name))
 
+        self.logger.info("Started")
+
         self.router = Router(name, self.redis, self._handlers.get('get_chunk'))
         self.router.start()
 
@@ -114,16 +116,17 @@ class Plug(object):
                                   .format(self.name), fid):
             # The event has been triggered during a transfer, we
             # have to cancel it.
-            self.logger.warning("About to send an event for {} when "
-                                "downloading it, aborting the event"
-                                .format(fid))
+            self.logger.warning(
+                "About to send an event for '{}' when downloading it, "
+                "aborting the event", metadata.filename
+            )
             return
 
         metadata.uptodate = [self.name]
 
         metadata.write()
 
-        self.redis.rpush('events', fid)
+        self.redis.rpush('events', "{}:{}".format(self.name, fid))
 
     def get_metadata(self, filename):
         """Returns a `Metadata` object corresponding to the given

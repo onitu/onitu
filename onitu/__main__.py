@@ -23,21 +23,22 @@ def load_drivers(*args, **kwargs):
         with open(entries_file) as f:
             entries = simplejson.load(f)
     except simplejson.JSONDecodeError as e:
-        logger.error("Error parsing {} : {}".format(entries_file, e))
+        logger.error("Error parsing '{}' : {}", entries_file, e)
         loop.stop()
     except Exception as e:
-        logger.error("Can't process entries file {} : {}"
-                     .format(entries_file, e))
+        logger.error(
+            "Can't process entries file '{}' : {}", entries_file, e
+        )
         loop.stop()
 
     redis.delete('entries')
     redis.sadd('entries', *entries.keys())
 
     for name, conf in entries.items():
-        logger.info("Loading entry {}".format(name))
+        logger.info("Loading entry {}", name)
 
         if ':' in name:
-            logger.error("Illegal character ':' in entry {}".format(name))
+            logger.error("Illegal character ':' in entry {}", name)
             continue
 
         script = 'onitu.drivers.{}'.format(conf['driver'])

@@ -1,5 +1,4 @@
 import zmq
-import simplejson
 
 import redis
 
@@ -48,17 +47,16 @@ class Referee(object):
         """
         while True:
             try:
-                self.logger.debug("Listening...")
-                _, fid = self.redis.blpop(['events'])
-                self.logger.info("New event about {}".format(fid))
+                _, event = self.redis.blpop(['events'])
+                driver, fid = event.split(':')
             except redis.ConnectionError:
                 exit()
 
             # delete all the newer events referring to this file
             self.redis.lrem('events', fid)
-            self._handle_event(fid)
+            self._handle_event(driver, fid)
 
-    def _handle_event(self, fid):
+    def _handle_event(self, driver, fid):
         """Choose who are the entries that are concerned by the event
         and send a notification to them.
 
@@ -68,6 +66,9 @@ class Referee(object):
         metadata = self.redis.hgetall('files:{}'.format(fid))
         owners = metadata['owners'].split(':')
         uptodate = metadata['uptodate'].split(':')
+        filename = metadata['filename']
+
+        self.logger.info("New event for '{}' from {}", filename, driver)
 
         to_notify = []
         new_owners = []
@@ -88,5 +89,7 @@ class Referee(object):
             self.redis.hset('files:{}'.format(fid), 'owners', value)
 
         for name in to_notify:
-            self.logger.debug("Notifying {} about {}".format(name, fid))
+            self.logger.debug(
+                "Notifying {} about '{}'", name, filename
+            )
             self.pub.send_multipart((name, uptodate[0], fid))

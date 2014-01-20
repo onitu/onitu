@@ -18,6 +18,7 @@ class Router(Thread):
         self.router = None
 
         self.logger = Logger("{} - Router".format(self.name))
+        self.logger.info("Started")
 
         self.context = zmq.Context.instance()
 
@@ -34,7 +35,9 @@ class Router(Thread):
         """Calls the `get_chunk` handler defined by the Driver to get
         the chunk and send it to the addressee.
         """
-        self.logger.debug("Getting chunk of size {} from offset {} in {}"
-                          .format(size, offset, filename))
+        self.logger.debug(
+            "Getting chunk of size {} from offset {} in '{}'",
+            size, offset, filename
+        )
         chunk = self.get_chunk(filename, int(offset), int(size))
         self.router.send_multipart((identity, chunk))
