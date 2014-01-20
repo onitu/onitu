@@ -24,7 +24,7 @@ def setup_module(module):
     launcher.on_driver_started(loop.check, 'rep2')
     launcher()
     try:
-        loop.run(timeout=2)
+        loop.run(timeout=5)
     except:
         teardown_module(module)
         raise
@@ -52,6 +52,11 @@ def test_other_copy():
     copy_file('other', 100)
 
 
+def test_same_copy():
+    copy_file('same', 100)
+    copy_file('same', 100)
+
+
 def test_smaller_copy():
     copy_file('smaller', 100)
     copy_file('smaller', 10)
@@ -60,3 +65,18 @@ def test_smaller_copy():
 def test_bigger_copy():
     copy_file('bigger', 100)
     copy_file('bigger', 1000)
+
+
+def test_big_copy():
+    copy_file('big', '10M')
+
+
+def test_multipass_copy(): ## dd called with a count parameter
+    count = 10
+    filename = 'multipass'
+    loop = CounterLoop(count)
+    launcher.on_end_transfer(loop.check, 'rep1', 'rep2', filename)
+    generate(os.path.join(rep1, filename), '1M', 10)
+    loop.run(timeout=5)
+    assert(checksum(os.path.join(rep1, filename)) ==
+           checksum(os.path.join(rep2, filename)))

@@ -20,7 +20,7 @@ def setup_module(module):
     launcher.on_driver_started(loop.stop, 'rep1')
     launcher()
     try:
-        loop.run(timeout=2)
+        loop.run(timeout=5)
     except:
         teardown_module(module)
         raise
