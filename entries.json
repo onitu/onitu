@@ -1,14 +1,14 @@
 {
-  "rep2": {
+  "A": {
     "driver": "local_storage", 
     "options": {
-      "root": "test/driver_rep2"
+      "root": "test/driver_a"
     }
   }, 
-  "rep1": {
+  "B": {
     "driver": "local_storage", 
     "options": {
-      "root": "test/driver_rep1"
+      "root": "test/driver_b"
     }
   }
 }
