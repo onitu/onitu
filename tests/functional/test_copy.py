@@ -31,14 +31,31 @@ def teardown_module(module):
     unlink(json_file)
 
 
-def test_simple_copy():
+def test_startup():
     global loop
     loop.run(timeout=2)
-    loop = BooleanLoop()
-    launcher.on_end_transfer(loop.stop, 'rep1', 'rep2', 1)
-    generate(os.path.join(rep1, 'foo'), 100)
-    loop.run(timeout=5)
+
+
+def gen_test_copy(filename, size, fileids=[]):
+    if not filename in fileids:
+        fileids.append(filename)
+    fileid = fileids.index(filename) + 1
+    def test():
+        loop = BooleanLoop()
+        launcher.on_end_transfer(loop.stop, 'rep1', 'rep2', fileid)
+        generate(os.path.join(rep1, filename), size)
+        loop.run(timeout=5)
+        assert(checksum(os.path.join(rep1, filename)) ==
+               checksum(os.path.join(rep2, filename)))
+    return test
+
+
+test_simple_copy = gen_test_copy('foo', 100)
+test_other_copy = gen_test_copy('bar', 100)
+test_bigger_copy = gen_test_copy('foo', 1000)
+test_smaller_copy = gen_test_copy('foo', 10)
+
+
+def test_end():
     launcher.quit()
     launcher.wait()
-    assert(checksum(os.path.join(rep1, 'foo')) ==
-           checksum(os.path.join(rep2, 'foo')))
