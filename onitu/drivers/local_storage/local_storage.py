@@ -32,7 +32,8 @@ def start_upload(metadata):
 
     if not filename.exists():
         filename.dirname().makedirs_p()
-        filename.open('wb').close()
+
+    filename.open('w+b').close()
 
 
 @plug.handler()
