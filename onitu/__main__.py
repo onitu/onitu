@@ -17,6 +17,8 @@ from utils import connect_to_redis
 
 @gen.coroutine
 def load_drivers(*args, **kwargs):
+    logger.info("Loading entries...")
+
     redis = connect_to_redis()
 
     try:
@@ -35,7 +37,7 @@ def load_drivers(*args, **kwargs):
     redis.sadd('entries', *entries.keys())
 
     for name, conf in entries.items():
-        logger.info("Loading entry {}", name)
+        logger.debug("Loading entry {}", name)
 
         if ':' in name:
             logger.error("Illegal character ':' in entry {}", name)
@@ -55,7 +57,7 @@ def load_drivers(*args, **kwargs):
 
         loop.add_callback(start_watcher, watcher)
 
-    logger.info("Entries loaded")
+    logger.debug("Entries loaded")
 
 
 @gen.coroutine
