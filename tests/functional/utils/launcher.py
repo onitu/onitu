@@ -1,10 +1,11 @@
-import sh
 import signal
+import socket
 
+import sh
+from logbook import Processor, NestedSetup
+from logbook.queues import ZeroMQSubscriber
 
-LOG_END_TRANSFER = "{driver} - Worker: Transfer of '{filename}'" \
-                   " from {other} successful"
-LOG_DRIVER_STARTED = "{driver} - Worker: Started"
+from logs import logs
 
 
 class Launcher(object):
@@ -14,22 +15,13 @@ class Launcher(object):
         self.events = []
         self.process = None
 
-    def set_event(self, line, action):
-        event = line, action
+    def set_event(self, triggers, action):
+        event = (triggers, action)
         self.events.append(event)
         return event
 
     def unset_event(self, event):
         self.events.remove(event)
-
-    @staticmethod
-    def log_end_transfer(d_from, d_to, filename):
-        return LOG_END_TRANSFER.format(driver=d_to, other=d_from,
-                                       filename=filename)
-
-    @staticmethod
-    def log_driver_started(driver):
-        return LOG_DRIVER_STARTED.format(driver=driver)
 
     def quit(self):
         self.process.signal(signal.SIGINT)
@@ -40,24 +32,52 @@ class Launcher(object):
     def wait(self):
         self.process.wait()
 
-    def _process_line(self, line, stdin, process):
-        for e_line, action in self.events:
-            if e_line in line:
-                action()
+    def _process_record(self, record):
+        # We could speed-up things using a hash-table
+        for triggers, action in self.events:
+            for channel, message in triggers:
+                if record.channel == channel and record.message == message:
+                    triggers.remove((channel, message))
+                    if len(triggers) == 0:
+                        self.unset_event((triggers, action))
+                        action()
+                    break
 
-    def __call__(self, wait=False):
-        self.process = sh.python('-m', 'onitu', self.entries, _bg=self.bg,
-                                 _err=self._process_line)
-        if wait:
-            self.wait()
+    def __call__(self):
+        # Find an open port for the logs
+        # (that's a race condition, deal with it)
+        tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        tmpsock.bind(('localhost', 0))
+        log_uri = 'tcp://{}:{}'.format(*tmpsock.getsockname())
+        tmpsock.close()
+
+        handlers = [
+            Processor(self._process_record),
+        ]
+        self.subscriber = ZeroMQSubscriber(log_uri, multi=True)
+        self.subscriber.dispatch_in_background(setup=NestedSetup(handlers))
+
+        self.process = sh.python(
+            '-m', 'onitu',
+            '--entries', self.entries,
+            '--log-uri', log_uri,
+            _bg=self.bg,
+        )
+
         return self.process
 
     def _on_event(self, name):
-        log_func = getattr(self, 'log_{}'.format(name))
+        log_triggers = logs[name]
 
-        def caller(action, *args, **kwargs):
-            line = log_func(*args, **kwargs)
-            self.set_event(line, action)
+        def caller(action, **kwargs):
+            triggers = set(
+                (
+                    channel.format(**kwargs),
+                    message.format(**kwargs)
+                )
+                for (channel, message) in log_triggers
+            )
+            self.set_event(triggers, action)
 
         return caller
 

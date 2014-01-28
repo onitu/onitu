@@ -2,7 +2,7 @@ import sh
 from os import unlink
 from utils.launcher import Launcher
 from utils.entries import Entries
-from utils.loop import BooleanLoop
+from utils.loop import CounterLoop
 from utils.tempdirs import TempDirs
 
 launcher = None
@@ -14,16 +14,9 @@ def setup_module(module):
     global launcher
     entries = Entries()
     entries.add('local_storage', 'rep1', {'root': dirs.create()})
+    entries.add('local_storage', 'rep2', {'root': dirs.create()})
     entries.save(json_file)
     launcher = Launcher(json_file)
-    loop = BooleanLoop()
-    launcher.on_driver_started(loop.stop, 'rep1')
-    launcher()
-    try:
-        loop.run(timeout=5)
-    except:
-        teardown_module(module)
-        raise
 
 
 def teardown_module(module):
@@ -32,5 +25,15 @@ def teardown_module(module):
 
 
 def test_all_active():
-    for w in ["referee", "rep1", "redis"]:
-        sh.circusctl.status(w) == "active\n"
+    loop = CounterLoop(3)
+
+    launcher.on_driver_started(loop.check, driver='rep1')
+    launcher.on_driver_started(loop.check, driver='rep2')
+    launcher.on_referee_started(loop.check)
+    launcher()
+
+    loop.run(timeout=5)
+
+    launcher.quit()
+    launcher.wait()
+
