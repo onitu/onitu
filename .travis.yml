@@ -6,7 +6,7 @@ install:
   - pip install -r requirements_dev.txt
 # command to run tests
 script:
-  - py.test tests
+  - py.test tests -v
   - pep8 onitu tests
 notifications:
   email: onitu_2015@labeip.epitech.eu
