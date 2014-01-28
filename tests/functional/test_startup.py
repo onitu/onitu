@@ -1,4 +1,3 @@
-import sh
 from os import unlink
 from utils.launcher import Launcher
 from utils.entries import Entries
@@ -36,4 +35,3 @@ def test_all_active():
 
     launcher.quit()
     launcher.wait()
-

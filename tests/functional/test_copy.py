@@ -76,6 +76,7 @@ def test_bigger_copy():
 def test_big_copy():
     copy_file('big', '10M')
 
+
 @pytest.mark.xfail
 def test_multipass_copy():  # dd called with a count parameter
     count = 10
