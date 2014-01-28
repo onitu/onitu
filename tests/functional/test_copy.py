@@ -71,7 +71,7 @@ def test_big_copy():
     copy_file('big', '10M')
 
 
-def test_multipass_copy(): ## dd called with a count parameter
+def test_multipass_copy():  # dd called with a count parameter
     count = 10
     filename = 'multipass'
     loop = CounterLoop(count)
