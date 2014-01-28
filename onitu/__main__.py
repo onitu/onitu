@@ -1,6 +1,7 @@
 import sys
 import signal
 import socket
+import argparse
 
 import simplejson
 import circus
@@ -51,7 +52,7 @@ def load_drivers(*args, **kwargs):
         watcher = arbiter.add_watcher(
             name,
             sys.executable,
-            args=['-m', script, name, logs_uri],
+            args=['-m', script, name, log_uri],
             copy_env=True,
         )
 
@@ -94,14 +95,19 @@ def get_logs_dispatcher(uri=None, debug=False):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        entries_file = sys.argv[1]
-    else:
-        entries_file = 'entries.json'
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--entries', default='entries.json')
+    parser.add_argument('--log-uri')
+    args = parser.parse_args()
 
-    logs_uri, dispatcher = get_logs_dispatcher()
+    entries_file = args.entries
+    log_uri = args.log_uri
+    dispatcher = None
 
-    with ZeroMQHandler(logs_uri, multi=True):
+    if not args.log_uri:
+        log_uri, dispatcher = get_logs_dispatcher(args.log_uri)
+
+    with ZeroMQHandler(log_uri, multi=True):
         logger = Logger("Onitu")
 
         ioloop.install()
@@ -117,7 +123,7 @@ if __name__ == '__main__':
                 },
                 {
                     'cmd': sys.executable,
-                    'args': ['-m', 'onitu.referee', logs_uri],
+                    'args': ['-m', 'onitu.referee', log_uri],
                     'copy_env': True,
                 },
             ],
@@ -136,4 +142,5 @@ if __name__ == '__main__':
             pass
         finally:
             arbiter.stop()
-            dispatcher.stop()
+            if dispatcher:
+                dispatcher.stop()
