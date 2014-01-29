@@ -45,8 +45,13 @@ redis/appendonly.aof
 *~
 \#*\#
 
+# Vim
+*.swp
+.ropeproject
+
 # Documentation
 docs/_build
 
 # Development
 test
+venv
