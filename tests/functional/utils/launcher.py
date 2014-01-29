@@ -12,16 +12,27 @@ class Launcher(object):
     def __init__(self, entries='entries.json', background=True):
         self.entries = entries
         self.bg = background
-        self.events = []
         self.process = None
 
-    def set_event(self, triggers, action):
-        event = (triggers, action)
-        self.events.append(event)
-        return event
+        self.events = {}
+        self.event_triggers = {}
 
-    def unset_event(self, event):
-        self.events.remove(event)
+    def set_event(self, name, triggers, action):
+        event = {
+            'triggers': list(triggers),
+            'state': [False] * len(triggers),
+            'action': action,
+        }
+
+        self.events[name] = event
+
+        for trigger in triggers:
+            self.event_triggers[trigger] = event
+
+    def unset_event(self, name):
+        for trigger in self.events[name]['triggers']:
+            del self.event_triggers[trigger]
+        del self.events[name]
 
     def quit(self):
         self.process.signal(signal.SIGINT)
@@ -33,15 +44,17 @@ class Launcher(object):
         self.process.wait()
 
     def _process_record(self, record):
-        # We could speed-up things using a hash-table
-        for triggers, action in self.events:
-            for channel, message in triggers:
-                if record.channel == channel and record.message == message:
-                    triggers.remove((channel, message))
-                    if len(triggers) == 0:
-                        self.unset_event((triggers, action))
-                        action()
-                    break
+        trigger = (record.channel, record.message)
+        event = self.event_triggers.get(trigger)
+
+        if not event:
+            return
+
+        event['state'][event['triggers'].index(trigger)] = True
+
+        if all(event['state']):
+            event['state'] = [False] * len(event['triggers'])
+            event['action']()
 
     def __call__(self):
         # Find an open port for the logs
@@ -77,7 +90,7 @@ class Launcher(object):
                 )
                 for (channel, message) in log_triggers
             )
-            self.set_event(triggers, action)
+            self.set_event(name, triggers, action)
 
         return caller
 
