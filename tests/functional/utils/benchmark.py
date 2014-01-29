@@ -5,7 +5,7 @@ class Benchmark():
     def __init__(self,
                  prefix='test_',
                  each=1,
-                 num_format='%.4g',
+                 num_format='{:.4f}',
                  verbose=False
                  ):
         self._prefix = prefix
@@ -15,7 +15,7 @@ class Benchmark():
 
     def _log(self, msg):
         if self._verbose:
-            print (msg)
+            print(msg)
 
     def run(self):
         """All functions whose name starts with prefix.
@@ -56,7 +56,14 @@ class Benchmark():
         return [t for t in dir(self) if t.startswith(self._prefix)]
 
     def display(self):
-        pass
+        max_len = 0
+        for k in self._results.keys():
+            if len(k) > max_len:
+                max_len = len(k)
+        max_len += 4
+        for k in self._results.keys():
+            print('{:>{max_len}} duration: {:.4f} ms'
+                  .format(k, self._results[k], max_len=max_len))
 
     def upload_results(self):
         """upload the results to a codespeed instance
@@ -75,29 +82,29 @@ if __name__ == '__main__':
 
     class TestBenchmark(Benchmark):
         def setup(self):
-            print ('welcome in the global setup')
+            print('welcome in the global setup')
             self.test = 0
 
         def test_nosetup(self):
-            print ('no setup for this test, just a sleep')
-            print ('this is the test {}'.format(self.test))
+            print('no setup for this test, just a sleep')
+            print('this is the test {}'.format(self.test))
             time.sleep(1)
 
         def setup_withsetup(self):
-            print ('setup the test')
+            print('setup the test')
             self.test = 3
 
         def test_withsetup(self):
-            print ('there is a setup for this test, the test is {}'
-                   .format(self.test))
+            print('there is a setup for this test, the test is {}'
+                  .format(self.test))
 
         def teardown_withsetup(self):
-            print ('teardown, reset value')
+            print('teardown, reset value')
             self.test = 1
 
         def test_zorglub(self):
-            print ('eviv bulgroz')
-            print ('the test is {}'.format(self.test))
+            print('eviv bulgroz')
+            print('the test is {}'.format(self.test))
             return 9999
 
     t = TestBenchmark()

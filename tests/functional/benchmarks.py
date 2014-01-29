@@ -56,19 +56,19 @@ class BenchmarkSimpleCopy(Benchmark):
     def test_small_copy(self):
         total = 0.
         for i in range(100):
-            total += self.copy_file('small{}'.format(i), 100)
+            total += self.copy_file('small{}'.format(i), 10000)
         return total
 
     def test_medium_copy(self):
         total = 0.
         for i in range(10):
-            total += self.copy_file('medium{}'.format(i), 1000)
+            total += self.copy_file('medium{}'.format(i), 100000)
         return total
 
     def test_big_copy(self):
-        self.copy_file('big', 10000)
+        self.copy_file('big', 1000000)
 
 if __name__ == '__main__':
     bench = BenchmarkSimpleCopy()
     bench.run()
-    print bench.get_results()
+    bench.display()
