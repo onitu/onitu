@@ -12,8 +12,11 @@ class EventLoop(object):
         while self.condition():
             if timeout is not None:
                 if time() - start >= timeout:
-                    raise TimeoutError()
+                    self.timeout()
             sleep(0.001)
+
+    def timeout(self):
+        raise TimeoutError()
 
 
 class BooleanLoop(EventLoop):
@@ -29,6 +32,7 @@ class BooleanLoop(EventLoop):
 
 class CounterLoop(EventLoop):
     def __init__(self, count):
+        self.total = count
         self.count = count
 
     def condition(self):
@@ -36,3 +40,10 @@ class CounterLoop(EventLoop):
 
     def check(self):
         self.count -= 1
+
+    def timeout(self):
+        print(
+            "CounterLoop : {} on {} done."
+            .format(self.total - self.count, self.total)
+        )
+        super(CounterLoop, self).timeout()
