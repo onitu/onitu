@@ -34,6 +34,7 @@ class Benchmark():
 
     def _run_function(self, name, *args):
         try:
+            self._log('Run function {}'.format(name))
             return getattr(self, name)(*args)
         except:
             pass
@@ -41,8 +42,8 @@ class Benchmark():
     def _run_test(self, name):
         setup_test = name.replace(self._prefix, 'setup_')
         teardown_test = name.replace(self._prefix, 'teardown_')
-        self._run_function(setup_test)
         try:
+            self._run_function(setup_test)
             with Timer() as t:
                 res = self._run_function(name)
             duration = res if res else t.msecs
