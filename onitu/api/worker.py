@@ -1,6 +1,7 @@
 from threading import Thread, Event
 
 import zmq
+import redis
 from logbook import Logger
 
 from .metadata import Metadata
@@ -17,21 +18,21 @@ class Worker(Thread):
         self.plug = plug
         self.logger = Logger("{} - Worker".format(self.plug.name))
         self.context = zmq.Context.instance()
-        self.sub = None
         self.transfers = {}
 
         self.logger.info("Started")
 
     def run(self):
-        port = self.plug.redis.get('referee:publisher')
-        publisher = 'tcp://localhost:{}'.format(port)
-        self.sub = self.context.socket(zmq.SUB)
-        self.sub.connect(publisher)
-        self.sub.setsockopt(zmq.SUBSCRIBE, self.plug.name)
-
         while True:
-            _, driver, fid = self.sub.recv_multipart()
+            try:
+                _, event = self.plug.redis.blpop(
+                    ['drivers:{}:events'.format(self.plug.name)]
+                )
+                driver, fid = event.split(':')
+            except redis.ConnectionError:
+                exit()
 
+            self.plug.redis.lrem('events', fid)
             self.async_get_file(fid, driver=driver)
 
     def resume_transfers(self):

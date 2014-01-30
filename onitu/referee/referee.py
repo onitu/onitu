@@ -1,5 +1,3 @@
-import zmq
-
 import redis
 
 from logbook import Logger
@@ -34,11 +32,6 @@ class Referee(object):
 
         self.redis = connect_to_redis()
         self.entries = self.redis.smembers('entries')
-
-        self.context = zmq.Context()
-        self.pub = self.context.socket(zmq.PUB)
-        port = self.pub.bind_to_random_port('tcp://*')
-        self.redis.set('referee:publisher', port)
 
         self.logger.info("Started")
 
@@ -92,4 +85,7 @@ class Referee(object):
             self.logger.debug(
                 "Notifying {} about '{}'", name, filename
             )
-            self.pub.send_multipart((name, uptodate[0], fid))
+            self.redis.rpush(
+                'drivers:{}:events'.format(name),
+                "{}:{}".format(uptodate[0], fid)
+            )

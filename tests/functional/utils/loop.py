@@ -30,7 +30,7 @@ class BooleanLoop(EventLoop):
         self._running = False
 
     def restart(self):
-        self._running =True
+        self._running = True
 
 
 class CounterLoop(EventLoop):
