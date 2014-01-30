@@ -7,10 +7,15 @@ class TempDirs(object):
         self.dirs = set()
 
     def __del__(self):
-        for d in self.dirs:
-            rmtree(d)
+        self.delete()
 
     def create(self):
         d = tempfile.mkdtemp()
         self.dirs.add(d)
         return d
+
+    def delete(self):
+        for d in self.dirs:
+            rmtree(d)
+
+        self.dirs = set()

@@ -37,6 +37,7 @@ def setup_module(module):
 def teardown_module(module):
     launcher.kill()
     unlink(json_file)
+    dirs.delete()
 
 
 def copy_file(filename, size):
