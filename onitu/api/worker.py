@@ -1,7 +1,6 @@
-from threading import Thread
+from threading import Thread, Event
 
 import zmq
-import redis
 from logbook import Logger
 
 from .metadata import Metadata
@@ -19,6 +18,7 @@ class Worker(Thread):
         self.logger = Logger("{} - Worker".format(self.plug.name))
         self.context = zmq.Context.instance()
         self.sub = None
+        self.transfers = {}
 
         self.logger.info("Started")
 
@@ -39,29 +39,40 @@ class Worker(Thread):
                                             .format(self.plug.name)):
             self.async_get_file(fid, driver=None, restart=True)
 
-    def async_get_file(self, *args, **kwargs):
-        # should probably be in a thread pool, but YOLO
-        thread = Thread(target=self.get_file, args=args, kwargs=kwargs)
+    def async_get_file(self, fid, **kwargs):
+        if fid in self.transfers:
+            stop_event, thread = self.transfers[fid]
+            stop_event.set()
+            thread.join()
+
+        stop_event = Event()
+        thread = Thread(
+            target=self.get_file, args=(fid, stop_event), kwargs=kwargs
+        )
+
+        self.transfers[fid] = (stop_event, thread)
+
         thread.start()
 
-    def get_file(self, fid, driver=None, restart=False):
+    def get_file(self, fid, stop_event, driver=None, restart=False):
         """Transfers a file from a Driver to another.
         """
+        redis = self.plug.redis
         metadata = Metadata.get_by_id(self.plug, fid)
         filename = metadata.filename
 
         transfer_key = 'drivers:{}:transfers:{}'.format(self.plug.name, fid)
 
         if driver:
-            self.plug.redis.sadd(
+            redis.sadd(
                 'drivers:{}:transfers'.format(self.plug.name),
                 fid
             )
-            self.plug.redis.hmset(transfer_key, {'from': driver, 'offset': 0})
+            redis.hmset(transfer_key, {'from': driver, 'offset': 0})
             offset = 0
             self.logger.info("Starting to get '{}' from {}", filename, driver)
         else:
-            transfer = self.plug.redis.hgetall(transfer_key)
+            transfer = redis.hgetall(transfer_key)
             driver = transfer['from']
             offset = int(transfer['offset'])
             self.logger.info(
@@ -69,7 +80,7 @@ class Worker(Thread):
             )
 
         dealer = self.context.socket(zmq.DEALER)
-        port = self.plug.redis.get('drivers:{}:router'.format(driver))
+        port = redis.get('drivers:{}:router'.format(driver))
         dealer.connect('tcp://localhost:{}'.format(port))
 
         end = metadata.size
@@ -79,6 +90,14 @@ class Worker(Thread):
             self._call('start_upload', metadata)
 
         while offset < end:
+            if stop_event.is_set():
+                # another transaction for the same file has
+                # probably started
+                self.logger.info(
+                    "Aborting transfer of '{}' from {}", filename, driver
+                )
+                return
+
             dealer.send_multipart((filename, str(offset), str(chunk_size)))
             chunk = dealer.recv()
 
@@ -87,31 +106,14 @@ class Worker(Thread):
                 len(chunk), driver, filename
             )
 
-            with self.plug.redis.pipeline() as pipe:
-                try:
-                    assert len(chunk) > 0
+            self._call('upload_chunk', filename, offset, chunk)
 
-                    pipe.watch(transfer_key)
-
-                    assert pipe.hget(transfer_key, 'offset') == str(offset)
-
-                    self._call('upload_chunk', filename, offset, chunk)
-
-                    pipe.multi()
-                    pipe.hincrby(transfer_key, 'offset', len(chunk))
-                    offset = int(pipe.execute()[-1])
-
-                except (redis.WatchError, AssertionError):
-                    # another transaction for the same file has
-                    # probably started
-                    self.logger.info("Aborting transfer of '{}' from {}",
-                                     filename, driver)
-                    return
+            offset = redis.hincrby(transfer_key, 'offset', len(chunk))
 
         self._call('end_upload', metadata)
 
-        self.plug.redis.delete(transfer_key)
-        self.plug.redis.srem(
+        redis.delete(transfer_key)
+        redis.srem(
             'drivers:{}:transfers'.format(self.plug.name),
             fid
         )
