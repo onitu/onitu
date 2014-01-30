@@ -8,49 +8,45 @@ from utils.tempdirs import TempDirs
 from utils.benchmark import Benchmark
 from utils.timer import Timer
 
-launcher = None
-dirs = TempDirs()
-rep1, rep2 = dirs.create(), dirs.create()
-json_file = 'bench_copy.json'
-
-
-def launch_onitu():
-    global launcher
-    entries = Entries()
-    entries.add('local_storage', 'rep1', {'root': rep1})
-    entries.add('local_storage', 'rep2', {'root': rep2})
-    entries.save(json_file)
-    loop = CounterLoop(3)
-    launcher = Launcher(json_file)
-    launcher.on_referee_started(loop.check)
-    launcher.on_driver_started(loop.check, driver='rep1')
-    launcher.on_driver_started(loop.check, driver='rep2')
-    launcher()
-    loop.run(timeout=5)
-
-
-def stop_onitu():
-    launcher.kill()
-    unlink(json_file)
-
 
 class BenchmarkSimpleCopy(Benchmark):
+    def launch_onitu(self):
+        self.launcher = None
+        self.json_file = 'bench_copy.json'
+        self.dirs = TempDirs()
+        self.rep1, self.rep2 = self.dirs.create(), self.dirs.create()
+        entries = Entries()
+        entries.add('local_storage', 'rep1', {'root': self.rep1})
+        entries.add('local_storage', 'rep2', {'root': self.rep2})
+        entries.save(self.json_file)
+        loop = CounterLoop(3)
+        self.launcher = Launcher(self.json_file)
+        self.launcher.on_referee_started(loop.check)
+        self.launcher.on_driver_started(loop.check, driver='rep1')
+        self.launcher.on_driver_started(loop.check, driver='rep2')
+        self.launcher()
+        loop.run(timeout=5)
+
+    def stop_onitu(self):
+        self.launcher.kill()
+        unlink(self.json_file)
+
     def setup(self):
-        launch_onitu()
+        self.launch_onitu()
 
     def teardown(self):
-        stop_onitu()
+        self.stop_onitu()
 
     def copy_file(self, filename, size, timeout=5):
         loop = BooleanLoop()
-        launcher.on_transfer_ended(
+        self.launcher.on_transfer_ended(
             loop.stop, d_from='rep1', d_to='rep2', filename=filename
         )
-        generate(os.path.join(rep1, filename), size)
+        generate(os.path.join(self.rep1, filename), size)
         with Timer() as t:
             loop.run(timeout=5)
-        assert(checksum(os.path.join(rep1, filename)) ==
-               checksum(os.path.join(rep2, filename)))
+        assert(checksum(os.path.join(self.rep1, filename)) ==
+               checksum(os.path.join(self.rep2, filename)))
         return t.msecs
 
     def test_small_copy(self):
@@ -68,7 +64,78 @@ class BenchmarkSimpleCopy(Benchmark):
     def test_big_copy(self):
         self.copy_file('big', 1000000)
 
+
+class BenchmarkMultipleCopy(Benchmark):
+    def launch_onitu(self):
+        self.launcher = None
+        self.json_file = 'bench_multiple_copy.json'
+        self.dirs = TempDirs()
+        self.rep1 = self.dirs.create()
+        self.rep2 = self.dirs.create()
+        self.rep3 = self.dirs.create()
+        entries = Entries()
+        entries.add('local_storage', 'rep1', {'root': self.rep1})
+        entries.add('local_storage', 'rep2', {'root': self.rep2})
+        entries.add('local_storage', 'rep3', {'root': self.rep3})
+        entries.save(self.json_file)
+        loop = CounterLoop(4)
+        self.launcher = Launcher(self.json_file)
+        self.launcher.on_referee_started(loop.check)
+        self.launcher.on_driver_started(loop.check, driver='rep1')
+        self.launcher.on_driver_started(loop.check, driver='rep2')
+        self.launcher.on_driver_started(loop.check, driver='rep3')
+        self.launcher()
+        loop.run(timeout=5)
+
+    def stop_onitu(self):
+        self.launcher.kill()
+        unlink(self.json_file)
+
+    def setup(self):
+        self.launch_onitu()
+
+    def teardown(self):
+        self.stop_onitu()
+
+    def copy_file(self, filename, size, timeout=5):
+        loop = CounterLoop(2)
+        self.launcher.on_transfer_ended(
+            loop.check, d_from='rep1', d_to='rep2', filename=filename
+        )
+        self.launcher.on_transfer_ended(
+            loop.check, d_from='rep1', d_to='rep3', filename=filename
+        )
+        generate(os.path.join(self.rep1, filename), size)
+        with Timer() as t:
+            loop.run(timeout=5)
+        assert(checksum(os.path.join(self.rep1, filename)) ==
+               checksum(os.path.join(self.rep2, filename)))
+        assert(checksum(os.path.join(self.rep1, filename)) ==
+               checksum(os.path.join(self.rep3, filename)))
+        return t.msecs
+
+    def test_small_copy(self):
+        total = 0.
+        for i in range(100):
+            total += self.copy_file('small{}'.format(i), 10000)
+        return total
+
+    def test_medium_copy(self):
+        total = 0.
+        for i in range(10):
+            total += self.copy_file('medium{}'.format(i), 100000)
+        return total
+
+    def test_big_copy(self):
+        self.copy_file('big', 1000000)
+
+
 if __name__ == '__main__':
-    bench = BenchmarkSimpleCopy(verbose=True)
-    bench.run()
-    bench.display()
+    bench_simple = BenchmarkSimpleCopy(verbose=True)
+    bench_simple.run()
+    bench_multiple = BenchmarkMultipleCopy(verbose=True)
+    bench_multiple.run()
+    print('{:=^30}'.format('simple copy'))
+    bench_simple.display()
+    print('{:=^30}'.format('multiple copy'))
+    bench_multiple.display()
