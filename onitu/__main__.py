@@ -95,10 +95,17 @@ def get_logs_dispatcher(uri=None, debug=False):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--entries', default='entries.json')
-    parser.add_argument('--log-uri')
-    parser.add_argument('--debug', action='store_true')
+    parser = argparse.ArgumentParser("onitu")
+    parser.add_argument(
+        '--entries', default='entries.json',
+        help="A JSON file with the entries (defaults to entries.json)"
+    )
+    parser.add_argument(
+        '--log-uri', help="A ZMQ socket where all the logs will be sent"
+    )
+    parser.add_argument(
+        '--debug', action='store_true', help="Enable debugging logging"
+    )
     args = parser.parse_args()
 
     entries_file = args.entries
@@ -106,7 +113,9 @@ if __name__ == '__main__':
     dispatcher = None
 
     if not args.log_uri:
-        log_uri, dispatcher = get_logs_dispatcher(uri=log_uri, debug=args.debug)
+        log_uri, dispatcher = get_logs_dispatcher(
+            uri=log_uri, debug=args.debug
+        )
 
     with ZeroMQHandler(log_uri, multi=True):
         logger = Logger("Onitu")
