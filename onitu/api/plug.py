@@ -110,7 +110,7 @@ class Plug(object):
             fid = self.redis.incr('last_id')
             self.redis.hset('files', metadata.filename, fid)
             self.redis.hset('drivers:{}:files'.format(self.name), fid, "")
-            metadata.owners = self.name
+            metadata.owners = [self.name]
             metadata._fid = fid
         elif self.redis.sismember('drivers:{}:transfers'
                                   .format(self.name), fid):
