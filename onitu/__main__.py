@@ -98,6 +98,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--entries', default='entries.json')
     parser.add_argument('--log-uri')
+    parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
 
     entries_file = args.entries
@@ -105,7 +106,7 @@ if __name__ == '__main__':
     dispatcher = None
 
     if not args.log_uri:
-        log_uri, dispatcher = get_logs_dispatcher(args.log_uri)
+        log_uri, dispatcher = get_logs_dispatcher(uri=log_uri, debug=args.debug)
 
     with ZeroMQHandler(log_uri, multi=True):
         logger = Logger("Onitu")
