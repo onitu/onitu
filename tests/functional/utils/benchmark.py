@@ -1,4 +1,5 @@
 from timer import Timer
+from codespeed_client import Client
 
 
 class Benchmark():
@@ -34,6 +35,7 @@ class Benchmark():
 
     def _run_function(self, name, *args):
         try:
+            self._log('Run function {}'.format(name))
             return getattr(self, name)(*args)
         except:
             pass
@@ -41,8 +43,8 @@ class Benchmark():
     def _run_test(self, name):
         setup_test = name.replace(self._prefix, 'setup_')
         teardown_test = name.replace(self._prefix, 'teardown_')
-        self._run_function(setup_test)
         try:
+            self._run_function(setup_test)
             with Timer() as t:
                 res = self._run_function(name)
             duration = res if res else t.msecs
@@ -66,11 +68,42 @@ class Benchmark():
             print('{:>{max_len}} duration: {:.4f} ms'
                   .format(k, self._results[k], max_len=max_len))
 
-    def upload_results(self):
+    def upload_results(self,
+                       name,
+                       host,
+                       environment,
+                       project,
+                       commitid,
+                       branch
+                       ):
         """upload the results to a codespeed instance
         Https://github.com/tobami/codespeed/
         """
-        pass
+        # kwargs list: environment, project, benchmark, branch, commitid,
+        # result_date, result_value, max, min,
+        # std_dev, revision_date, executable,
+
+        # kwargs passed to constructor are defaults
+        client = Client(
+            host,
+            environment=environment,
+            project=project,
+            commitid=commitid,
+            branch=branch
+        )
+
+        # kwargs passed to add_result overwrite defaults
+        for result in self._results:
+            n = '{}-{}'.format(name.replace(' ', '_'),
+                               result[len(self._prefix):])
+            res = self._results[result] / 1000
+            client.add_result(
+                benchmark=n,
+                result_value=res
+            )
+
+        # upload all results in one request
+        client.upload_results()
 
     def get_results(self):
         """return a dictionnary with the results of all tests.

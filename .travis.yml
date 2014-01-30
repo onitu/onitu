@@ -8,7 +8,6 @@ install:
 script:
   - py.test tests -v
   - pep8 onitu tests
-  - python tests/functional/benchmarks.py
 notifications:
   email: onitu_2015@labeip.epitech.eu
   irc:
