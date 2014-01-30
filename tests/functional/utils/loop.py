@@ -29,6 +29,9 @@ class BooleanLoop(EventLoop):
     def stop(self):
         self._running = False
 
+    def restart(self):
+        self._running =True
+
 
 class CounterLoop(EventLoop):
     def __init__(self, count):

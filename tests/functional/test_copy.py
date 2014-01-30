@@ -1,11 +1,9 @@
 import os.path
 from os import unlink
 
-import pytest
-
 from utils.launcher import Launcher
 from utils.entries import Entries
-from utils.loop import BooleanLoop, CounterLoop
+from utils.loop import BooleanLoop, CounterLoop, TimeoutError
 from utils.files import generate, checksum
 from utils.tempdirs import TempDirs
 
@@ -78,18 +76,29 @@ def test_big_copy():
     copy_file('big', '10M')
 
 
-@pytest.mark.xfail
 def test_multipass_copy():  # dd called with a count parameter
     count = 10
     filename = 'multipass'
-    loop = CounterLoop(count)
+
+    loop = BooleanLoop()
+
     launcher.on_transfer_ended(
-        loop.check, d_from='rep1', d_to='rep2', filename=filename
+        loop.stop, d_from='rep1', d_to='rep2', filename=filename
     )
-    launcher.on_transfer_aborted(
-        loop.check, d_from='rep1', d_to='rep2', filename=filename
-    )
-    generate(os.path.join(rep1, filename), '1M', 10)
-    loop.run(timeout=5)
-    assert(checksum(os.path.join(rep1, filename)) ==
-           checksum(os.path.join(rep2, filename)))
+
+    generate(os.path.join(rep1, filename), '1M', count)
+    size = os.path.getsize(os.path.join(rep1, filename))
+
+    for _ in range(count):
+        try:
+            loop.run(timeout=2)
+        except TimeoutError:
+            continue
+
+        loop.restart()
+
+        if os.path.getsize(os.path.join(rep2, filename)) == size:
+            break
+
+    assert (checksum(os.path.join(rep1, filename)) ==
+            checksum(os.path.join(rep2, filename)))
