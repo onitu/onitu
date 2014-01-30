@@ -1,5 +1,6 @@
 import os.path
 from os import unlink
+from sys import argv
 from utils.launcher import Launcher
 from utils.entries import Entries
 from utils.loop import BooleanLoop, CounterLoop
@@ -49,19 +50,19 @@ class BenchmarkSimpleCopy(Benchmark):
                checksum(os.path.join(self.rep2, filename)))
         return t.msecs
 
-    def test_small_copy(self):
+    def test_small(self):
         total = 0.
         for i in range(100):
             total += self.copy_file('small{}'.format(i), 10000)
         return total
 
-    def test_medium_copy(self):
+    def test_medium(self):
         total = 0.
         for i in range(10):
             total += self.copy_file('medium{}'.format(i), 100000)
         return total
 
-    def test_big_copy(self):
+    def test_big(self):
         self.copy_file('big', 1000000)
 
 
@@ -114,19 +115,19 @@ class BenchmarkMultipleCopy(Benchmark):
                checksum(os.path.join(self.rep3, filename)))
         return t.msecs
 
-    def test_small_copy(self):
+    def test_small(self):
         total = 0.
         for i in range(100):
             total += self.copy_file('small{}'.format(i), 10000)
         return total
 
-    def test_medium_copy(self):
+    def test_medium(self):
         total = 0.
         for i in range(10):
             total += self.copy_file('medium{}'.format(i), 100000)
         return total
 
-    def test_big_copy(self):
+    def test_big(self):
         self.copy_file('big', 1000000)
 
 
@@ -139,3 +140,25 @@ if __name__ == '__main__':
     bench_simple.display()
     print('{:=^28}'.format(' multiple copy '))
     bench_multiple.display()
+    if len(argv) >= 7 and argv[1] in ('-u', '--upload'):
+        host = argv[2]
+        environment = argv[3]
+        project = argv[4]
+        commitid = argv[5]
+        branch = argv[6]
+        bench_simple.upload_results(
+            'copy single destination',
+            host,
+            environment,
+            project,
+            commitid,
+            branch
+        )
+        bench_multiple.upload_results(
+            'copy mutiple destinations',
+            host,
+            environment,
+            project,
+            commitid,
+            branch
+        )
