@@ -71,9 +71,13 @@ def check_changes():
         revision = float(revision) if revision else .0
 
         if abs_path.mtime > revision:
-            metadata.revision = abs_path.mtime
-            metadata.size = abs_path.size
-            plug.update_file(metadata)
+            update_file(metadata, abs_path)
+
+
+def update_file(metadata, path):
+    metadata.size = path.size
+    metadata.revision = path.mtime
+    plug.update_file(metadata)
 
 
 class EventHandler(FileSystemEventHandler):
@@ -104,9 +108,8 @@ class EventHandler(FileSystemEventHandler):
         if filename in events_to_ignore:
             return
 
-        mtime = abs_path.mtime
         if filename in last_mtime:
-            if last_mtime[filename] >= mtime:
+            if last_mtime[filename] >= abs_path.mtime:
                 # This event concerns a file that hasn't been changed
                 # since the last write_chunk, we must ignore the event
                 return
@@ -114,9 +117,7 @@ class EventHandler(FileSystemEventHandler):
                 del last_mtime[filename]
 
         metadata = plug.get_metadata(filename)
-        metadata.size = abs_path.size
-        metadata.revision = mtime
-        plug.update_file(metadata)
+        update_file(metadata, abs_path)
 
 
 def start(*args, **kwargs):
