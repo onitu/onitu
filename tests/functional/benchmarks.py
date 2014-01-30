@@ -69,6 +69,6 @@ class BenchmarkSimpleCopy(Benchmark):
         self.copy_file('big', 1000000)
 
 if __name__ == '__main__':
-    bench = BenchmarkSimpleCopy()
+    bench = BenchmarkSimpleCopy(verbose=True)
     bench.run()
     bench.display()

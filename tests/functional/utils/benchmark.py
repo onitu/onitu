@@ -12,28 +12,29 @@ class Benchmark():
         self._each = each
         self._num_format = num_format
         self._results = {}
+        self._verbose = verbose
 
     def _log(self, msg):
         if self._verbose:
             print(msg)
 
-    def run(self):
+    def run(self, *args):
         """All functions whose name starts with prefix.
         Run setup at the beginning of the run.
         Run setup_each at the beginning of each test.
         Run teardown at the end of the tests.
         """
         try:
-            self._run_function('setup')
+            self._run_function('setup', *args)
             tests = self._collect_tests()
             for t in tests:
                 self._run_test(t)
         finally:
             self._run_function('teardown')
 
-    def _run_function(self, name):
+    def _run_function(self, name, *args):
         try:
-            return getattr(self, name)()
+            return getattr(self, name)(*args)
         except:
             pass
 
