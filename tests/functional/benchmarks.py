@@ -9,6 +9,10 @@ from utils.tempdirs import TempDirs
 from utils.benchmark import Benchmark
 from utils.timer import Timer
 
+SMALL = 1024 * 1024
+MEDIUM = SMALL * 10
+BIG = MEDIUM * 10
+
 
 class BenchmarkSimpleCopy(Benchmark):
     def launch_onitu(self):
@@ -52,18 +56,21 @@ class BenchmarkSimpleCopy(Benchmark):
 
     def test_small(self):
         total = 0.
-        for i in range(100):
-            total += self.copy_file('small{}'.format(i), 10000)
+        for i in range(1000):
+            total += self.copy_file('small', SMALL)
         return total
 
     def test_medium(self):
         total = 0.
-        for i in range(10):
-            total += self.copy_file('medium{}'.format(i), 100000)
+        for i in range(100):
+            total += self.copy_file('medium', MEDIUM)
         return total
 
     def test_big(self):
-        self.copy_file('big', 1000000)
+        total = 0.
+        for i in range(10):
+            self.copy_file('big', BIG)
+        return total
 
 
 class BenchmarkMultipleCopy(Benchmark):
@@ -117,19 +124,21 @@ class BenchmarkMultipleCopy(Benchmark):
 
     def test_small(self):
         total = 0.
-        for i in range(100):
-            total += self.copy_file('small{}'.format(i), 10000)
+        for i in range(1000):
+            total += self.copy_file('small', SMALL)
         return total
 
     def test_medium(self):
         total = 0.
-        for i in range(10):
-            total += self.copy_file('medium{}'.format(i), 100000)
+        for i in range(100):
+            total += self.copy_file('medium', MEDIUM)
         return total
 
     def test_big(self):
-        self.copy_file('big', 1000000)
-
+        total = 0.
+        for i in range(10):
+            self.copy_file('big', BIG)
+        return total
 
 if __name__ == '__main__':
     bench_simple = BenchmarkSimpleCopy(verbose=True)
