@@ -4,7 +4,7 @@ from utils.launcher import Launcher
 from utils.setup import Setup
 from utils.loop import BooleanLoop, CounterLoop
 from utils.driver import LocalStorageDriver
-from utils.benchmark import Benchmark
+from utils.benchmark import Benchmark, BenchmarkData
 from utils.timer import Timer
 
 SMALL = 1024 * 1024
@@ -55,22 +55,26 @@ class BenchmarkSimpleCopy(Benchmark):
         return t.msecs
 
     def test_small(self):
-        total = 0.
+        total = BenchmarkData('Copy 1000 times a 1M file')
         for i in range(1000):
-            total += self.copy_file('small', SMALL)
+            print 'test small before'
+            t = self.copy_file('small', SMALL)
+            print 'test small middle'
+            total.add_result(t)
+            print 'test small end'
         return total
 
-    def test_medium(self):
-        total = 0.
-        for i in range(100):
-            total += self.copy_file('medium', MEDIUM)
-        return total
-
-    def test_big(self):
-        total = 0.
-        for i in range(10):
-            self.copy_file('big', BIG)
-        return total
+#    def test_medium(self):
+#        total = BenchmarkData('Copy 100 times a 10M file')
+#        for i in range(100):
+#            total.add_result(self.copy_file('medium', MEDIUM))
+#        return total
+#
+#    def test_big(self):
+#        total = BenchmarkData('Copy 10 times a 100M file')
+#        for i in range(10):
+#            total.add_result(self.copy_file('big', BIG))
+#        return total
 
 
 class BenchmarkMultipleCopy(Benchmark):
@@ -125,32 +129,44 @@ class BenchmarkMultipleCopy(Benchmark):
         return t.msecs
 
     def test_small(self):
-        total = 0.
+        total = {
+            'description': 'Copy 1000 times a 1M file',
+            'unit': 'ms',
+            'results': {}
+        }
         for i in range(1000):
-            total += self.copy_file('small', SMALL)
+            total['results'][i] = self.copy_file('small', SMALL)
         return total
 
     def test_medium(self):
-        total = 0.
+        total = {
+            'description': 'Copy 100 times a 10M file',
+            'unit': 'ms',
+            'results': {}
+        }
         for i in range(100):
-            total += self.copy_file('medium', MEDIUM)
+            total['results'][i] = self.copy_file('medium', MEDIUM)
         return total
 
     def test_big(self):
-        total = 0.
+        total = {
+            'description': 'Copy 10 times a 100M file',
+            'unit': 'ms',
+            'results': {}
+        }
         for i in range(10):
-            self.copy_file('big', BIG)
+            total['results'][i] = self.copy_file('BIG', BIG)
         return total
 
 if __name__ == '__main__':
     bench_simple = BenchmarkSimpleCopy(verbose=True)
     bench_simple.run()
-    bench_multiple = BenchmarkMultipleCopy(verbose=True)
-    bench_multiple.run()
+    #bench_multiple = BenchmarkMultipleCopy(verbose=True)
+    #bench_multiple.run()
     print('{:=^28}'.format(' simple copy '))
     bench_simple.display()
-    print('{:=^28}'.format(' multiple copy '))
-    bench_multiple.display()
+    #print('{:=^28}'.format(' multiple copy '))
+    #bench_multiple.display()
     # TODO: clean this shit
     if len(argv) >= 7 and argv[1] in ('-u', '--upload'):
         host = argv[2]

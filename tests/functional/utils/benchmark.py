@@ -2,11 +2,40 @@ from .timer import Timer
 from codespeed_client import Client
 
 
+class BenchmarkData():
+    def __init__(self, description, unit="ms"):
+        self.description = description
+        self.unit = unit
+        self._results = []
+
+    def add_result(self, result):
+        print(self.description, 'add one result', result)
+        self._results.append(result)
+
+    def average(self):
+        return self.sum() / len(self)
+
+    def max(self):
+        return max(self._results)
+
+    def min(self):
+        return min(self._results)
+
+    def sum(self):
+        return sum(self._results)
+
+    def __len__(self):
+        return len(self._results)
+
+    def __str__(self):
+        return str(self._results)
+
+
 class Benchmark():
     def __init__(self,
                  prefix='test_',
                  each=1,
-                 num_format='{:.4f}',
+                 num_format='.4f',
                  verbose=False
                  ):
         self._prefix = prefix
@@ -47,26 +76,46 @@ class Benchmark():
             self._run_function(setup_test)
             with Timer() as t:
                 res = self._run_function(name)
-            duration = res if res else t.msecs
-            self._results[name] = duration
+            if res:
+                r = res
+            else:
+                r = BenchmarkData(None)
+                r.add_result(t.msecs)
+            self._results[name] = r
         except Exception as e:
             self._log('The test is skipped because it raised an exception')
             self._log(e)
         finally:
             self._run_function(teardown_test)
 
+    # TODO: fix this function
+    def _run_test_loop(self, name):
+        total = {
+            'description': None,
+            'unit': 'ms',
+            'results': {}
+        }
+        for i in self._each:
+            total['results'][i] = self._run_test(name)
+
     def _collect_tests(self):
         return [t for t in dir(self) if t.startswith(self._prefix)]
 
     def display(self):
-        max_len = 0
         for k in self._results.keys():
-            if len(k) > max_len:
-                max_len = len(k)
-        max_len += 4
-        for k in self._results.keys():
-            print('{:>{max_len}} duration: {:.4f} ms'
-                  .format(k, self._results[k], max_len=max_len))
+            res = self._results[k]
+            print('{:-^28}'.format(k))
+            if res.description:
+                print(res.description)
+            print('{} times'.format(len(res)))
+            print('Total: {:{f}} {}'
+                  .format(res.sum(), res.unit, f=self._num_format))
+            print('Min: {:{f}} {}'
+                  .format(res.min(), res.unit, f=self._num_format))
+            print('Max: {:{f}} {}'
+                  .format(res.max(), res.unit, f=self._num_format))
+            print('Average: {:{f}} {}'
+                  .format(res.average(), res.unit, f=self._num_format))
 
     def upload_results(self,
                        name,
@@ -110,38 +159,3 @@ class Benchmark():
         The key is the test's name and the value is the time.
         """
         return self._results
-
-if __name__ == '__main__':
-    import time
-
-    class TestBenchmark(Benchmark):
-        def setup(self):
-            print('welcome in the global setup')
-            self.test = 0
-
-        def test_nosetup(self):
-            print('no setup for this test, just a sleep')
-            print('this is the test {}'.format(self.test))
-            time.sleep(1)
-
-        def setup_withsetup(self):
-            print('setup the test')
-            self.test = 3
-
-        def test_withsetup(self):
-            print('there is a setup for this test, the test is {}'
-                  .format(self.test))
-
-        def teardown_withsetup(self):
-            print('teardown, reset value')
-            self.test = 1
-
-        def test_zorglub(self):
-            print('eviv bulgroz')
-            print('the test is {}'.format(self.test))
-            return 9999
-
-    t = TestBenchmark()
-    t.run()
-    t.display()
-    print(t.get_results())

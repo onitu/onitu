@@ -1,5 +1,5 @@
 import time
-from utils.benchmark import Benchmark
+from utils.benchmark import Benchmark, BenchmarkData
 
 
 class TestBenchmark(Benchmark):
@@ -32,5 +32,5 @@ class TestBenchmark(Benchmark):
 if __name__ == '__main__':
     t = TestBenchmark()
     t.run()
-    t.display()
+    print(t)
     print(t.get_results())
