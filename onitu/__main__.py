@@ -13,7 +13,7 @@ from logbook.queues import ZeroMQHandler, ZeroMQSubscriber
 from logbook.more import ColorizedStderrHandler
 from tornado import gen
 
-from utils import connect_to_redis
+from .utils import connect_to_redis
 
 
 @gen.coroutine
@@ -35,9 +35,9 @@ def load_drivers(*args, **kwargs):
         loop.stop()
 
     redis.delete('entries')
-    redis.sadd('entries', *entries.keys())
+    redis.sadd('entries', *list(entries.keys()))
 
-    for name, conf in entries.items():
+    for name, conf in list(entries.items()):
         logger.debug("Loading entry {}", name)
 
         if ':' in name:

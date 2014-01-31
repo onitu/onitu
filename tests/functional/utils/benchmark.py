@@ -1,4 +1,4 @@
-from timer import Timer
+from .timer import Timer
 from codespeed_client import Client
 
 
@@ -60,13 +60,13 @@ class Benchmark():
 
     def display(self):
         max_len = 0
-        for k in self._results.keys():
+        for k in list(self._results.keys()):
             if len(k) > max_len:
                 max_len = len(k)
         max_len += 4
-        for k in self._results.keys():
-            print('{:>{max_len}} duration: {:.4f} ms'
-                  .format(k, self._results[k], max_len=max_len))
+        for k in list(self._results.keys()):
+            print(('{:>{max_len}} duration: {:.4f} ms'
+                  .format(k, self._results[k], max_len=max_len)))
 
     def upload_results(self,
                        name,
@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
         def test_nosetup(self):
             print('no setup for this test, just a sleep')
-            print('this is the test {}'.format(self.test))
+            print(('this is the test {}'.format(self.test)))
             time.sleep(1)
 
         def setup_withsetup(self):
@@ -129,8 +129,8 @@ if __name__ == '__main__':
             self.test = 3
 
         def test_withsetup(self):
-            print('there is a setup for this test, the test is {}'
-                  .format(self.test))
+            print(('there is a setup for this test, the test is {}'
+                  .format(self.test)))
 
         def teardown_withsetup(self):
             print('teardown, reset value')
@@ -138,9 +138,9 @@ if __name__ == '__main__':
 
         def test_zorglub(self):
             print('eviv bulgroz')
-            print('the test is {}'.format(self.test))
+            print(('the test is {}'.format(self.test)))
             return 9999
 
     t = TestBenchmark()
     t.run()
-    print t.get_results()
+    print(t.get_results())

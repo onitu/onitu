@@ -145,9 +145,9 @@ if __name__ == '__main__':
     bench_simple.run()
     bench_multiple = BenchmarkMultipleCopy(verbose=True)
     bench_multiple.run()
-    print('{:=^28}'.format(' simple copy '))
+    print(('{:=^28}'.format(' simple copy ')))
     bench_simple.display()
-    print('{:=^28}'.format(' multiple copy '))
+    print(('{:=^28}'.format(' multiple copy ')))
     bench_multiple.display()
     if len(argv) >= 7 and argv[1] in ('-u', '--upload'):
         host = argv[2]

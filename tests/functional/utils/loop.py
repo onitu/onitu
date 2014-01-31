@@ -45,8 +45,8 @@ class CounterLoop(EventLoop):
         self.count -= 1
 
     def timeout(self):
-        print(
+        print((
             "CounterLoop : {} on {} done."
             .format(self.total - self.count, self.total)
-        )
+        ))
         super(CounterLoop, self).timeout()
