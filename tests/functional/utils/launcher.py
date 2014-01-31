@@ -2,7 +2,7 @@ import signal
 import socket
 
 import sh
-from logbook import Processor, NestedSetup
+import logbook
 from logbook.queues import ZeroMQSubscriber
 
 from logs import logs
@@ -64,11 +64,13 @@ class Launcher(object):
         log_uri = 'tcp://{}:{}'.format(*tmpsock.getsockname())
         tmpsock.close()
 
-        handlers = [
-            Processor(self._process_record),
-        ]
+        setup = logbook.NestedSetup([
+            logbook.NullHandler(),
+            logbook.StderrHandler(level=logbook.INFO),
+            logbook.Processor(self._process_record),
+        ])
         self.subscriber = ZeroMQSubscriber(log_uri, multi=True)
-        self.subscriber.dispatch_in_background(setup=NestedSetup(handlers))
+        self.subscriber.dispatch_in_background(setup=setup)
 
         self.process = sh.python(
             '-m', 'onitu',
