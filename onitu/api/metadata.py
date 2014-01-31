@@ -50,7 +50,7 @@ class Metadata(object):
         metadata.plug = plug
         metadata._fid = fid
 
-        for name, (deserialize, _) in list(cls.PROPERTIES.items()):
+        for name, (deserialize, _) in cls.PROPERTIES.items():
             metadata.__setattr__(name, deserialize(values.get(name)))
 
         return metadata
@@ -97,7 +97,7 @@ class Metadata(object):
         """
         metadata = {}
 
-        for name, (_, serialize) in list(self.PROPERTIES.items()):
+        for name, (_, serialize) in self.PROPERTIES.items():
             try:
                 metadata[name] = serialize(self.__getattribute__(name))
             except AttributeError:
