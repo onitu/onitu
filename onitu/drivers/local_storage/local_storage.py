@@ -40,8 +40,8 @@ def start_upload(metadata):
 def end_upload(metadata):
     filename = root.joinpath(metadata.filename)
 
-    # If this is the last chunk we stop ignoring event
-    events_to_ignore.remove(metadata.filename)
+    if metadata.filename in events_to_ignore:
+        events_to_ignore.remove(metadata.filename)
     # this is to make sure that no further event concerning
     # this set of writes will be propagated to the Referee
     last_mtime[metadata.filename] = filename.mtime

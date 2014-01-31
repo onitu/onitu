@@ -111,6 +111,9 @@ class Worker(Thread):
                 len(chunk), driver, filename
             )
 
+            if len(chunk) == 0:
+                break
+
             self._call('upload_chunk', filename, offset, chunk)
 
             offset = redis.hincrby(transfer_key, 'offset', len(chunk))
