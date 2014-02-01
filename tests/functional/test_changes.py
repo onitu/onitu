@@ -1,11 +1,9 @@
 import os.path
 from os import unlink
 
-import sh
-
 from utils.launcher import Launcher
 from utils.entries import Entries
-from utils.loop import BooleanLoop, CounterLoop, TimeoutError
+from utils.loop import BooleanLoop, CounterLoop
 from utils.files import generate, checksum
 from utils.tempdirs import TempDirs
 
@@ -21,17 +19,7 @@ def setup_module(module):
     entries.add('local_storage', 'rep1', {'root': rep1})
     entries.add('local_storage', 'rep2', {'root': rep2})
     entries.save(json_file)
-    #loop = CounterLoop(3)
     launcher = Launcher(json_file)
-    #launcher.on_referee_started(loop.check)
-    #launcher.on_driver_started(loop.check, driver='rep1')
-    #launcher.on_driver_started(loop.check, driver='rep2')
-    #launcher()
-    #try:
-    #    loop.run(timeout=5)
-    #except:
-    #    teardown_module(module)
-    #    raise
 
 
 def teardown_module(module):
