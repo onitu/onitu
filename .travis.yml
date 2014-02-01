@@ -7,9 +7,11 @@ install:
 # command to run tests
 script:
   - py.test tests -v
-  - pep8 onitu tests
+  - flake8 onitu tests
 notifications:
-  email: onitu_2015@labeip.epitech.eu
+  email:
+    - onitu_2015@labeip.epitech.eu
+    - on_success: change
   irc:
       channels:
         - "chat.freenode.net#onitu"
