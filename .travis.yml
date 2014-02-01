@@ -1,13 +1,13 @@
 language: python
 python:
   - "2.7"
+env:
+  - TOX_ENV=flake8
+  - TOX_ENV=py27
 install:
-  - pip install -r requirements.txt
-  - pip install -r requirements_dev.txt
-# command to run tests
+  - pip install tox
 script:
-  - py.test tests -v
-  - flake8 onitu tests
+  - tox -e $TOX_ENV
 notifications:
   email:
     - onitu_2015@labeip.epitech.eu
