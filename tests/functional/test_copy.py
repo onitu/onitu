@@ -1,6 +1,8 @@
 import os.path
 from os import unlink
 
+import sh
+
 from utils.launcher import Launcher
 from utils.entries import Entries
 from utils.loop import BooleanLoop, CounterLoop, TimeoutError
@@ -74,6 +76,22 @@ def test_bigger_copy():
 
 def test_big_copy():
     copy_file('big', '10M')
+
+
+def test_empty_file():
+    filename = 'empty'
+    loop = BooleanLoop()
+    launcher.on_transfer_ended(
+        loop.stop, d_from='rep1', d_to='rep2', filename=filename
+    )
+    sh.touch(os.path.join(rep1, filename))
+    loop.run(timeout=5)
+    assert os.path.getsize(os.path.join(rep2, filename)) == 0
+
+
+def test_subdirectories():
+    sh.mkdir('-p', os.path.join(rep1, 'sub/dir/deep/'))
+    copy_file('sub/dir/deep/file', 100)
 
 
 def test_multipass_copy():  # dd called with a count parameter
