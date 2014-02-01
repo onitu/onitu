@@ -7,3 +7,5 @@ change in a near future.
 """
 
 from .referee import Referee
+
+__all__ = [Referee]

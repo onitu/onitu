@@ -9,3 +9,5 @@ see :func:`Plug.handler` for more information.
 """
 
 from .plug import Plug
+
+__all__ = [Plug]
