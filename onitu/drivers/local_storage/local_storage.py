@@ -76,6 +76,17 @@ def check_changes():
 
 
 def update_file(metadata, path):
+    if metadata.filename in events_to_ignore:
+        return
+
+    if metadata.filename in last_mtime:
+        if last_mtime[metadata.filename] >= path.mtime:
+            # We're about to send an event for a file that hasn't changed
+            # since the last upload, we stop here
+            return
+        else:
+            del last_mtime[metadata.filename]
+
     metadata.size = path.size
     metadata.revision = path.mtime
     plug.update_file(metadata)
@@ -105,18 +116,6 @@ class EventHandler(FileSystemEventHandler):
     def _handle_update(self, abs_path):
         abs_path = path(abs_path)
         filename = root.relpathto(abs_path)
-
-        if filename in events_to_ignore:
-            return
-
-        if filename in last_mtime:
-            if last_mtime[filename] >= abs_path.mtime:
-                # This event concerns a file that hasn't been changed
-                # since the last write_chunk, we must ignore the event
-                return
-            else:
-                del last_mtime[filename]
-
         metadata = plug.get_metadata(filename)
         update_file(metadata, abs_path)
 
@@ -127,10 +126,9 @@ def start(*args, **kwargs):
     global root
     root = path(plug.options['root'])
 
-    check_changes()
-
     observer = Observer()
     observer.schedule(EventHandler(), path=root, recursive=True)
     observer.start()
 
+    check_changes()
     plug.wait()
