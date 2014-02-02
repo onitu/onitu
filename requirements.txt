@@ -3,5 +3,5 @@ pyzmq
 redis
 simplejson
 git+git://github.com/onitu/logbook.git@master
-watchdog
+git+git://github.com/gorakhargosh/watchdog.git@master
 path.py
