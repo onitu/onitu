@@ -34,6 +34,10 @@ class Launcher(object):
             del self.event_triggers[trigger]
         del self.events[name]
 
+    def unset_all_events(self):
+        self.events = {}
+        self.event_triggers = {}
+
     def quit(self):
         self.process.signal(signal.SIGINT)
 
