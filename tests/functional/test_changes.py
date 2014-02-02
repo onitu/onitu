@@ -69,3 +69,8 @@ def test_changes_few_files():
 
 def test_changes_many_files():
     launch_with_files('many', 100, 10)
+
+
+def test_updating_files():
+    launch_with_files('up', 10, 100)
+    launch_with_files('up', 10, 100)
