@@ -15,6 +15,6 @@ def connect_to_redis(*args, **kwargs):
         try:
             assert client.ping()
         except (redis.exceptions.ConnectionError, AssertionError):
-            time.sleep(0.5)
+            time.sleep(0.05)
         else:
             return client
