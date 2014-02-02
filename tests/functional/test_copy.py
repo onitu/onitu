@@ -6,7 +6,7 @@ import sh
 from utils.launcher import Launcher
 from utils.entries import Entries
 from utils.loop import BooleanLoop, CounterLoop, TimeoutError
-from utils.files import generate, checksum
+from utils.files import generate, checksum, KB, MB
 from utils.tempdirs import TempDirs
 
 launcher = None
@@ -51,11 +51,11 @@ def copy_file(filename, size):
            checksum(os.path.join(rep2, filename)))
 
 
-def test_simple_copy():
-    copy_file('simple', 100)
+def test_small_copy():
+    copy_file('simple', 10)
 
 
-def test_other_copy():
+def test_regular_copy():
     copy_file('other', 100)
 
 
@@ -65,17 +65,17 @@ def test_same_copy():
 
 
 def test_smaller_copy():
-    copy_file('smaller', 100)
-    copy_file('smaller', 10)
+    copy_file('smaller', 10 * KB)
+    copy_file('smaller', 1 * KB)
 
 
 def test_bigger_copy():
-    copy_file('bigger', 100)
-    copy_file('bigger', 1000)
+    copy_file('bigger', 1 * KB)
+    copy_file('bigger', 10 * KB)
 
 
 def test_big_copy():
-    copy_file('big', '10M')
+    copy_file('big', 10 * MB)
 
 
 def test_empty_file():
@@ -94,7 +94,7 @@ def test_subdirectories():
     copy_file('sub/dir/deep/file', 100)
 
 
-def test_multipass_copy():  # dd called with a count parameter
+def test_multipass_copy():
     count = 10
     filename = 'multipass'
 
@@ -104,7 +104,7 @@ def test_multipass_copy():  # dd called with a count parameter
         loop.stop, d_from='rep1', d_to='rep2', filename=filename
     )
 
-    generate(os.path.join(rep1, filename), '1M', count)
+    generate(os.path.join(rep1, filename), 10 * KB, count)
     size = os.path.getsize(os.path.join(rep1, filename))
 
     for _ in range(count):

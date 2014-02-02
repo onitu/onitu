@@ -101,8 +101,10 @@ class Metadata(object):
             try:
                 metadata[name] = serialize(self.__getattribute__(name))
             except AttributeError:
-                self.plug.error("Error writing metadata for {}, missing"
-                                "attribute {}".format(self._fid, name))
+                self.plug.logger.error(
+                    "Error writing metadata for {}, missing attribute {}",
+                    self._fid, name
+                )
                 return
 
         self.plug.redis.hmset('files:{}'.format(self._fid), metadata)

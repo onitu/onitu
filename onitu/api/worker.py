@@ -99,13 +99,20 @@ class Worker(Thread):
                 )
                 return
 
-            dealer.send_multipart((filename, str(offset), str(chunk_size)))
+            dealer.send_multipart((
+                filename.encode(),
+                str(offset).encode(),
+                str(chunk_size).encode()
+            ))
             chunk = dealer.recv()
 
             self.logger.debug(
                 "Received chunk of size {} from {} for '{}'",
                 len(chunk), driver, filename
             )
+
+            if len(chunk) == 0:
+                break
 
             self._call('upload_chunk', filename, offset, chunk)
 

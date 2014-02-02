@@ -5,7 +5,7 @@ import sh
 import logbook
 from logbook.queues import ZeroMQSubscriber
 
-from logs import logs
+from .logs import logs
 
 
 class Launcher(object):

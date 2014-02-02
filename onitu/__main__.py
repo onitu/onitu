@@ -13,7 +13,7 @@ from logbook.queues import ZeroMQHandler, ZeroMQSubscriber
 from logbook.more import ColorizedStderrHandler
 from tornado import gen
 
-from utils import connect_to_redis
+from .utils import connect_to_redis
 
 
 @gen.coroutine

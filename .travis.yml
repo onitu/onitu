@@ -4,6 +4,7 @@ python:
 env:
   - TOX_ENV=flake8
   - TOX_ENV=py27
+  - TOX_ENV=py33
 install:
   - pip install tox
 script:

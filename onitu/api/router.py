@@ -35,9 +35,13 @@ class Router(Thread):
         """Calls the `get_chunk` handler defined by the Driver to get
         the chunk and send it to the addressee.
         """
+        filename = filename.decode()
+        offset = int(offset.decode())
+        size = int(size.decode())
+
         self.logger.debug(
             "Getting chunk of size {} from offset {} in '{}'",
             size, offset, filename
         )
-        chunk = self.get_chunk(filename, int(offset), int(size))
+        chunk = self.get_chunk(filename, offset, size)
         self.router.send_multipart((identity, chunk))
