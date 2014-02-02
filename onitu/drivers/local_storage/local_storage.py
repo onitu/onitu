@@ -87,8 +87,8 @@ class EventHandler(FileSystemEventHandler):
                 return
 
             #if event.src_path:
-                #self._handle_deletion(event.src_path)
-            self._handle_update(event.dest_path)
+                #self._handle_deletion(event.src_path.decode())
+            self._handle_update(event.dest_path.decode())
 
         handle_move(event)
         if event.is_directory:
@@ -99,7 +99,7 @@ class EventHandler(FileSystemEventHandler):
         if event.is_directory:
             return
 
-        self._handle_update(event.src_path)
+        self._handle_update(event.src_path.decode())
 
     def _handle_update(self, abs_path):
         abs_path = path(abs_path)
