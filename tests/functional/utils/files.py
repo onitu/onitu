@@ -1,10 +1,15 @@
-import sh
+import os
 import hashlib
+
+KB = 1 << 10
+MB = 1 << 20
+GB = 1 << 30
 
 
 def generate(filename, bs, count=1):
-    return sh.dd('if=/dev/urandom', 'of={}'.format(filename),
-                 'bs={}'.format(bs), 'count={}'.format(count))
+    for _ in range(count):
+        with open(filename, 'wb+') as f:
+            f.write(os.urandom(bs))
 
 
 def checksum(filename):
