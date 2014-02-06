@@ -1,6 +1,8 @@
 import os.path
 from os import unlink
 
+import pytest
+
 from utils.launcher import Launcher
 from utils.entries import Entries
 from utils.loop import CounterLoop, BooleanLoop
@@ -37,6 +39,7 @@ def launcher_startup():
     loop.run(timeout=5)
 
 
+@pytest.mark.xfail
 def test_crach():
     filename = 'crash'
 
