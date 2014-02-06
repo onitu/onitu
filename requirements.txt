@@ -4,3 +4,4 @@ redis
 simplejson
 logbook
 path.py
+paramiko
