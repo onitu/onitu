@@ -44,10 +44,11 @@ def test_crach():
     launcher.on_transfer_started(
         loop.stop, d_from='rep1', d_to='rep2', filename=filename
     )
-    launcher_startup()
     generate(os.path.join(rep1, filename), 1000)
+    launcher_startup()
     loop.run(timeout=5)
     launcher.kill()
+    launcher.wait()
 
     launcher.unset_all_events()
     loop = BooleanLoop()
