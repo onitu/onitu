@@ -1,8 +1,6 @@
 import os.path
 from os import unlink
 
-import pytest
-
 from utils.launcher import Launcher
 from utils.entries import Entries
 from utils.loop import CounterLoop, BooleanLoop
