@@ -56,7 +56,7 @@ def launch_with_files(prefix, n, size):
     for filename in files:
         assert(checksum(os.path.join(rep1, filename)) ==
                checksum(os.path.join(rep2, filename)))
-    launcher.quit()
+    launcher.kill()
     launcher.wait()
 
 
