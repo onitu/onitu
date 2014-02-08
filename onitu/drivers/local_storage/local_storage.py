@@ -33,7 +33,7 @@ def start_upload(metadata):
     if not filename.exists():
         filename.dirname().makedirs_p()
 
-    filename.open('w+b').close()
+    filename.open('wb').close()
 
 
 @plug.handler()
@@ -58,8 +58,10 @@ def upload_chunk(filename, offset, chunk):
     # We make sure events are ignored for this file
     events_to_ignore.add(filename)
 
-    with open(abs_path, 'w+b') as f:
-        f.seek(offset)
+    # We should not append the file but seek to the right
+    # position.
+    # However, the behavior of `offset` isn't well defined
+    with open(abs_path, 'ab') as f:
         f.write(chunk)
 
 
