@@ -58,7 +58,7 @@ def upload_chunk(filename, offset, chunk):
     # We make sure events are ignored for this file
     events_to_ignore.add(filename)
 
-    with open(abs_path, 'r+b') as f:
+    with open(abs_path, 'w+b') as f:
         f.seek(offset)
         f.write(chunk)
 

@@ -39,7 +39,6 @@ def launcher_startup():
     loop.run(timeout=5)
 
 
-@pytest.mark.xfail
 def test_crach():
     filename = 'crash'
 
