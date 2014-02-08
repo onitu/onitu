@@ -52,7 +52,7 @@ def launch_with_files(prefix, n, size):
         )
 
     launcher_startup()
-    loop.run(timeout=5)
+    loop.run(timeout=(5 + n // 10))
     for filename in files:
         assert(checksum(os.path.join(rep1, filename)) ==
                checksum(os.path.join(rep2, filename)))
