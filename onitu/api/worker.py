@@ -1,3 +1,5 @@
+import time
+
 from threading import Thread, Event
 
 import zmq
@@ -81,8 +83,12 @@ class Worker(Thread):
             )
 
         dealer = self.context.socket(zmq.DEALER)
-        port = redis.get('drivers:{}:router'.format(driver))
-        dealer.connect('tcp://localhost:{}'.format(port))
+        while True:
+            port = redis.hget('ports', driver)
+            if port:
+                dealer.connect('tcp://localhost:{}'.format(port))
+                break
+            time.sleep(0.1)
 
         end = metadata.size
         chunk_size = self.plug.options.get('chunk_size', 1 * 1024 * 1024)

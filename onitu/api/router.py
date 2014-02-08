@@ -25,7 +25,7 @@ class Router(Thread):
     def run(self):
         self.router = self.context.socket(zmq.ROUTER)
         port = self.router.bind_to_random_port('tcp://*')
-        self.redis.set('drivers:{}:router'.format(self.name), port)
+        self.redis.hset('ports', self.name, port)
 
         while True:
             msg = self.router.recv_multipart()

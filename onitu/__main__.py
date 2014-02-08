@@ -21,6 +21,7 @@ def load_drivers(*args, **kwargs):
     logger.info("Loading entries...")
 
     redis = connect_to_redis()
+    redis.delete('ports')
 
     try:
         with open(entries_file) as f:
