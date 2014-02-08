@@ -62,4 +62,5 @@ def test_crach():
 
     assert(checksum(os.path.join(rep1, filename)) ==
            checksum(os.path.join(rep2, filename)))
-    launcher.kill()
+    launcher.quit()
+    launcher.wait()
