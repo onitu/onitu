@@ -18,9 +18,12 @@ root = None
 def get_chunk(filename, offset, size):
     filename = root.joinpath(filename)
 
-    with open(filename, 'rb') as f:
-        f.seek(offset)
-        return f.read(size)
+    try:
+        with open(filename, 'rb') as f:
+            f.seek(offset)
+            return f.read(size)
+    except IOError as e:
+        plug.logger.warn("Error getting file `{}`: {}", filename, e)
 
 
 @plug.handler()

@@ -43,5 +43,5 @@ class Router(Thread):
             "Getting chunk of size {} from offset {} in '{}'",
             size, offset, filename
         )
-        chunk = self.get_chunk(filename, offset, size)
+        chunk = self.get_chunk(filename, offset, size) or b''
         self.router.send_multipart((identity, chunk))
