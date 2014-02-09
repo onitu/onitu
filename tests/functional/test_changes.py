@@ -57,7 +57,6 @@ def launch_with_files(prefix, n, size):
         assert(checksum(os.path.join(rep1, filename)) ==
                checksum(os.path.join(rep2, filename)))
     launcher.kill()
-    launcher.wait()
 
 
 def test_changes_one_file():

@@ -35,4 +35,3 @@ def test_all_active():
     loop.run(timeout=5)
 
     launcher.quit()
-    launcher.wait()

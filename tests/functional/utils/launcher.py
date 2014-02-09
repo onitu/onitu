@@ -38,13 +38,21 @@ class Launcher(object):
         self.events = {}
         self.event_triggers = {}
 
-    def quit(self):
-        if self.process is not None:
-            self.process.signal(signal.SIGINT)
+    def quit(self, wait=True):
+        if not self.process:
+            return
 
-    def kill(self):
-        if self.process is not None:
-            self.process.signal(signal.SIGTERM)
+        self.process.signal(signal.SIGINT)
+        if wait:
+            self.wait()
+
+    def kill(self, wait=True):
+        if not self.process:
+            return
+
+        self.process.signal(signal.SIGTERM)
+        if wait:
+            self.wait()
 
     def wait(self):
         if self.process is not None:

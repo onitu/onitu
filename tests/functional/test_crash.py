@@ -46,7 +46,6 @@ def crash(filename, d_from, d_to):
     launcher_startup()
     loop.run(timeout=5)
     launcher.kill()
-    launcher.wait()
 
     launcher.unset_all_events()
     loop = BooleanLoop()
@@ -59,7 +58,6 @@ def crash(filename, d_from, d_to):
     assert(checksum(os.path.join(reps[d_from], filename)) ==
            checksum(os.path.join(reps[d_to], filename)))
     launcher.kill()
-    launcher.wait()
 
 
 def test_crash_rep1_to_rep2():
