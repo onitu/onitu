@@ -1,3 +1,5 @@
+import os
+
 from path import path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -136,6 +138,10 @@ def start(*args, **kwargs):
 
     global root
     root = path(plug.options['root'])
+
+    if not root.access(os.W_OK | os.R_OK):
+        plug.logger.error("Can't access directory `{}`.", root)
+        return
 
     observer = Observer()
     observer.schedule(EventHandler(), path=root, recursive=True)
