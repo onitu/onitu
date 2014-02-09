@@ -33,10 +33,13 @@ def start_upload(metadata):
     # We ignore the next Watchdog events concerning this file
     events_to_ignore.add(metadata.filename)
 
-    if not filename.exists():
-        filename.dirname().makedirs_p()
+    try:
+        if not filename.exists():
+            filename.dirname().makedirs_p()
 
-    filename.open('wb').close()
+        filename.open('wb').close()
+    except IOError as e:
+        plug.logger.warn("Error creating file `{}`: {}", filename, e)
 
 
 @plug.handler()
@@ -61,11 +64,14 @@ def upload_chunk(filename, offset, chunk):
     # We make sure events are ignored for this file
     events_to_ignore.add(filename)
 
-    # We should not append the file but seek to the right
-    # position.
-    # However, the behavior of `offset` isn't well defined
-    with open(abs_path, 'ab') as f:
-        f.write(chunk)
+    try:
+        # We should not append the file but seek to the right
+        # position.
+        # However, the behavior of `offset` isn't well defined
+        with open(abs_path, 'ab') as f:
+            f.write(chunk)
+    except IOError as e:
+        plug.logger.warn("Error writting file `{}`: {}", filename, e)
 
 
 def check_changes():
