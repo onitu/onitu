@@ -22,6 +22,8 @@ def load_drivers(*args, **kwargs):
 
     redis = connect_to_redis()
     redis.delete('ports')
+    redis.delete('entries')
+    redis.delete('events')
 
     try:
         with open(entries_file) as f:
@@ -35,7 +37,6 @@ def load_drivers(*args, **kwargs):
         )
         loop.stop()
 
-    redis.delete('entries')
     redis.sadd('entries', *entries.keys())
 
     for name, conf in entries.items():
