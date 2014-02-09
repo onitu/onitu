@@ -39,13 +39,16 @@ class Launcher(object):
         self.event_triggers = {}
 
     def quit(self):
-        self.process.signal(signal.SIGINT)
+        if self.process is not None:
+            self.process.signal(signal.SIGINT)
 
     def kill(self):
-        self.process.signal(signal.SIGTERM)
+        if self.process is not None:
+            self.process.signal(signal.SIGTERM)
 
     def wait(self):
-        self.process.wait()
+        if self.process is not None:
+            self.process.wait()
 
     def _process_record(self, record):
         trigger = (record.channel, record.message)

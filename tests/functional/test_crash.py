@@ -9,15 +9,15 @@ from utils.tempdirs import TempDirs
 
 launcher = None
 dirs = TempDirs()
-rep1, rep2 = dirs.create(), dirs.create()
+reps = {'rep1': dirs.create(), 'rep2': dirs.create()}
 json_file = 'test_crash.json'
 
 
 def setup_module(module):
     global launcher
     entries = Entries()
-    entries.add('local_storage', 'rep1', {'root': rep1})
-    entries.add('local_storage', 'rep2', {'root': rep2})
+    entries.add('local_storage', 'rep1', {'root': reps['rep1']})
+    entries.add('local_storage', 'rep2', {'root': reps['rep2']})
     entries.save(json_file)
     launcher = Launcher(json_file)
 
@@ -37,14 +37,12 @@ def launcher_startup():
     loop.run(timeout=5)
 
 
-def test_crach():
-    filename = 'crash'
-
+def crash(filename, d_from, d_to):
     loop = BooleanLoop()
     launcher.on_transfer_started(
-        loop.stop, d_from='rep1', d_to='rep2', filename=filename
+        loop.stop, d_from=d_from, d_to=d_to, filename=filename
     )
-    generate(os.path.join(rep1, filename), 1000)
+    generate(os.path.join(reps[d_from], filename), 1000)
     launcher_startup()
     loop.run(timeout=5)
     launcher.kill()
@@ -53,12 +51,20 @@ def test_crach():
     launcher.unset_all_events()
     loop = BooleanLoop()
     launcher.on_transfer_ended(
-        loop.stop, d_from='rep1', d_to='rep2', filename=filename
+        loop.stop, d_from=d_from, d_to=d_to, filename=filename
     )
     launcher_startup()
     loop.run(timeout=5)
 
-    assert(checksum(os.path.join(rep1, filename)) ==
-           checksum(os.path.join(rep2, filename)))
+    assert(checksum(os.path.join(reps[d_from], filename)) ==
+           checksum(os.path.join(reps[d_to], filename)))
     launcher.kill()
     launcher.wait()
+
+
+def test_crash_rep1_to_rep2():
+    crash('crash_1', 'rep1', 'rep2')
+
+
+def test_crash_rep2_to_rep1():
+    crash('crash_2', 'rep2', 'rep1')
