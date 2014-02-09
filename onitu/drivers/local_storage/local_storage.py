@@ -48,11 +48,17 @@ def start_upload(metadata):
 def end_upload(metadata):
     filename = root.joinpath(metadata.filename)
 
+    try:
+        mtime = filename.mtime
+    except OSError as e:
+        plug.logger.warn("Error for file `{}`: {}", filename, e)
+        return
+
     # this is to make sure that no further event concerning
     # this set of writes will be propagated to the Referee
-    last_mtime[metadata.filename] = filename.mtime
+    last_mtime[metadata.filename] = mtime
 
-    metadata.revision = filename.mtime
+    metadata.revision = mtime
     metadata.write_revision()
 
     if metadata.filename in events_to_ignore:
