@@ -98,12 +98,7 @@ class Worker(Thread):
 
         while offset < end:
             if stop_event.is_set():
-                # another transaction for the same file has
-                # probably started
-                self.logger.info(
-                    "Aborting transfer of '{}' from {}", filename, driver
-                )
-                return
+                break
 
             dealer.send_multipart((
                 filename.encode(),
@@ -131,9 +126,15 @@ class Worker(Thread):
             'drivers:{}:transfers'.format(self.plug.name),
             fid
         )
-        self.logger.info(
-            "Transfer of '{}' from {} successful", filename, driver
-        )
+
+        if offset < end:
+            self.logger.info(
+                "Aborting transfer of '{}' from {}", filename, driver
+            )
+        else:
+            self.logger.info(
+                "Transfer of '{}' from {} successful", filename, driver
+            )
 
     def _call(self, handler_name, *args, **kwargs):
         """Calls a handler defined by the Driver if it exists.
