@@ -39,7 +39,7 @@ class Launcher(object):
         self.event_triggers = {}
 
     def quit(self, wait=True):
-        if not self.process:
+        if self.process is None:
             return
 
         self.process.signal(signal.SIGINT)
@@ -47,7 +47,7 @@ class Launcher(object):
             self.wait()
 
     def kill(self, wait=True):
-        if not self.process:
+        if self.process is None:
             return
 
         self.process.signal(signal.SIGTERM)
