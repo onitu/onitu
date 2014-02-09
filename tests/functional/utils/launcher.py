@@ -8,6 +8,12 @@ from logbook.queues import ZeroMQSubscriber
 from .logs import logs
 
 
+FORMAT_STRING = (
+    u'[{record.time:%H:%M:%S}] '
+    u'{record.level_name}: {record.channel}: {record.message}'
+)
+
+
 class Launcher(object):
     def __init__(self, entries='entries.json', background=True):
         self.entries = entries
@@ -81,7 +87,9 @@ class Launcher(object):
 
         setup = logbook.NestedSetup([
             logbook.NullHandler(),
-            logbook.StderrHandler(level=logbook.INFO),
+            logbook.StderrHandler(
+                level=logbook.INFO, format_string=FORMAT_STRING
+            ),
             logbook.Processor(self._process_record),
         ])
         self.subscriber = ZeroMQSubscriber(log_uri, multi=True)
