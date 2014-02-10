@@ -15,7 +15,7 @@ json_file = 'test_crash.json'
 
 def setup_module(module):
     global launcher
-    setup = Setup()
+    setup = Setup(session=True)
     setup.add('local_storage', 'rep1', {'root': reps['rep1']})
     setup.add('local_storage', 'rep2', {'root': reps['rep2']})
     setup.save(json_file)
@@ -29,6 +29,7 @@ def teardown_module(module):
 
 
 def launcher_startup():
+    launcher.kill()
     loop = CounterLoop(3)
     launcher.on_referee_started(loop.check)
     launcher.on_driver_started(loop.check, driver='rep1')
@@ -48,9 +49,12 @@ def crash(filename, d_from, d_to):
     launcher.kill()
 
     launcher.unset_all_events()
-    loop = BooleanLoop()
+    loop = CounterLoop(2)
+    launcher.on_transfer_restarted(
+        loop.check, d_from=d_from, d_to=d_to, filename=filename
+    )
     launcher.on_transfer_ended(
-        loop.stop, d_from=d_from, d_to=d_to, filename=filename
+        loop.check, d_from=d_from, d_to=d_to, filename=filename
     )
     launcher_startup()
     loop.run(timeout=5)

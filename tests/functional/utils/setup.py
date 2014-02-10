@@ -1,3 +1,5 @@
+import random
+import string
 import json
 import re
 
@@ -46,9 +48,17 @@ class Entry(EntryBase):
 
 
 class Setup(object):
-    def __init__(self, name=None):
+    def __init__(self, session=True):
         self.entries = set()
-        self.name = name
+
+        if session:
+            # Each time the launcher will be started, it will use the
+            # same session
+            self.name = ''.join(
+                random.sample(string.letters + string.digits, 20)
+            )
+        else:
+            self.name = None
 
     def add(self, driver, name=None, options=None):
         if name is None:
