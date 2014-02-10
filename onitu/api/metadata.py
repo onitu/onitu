@@ -24,7 +24,10 @@ class Metadata(object):
 
         self.filename = filename
         self.size = size
+
         self.plug = plug
+        self.session = plug.session
+
         self._revision = None
         self._fid = None
 
@@ -33,7 +36,7 @@ class Metadata(object):
         """Instantiate a new :class:`Metadata` object for the file
         with the given name.
         """
-        fid = plug.redis.hget('files', filename)
+        fid = plug.session.hget('files', filename)
 
         if fid:
             return cls.get_by_id(plug, fid)
@@ -45,9 +48,8 @@ class Metadata(object):
         """Instantiate a new :class:`Metadata` object for the file
         with the given id.
         """
-        values = plug.redis.hgetall('files:{}'.format(fid))
-        metadata = cls()
-        metadata.plug = plug
+        values = plug.session.hgetall('files:{}'.format(fid))
+        metadata = cls(plug)
         metadata._fid = fid
 
         for name, (deserialize, _) in cls.PROPERTIES.items():
@@ -65,7 +67,7 @@ class Metadata(object):
         if self._revision:
             return self._revision
         elif self._fid:
-            return self.plug.redis.hget(
+            return self.session.hget(
                 'drivers:{}:files'.format(self.plug.name),
                 self._fid
             )
@@ -84,7 +86,7 @@ class Metadata(object):
         if not self._revision:
             return
 
-        self.plug.redis.hset(
+        self.session.hset(
             'drivers:{}:files'.format(self.plug.name),
             self._fid,
             self._revision
@@ -107,6 +109,6 @@ class Metadata(object):
                 )
                 return
 
-        self.plug.redis.hmset('files:{}'.format(self._fid), metadata)
+        self.session.hmset('files:{}'.format(self._fid), metadata)
 
         self.write_revision()

@@ -19,14 +19,10 @@ from .utils import connect_to_redis
 
 
 @gen.coroutine
-def load_drivers(*args, **kwargs):
+def start_setup(*args, **kwargs):
     logger.info("Loading setup...")
 
     redis = connect_to_redis()
-    redis.delete('ports')
-    redis.delete('entries')
-    redis.delete('session')
-    redis.delete('events')
 
     try:
         with open(setup_file) as f:
@@ -40,15 +36,21 @@ def load_drivers(*args, **kwargs):
         )
         loop.stop()
 
-    if not 'name' in setup:
+    session = setup.get('name')
+
+    if not session:
         # If the current setup does not have a name, we create a random one
-        setup['name'] = ''.join(
+        session = ''.join(
             random.sample(string.letters + string.digits, 10)
         )
-
-    if ':' in setup['name']:
-        logger.error("Illegal character ':' in name '{}'", setup['name'])
+    elif ':' in session:
+        logger.error("Illegal character ':' in name '{}'", session)
         loop.stop()
+
+    redis.set('session', session)
+    redis.session.start(session)
+    redis.session.delete('ports')
+    redis.session.delete('entries')
 
     if not 'entries' in setup:
         logger.warn("No entries specified in '{}'", setup_file)
@@ -56,7 +58,7 @@ def load_drivers(*args, **kwargs):
 
     entries = setup['entries']
 
-    redis.sadd('entries', *entries.keys())
+    redis.session.sadd('entries', *entries.keys())
 
     for name, conf in entries.items():
         logger.debug("Loading entry {}", name)
@@ -68,7 +70,9 @@ def load_drivers(*args, **kwargs):
         script = 'onitu.drivers.{}'.format(conf['driver'])
 
         if 'options' in conf:
-            redis.hmset('drivers:{}:options'.format(name), conf['options'])
+            redis.session.hmset(
+                'drivers:{}:options'.format(name), conf['options']
+            )
 
         watcher = arbiter.add_watcher(
             name,
@@ -152,6 +156,8 @@ if __name__ == '__main__':
                     'copy_env': True,
                     'priority': 1,
                 },
+                # TODO : Start the Referee in start_setup, after the
+                # session initialization
                 {
                     'cmd': sys.executable,
                     'args': ['-m', 'onitu.referee', log_uri],
@@ -167,7 +173,7 @@ if __name__ == '__main__':
 
         try:
             future = arbiter.start()
-            loop.add_future(future, load_drivers)
+            loop.add_future(future, start_setup)
             arbiter.start_io_loop()
         except (KeyboardInterrupt, SystemExit):
             pass

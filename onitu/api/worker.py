@@ -18,7 +18,9 @@ class Worker(Thread):
         super(Worker, self).__init__()
 
         self.plug = plug
-        self.logger = Logger("{} - Worker".format(self.plug.name))
+        self.name = plug.name
+        self.session = plug.session
+        self.logger = Logger("{} - Worker".format(self.name))
         self.context = zmq.Context.instance()
         self.transfers = {}
 
@@ -27,19 +29,21 @@ class Worker(Thread):
     def run(self):
         while True:
             try:
-                _, event = self.plug.redis.blpop(
-                    ['drivers:{}:events'.format(self.plug.name)]
+                _, event = self.session.blpop(
+                    'drivers:{}:events'.format(self.name)
                 )
                 driver, fid = event.split(':')
             except redis.ConnectionError:
                 exit()
 
-            self.plug.redis.lrem('events', fid)
+            self.session.lrem('events', fid)
             self.async_get_file(fid, driver=driver)
 
     def resume_transfers(self):
-        for fid in self.plug.redis.smembers('drivers:{}:transfers'
-                                            .format(self.plug.name)):
+        transfers = self.session.smembers(
+            'drivers:{}:transfers'.format(self.name)
+        )
+        for fid in transfers:
             self.async_get_file(fid, driver=None, restart=True)
 
     def async_get_file(self, fid, **kwargs):
@@ -60,22 +64,21 @@ class Worker(Thread):
     def get_file(self, fid, stop_event, driver=None, restart=False):
         """Transfers a file from a Driver to another.
         """
-        redis = self.plug.redis
         metadata = Metadata.get_by_id(self.plug, fid)
         filename = metadata.filename
 
-        transfer_key = 'drivers:{}:transfers:{}'.format(self.plug.name, fid)
+        transfer_key = 'drivers:{}:transfers:{}'.format(self.name, fid)
 
         if driver:
-            redis.sadd(
-                'drivers:{}:transfers'.format(self.plug.name),
+            self.session.sadd(
+                'drivers:{}:transfers'.format(self.name),
                 fid
             )
-            redis.hmset(transfer_key, {'from': driver, 'offset': 0})
+            self.session.hmset(transfer_key, {'from': driver, 'offset': 0})
             offset = 0
             self.logger.info("Starting to get '{}' from {}", filename, driver)
         else:
-            transfer = redis.hgetall(transfer_key)
+            transfer = self.session.hgetall(transfer_key)
             driver = transfer['from']
             offset = int(transfer['offset'])
             self.logger.info(
@@ -84,7 +87,7 @@ class Worker(Thread):
 
         dealer = self.context.socket(zmq.DEALER)
         while True:
-            port = redis.hget('ports', driver)
+            port = self.session.hget('ports', driver)
             if port:
                 dealer.connect('tcp://localhost:{}'.format(port))
                 break
@@ -117,13 +120,13 @@ class Worker(Thread):
 
             self._call('upload_chunk', filename, offset, chunk)
 
-            offset = redis.hincrby(transfer_key, 'offset', len(chunk))
+            offset = self.session.hincrby(transfer_key, 'offset', len(chunk))
 
         self._call('end_upload', metadata)
 
-        redis.delete(transfer_key)
-        redis.srem(
-            'drivers:{}:transfers'.format(self.plug.name),
+        self.session.delete(transfer_key)
+        self.session.srem(
+            'drivers:{}:transfers'.format(self.name),
             fid
         )
 
