@@ -127,6 +127,9 @@ class Plug(object):
 
         metadata.write()
 
+        self.logger.debug(
+            "Notifying the Referee about '{}'", metadata.filename
+        )
         self.session.rpush('events', "{}:{}".format(self.name, fid))
 
     def get_metadata(self, filename):

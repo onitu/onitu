@@ -86,12 +86,14 @@ class Worker(Thread):
             )
 
         dealer = self.context.socket(zmq.DEALER)
+        self.logger.debug("Waiting for ROUTER port for {}", driver)
         while True:
             port = self.session.hget('ports', driver)
             if port:
                 dealer.connect('tcp://localhost:{}'.format(port))
                 break
             time.sleep(0.1)
+        self.logger.debug("Got ROUTER port for {}", driver)
 
         end = metadata.size
         chunk_size = self.plug.options.get('chunk_size', 1 * 1024 * 1024)
@@ -102,6 +104,8 @@ class Worker(Thread):
         while offset < end:
             if stop_event.is_set():
                 break
+
+            self.logger.debug("Asking {} for a new chunk", driver)
 
             dealer.send_multipart((
                 filename.encode(),
