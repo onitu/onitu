@@ -46,6 +46,10 @@ def load_drivers(*args, **kwargs):
             random.sample(string.letters + string.digits, 10)
         )
 
+    if ':' in setup['name']:
+        logger.error("Illegal character ':' in name '{}'", setup['name'])
+        loop.stop()
+
     if not 'entries' in setup:
         logger.warn("No entries specified in '{}'", setup_file)
         loop.stop()
