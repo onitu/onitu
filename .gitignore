@@ -53,5 +53,5 @@ redis/appendonly.aof
 docs/_build
 
 # Development
-test
+example
 venv

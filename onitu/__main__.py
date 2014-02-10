@@ -2,6 +2,8 @@ import sys
 import signal
 import socket
 import argparse
+import string
+import random
 
 import simplejson
 import circus
@@ -18,24 +20,37 @@ from .utils import connect_to_redis
 
 @gen.coroutine
 def load_drivers(*args, **kwargs):
-    logger.info("Loading entries...")
+    logger.info("Loading setup...")
 
     redis = connect_to_redis()
     redis.delete('ports')
     redis.delete('entries')
+    redis.delete('session')
     redis.delete('events')
 
     try:
-        with open(entries_file) as f:
-            entries = simplejson.load(f)
+        with open(setup_file) as f:
+            setup = simplejson.load(f)
     except simplejson.JSONDecodeError as e:
-        logger.error("Error parsing '{}' : {}", entries_file, e)
+        logger.error("Error parsing '{}' : {}", setup_file, e)
         loop.stop()
     except Exception as e:
         logger.error(
-            "Can't process entries file '{}' : {}", entries_file, e
+            "Can't process setup file '{}' : {}", setup_file, e
         )
         loop.stop()
+
+    if not 'name' in setup:
+        # If the current setup does not have a name, we create a random one
+        setup['name'] = ''.join(
+            random.sample(string.letters + string.digits, 10)
+        )
+
+    if not 'entries' in setup:
+        logger.warn("No entries specified in '{}'", setup_file)
+        loop.stop()
+
+    entries = setup['entries']
 
     redis.sadd('entries', *entries.keys())
 
@@ -99,8 +114,8 @@ def get_logs_dispatcher(uri=None, debug=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("onitu")
     parser.add_argument(
-        '--entries', default='entries.json',
-        help="A JSON file with the entries (defaults to entries.json)"
+        '--setup', default='setup.json',
+        help="A JSON file with Onitu's configuration (defaults to setup.json)"
     )
     parser.add_argument(
         '--log-uri', help="A ZMQ socket where all the logs will be sent"
@@ -110,7 +125,7 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    entries_file = args.entries
+    setup_file = args.setup
     log_uri = args.log_uri
     dispatcher = None
 
