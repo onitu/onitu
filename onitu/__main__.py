@@ -60,6 +60,16 @@ def start_setup(*args, **kwargs):
 
     redis.session.sadd('entries', *entries.keys())
 
+    referee = arbiter.add_watcher(
+        "Referee",
+        sys.executable,
+        args=['-m', 'onitu.referee', log_uri],
+        copy_env=True,
+    )
+
+    loop.add_callback(start_watcher, referee)
+
+
     for name, conf in entries.items():
         logger.debug("Loading entry {}", name)
 
@@ -153,14 +163,6 @@ if __name__ == '__main__':
                 {
                     'cmd': 'redis-server',
                     'args': 'redis/redis.conf',
-                    'copy_env': True,
-                    'priority': 1,
-                },
-                # TODO : Start the Referee in start_setup, after the
-                # session initialization
-                {
-                    'cmd': sys.executable,
-                    'args': ['-m', 'onitu.referee', log_uri],
                     'copy_env': True,
                 },
             ],
