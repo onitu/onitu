@@ -45,18 +45,23 @@ class Entry(EntryBase):
         return super(Entry, cls).__new__(cls)
 
 
-class Entries(object):
-    def __init__(self):
-        self._items = set()
+class Setup(object):
+    def __init__(self, name=None):
+        self.entries = set()
+        self.name = name
 
     def add(self, driver, name=None, options=None):
         if name is None:
             name = driver
-        self._items.add(Entry(driver, name, options))
+        self.entries.add(Entry(driver, name, options))
 
     @property
     def dump(self):
-        return {e.name: e.dump for e in self._items}
+        setup = {}
+        if self.name:
+            setup['name'] = self.name
+        setup['entries'] = {e.name: e.dump for e in self.entries}
+        return setup
 
     @property
     def json(self):
