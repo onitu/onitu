@@ -41,7 +41,7 @@ def start_setup(*args, **kwargs):
     if not session:
         # If the current setup does not have a name, we create a random one
         session = ''.join(
-            random.sample(string.letters + string.digits, 10)
+            random.sample(string.ascii_letters + string.digits, 10)
         )
     elif ':' in session:
         logger.error("Illegal character ':' in name '{}'", session)
