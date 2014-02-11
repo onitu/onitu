@@ -69,7 +69,6 @@ def start_setup(*args, **kwargs):
 
     loop.add_callback(start_watcher, referee)
 
-
     for name, conf in entries.items():
         logger.debug("Loading entry {}", name)
 

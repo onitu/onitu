@@ -55,7 +55,7 @@ class Setup(object):
             # Each time the launcher will be started, it will use the
             # same session
             self.name = ''.join(
-                random.sample(string.letters + string.digits, 20)
+                random.sample(string.ascii_letters + string.digits, 20)
             )
         else:
             self.name = None
