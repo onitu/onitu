@@ -154,4 +154,4 @@ def start(*args, **kwargs):
     observer.start()
 
     check_changes()
-    plug.wait()
+    plug.listen()
