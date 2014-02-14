@@ -7,7 +7,7 @@ from logbook import Logger
 
 from .metadata import Metadata
 from .router import Router
-from .worker import Worker
+from .dealer import Dealer
 
 from onitu.utils import connect_to_redis
 
@@ -29,7 +29,7 @@ class Plug(object):
         self.name = None
         self.logger = None
         self.router = None
-        self.worker = None
+        self.dealer = None
         self.options = {}
         self._handlers = {}
 
@@ -42,7 +42,7 @@ class Plug(object):
 
         :func:`start` launches two threads :
 
-        - The :class:`worker.Worker`, listening to notifications from the
+        - The :class:`dealer.Dealer`, listening to notifications from the
           Referee and handling them by calling the handlers defined by the
           Driver
         - The :class:`router.Router`, listening to requests by other Drivers
@@ -58,9 +58,9 @@ class Plug(object):
         self.router = Router(self)
         self.router.start()
 
-        self.worker = Worker(self)
-        self.worker.start()
-        self.worker.resume_transfers()
+        self.dealer = Dealer(self)
+        self.dealer.start()
+        self.dealer.resume_transfers()
 
     def wait(self):
         """Waits until the :class:`Plug` is killed by another process.
