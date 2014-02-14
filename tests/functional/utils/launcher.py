@@ -15,8 +15,8 @@ FORMAT_STRING = (
 
 
 class Launcher(object):
-    def __init__(self, entries='entries.json', background=True):
-        self.entries = entries
+    def __init__(self, setup='setup.json', background=True):
+        self.setup = setup
         self.bg = background
         self.process = None
 
@@ -97,7 +97,7 @@ class Launcher(object):
 
         self.process = sh.python(
             '-m', 'onitu',
-            '--entries', self.entries,
+            '--setup', self.setup,
             '--log-uri', log_uri,
             _bg=self.bg,
         )

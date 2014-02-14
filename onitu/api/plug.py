@@ -24,6 +24,7 @@ class Plug(object):
         super(Plug, self).__init__()
 
         self.redis = connect_to_redis()
+        self.session = self.redis.session
 
         self.name = None
         self.logger = None
@@ -50,11 +51,11 @@ class Plug(object):
         """
         self.name = name
         self.logger = Logger(self.name)
-        self.options = self.redis.hgetall('drivers:{}:options'.format(name))
+        self.options = self.session.hgetall('drivers:{}:options'.format(name))
 
         self.logger.info("Started")
 
-        self.router = Router(name, self.redis, self._handlers.get('get_chunk'))
+        self.router = Router(self)
         self.router.start()
 
         self.worker = Worker(self)
@@ -104,16 +105,16 @@ class Plug(object):
         It takes a `Metadata` object in parameter that should have been
         updated with the new value of the properties.
         """
-        fid = self.redis.hget('files', metadata.filename)
+        fid = self.session.hget('files', metadata.filename)
 
         if not fid:
-            fid = self.redis.incr('last_id')
-            self.redis.hset('files', metadata.filename, fid)
-            self.redis.hset('drivers:{}:files'.format(self.name), fid, "")
+            fid = self.session.incr('last_id')
+            self.session.hset('files', metadata.filename, fid)
+            self.session.hset('drivers:{}:files'.format(self.name), fid, "")
             metadata.owners = [self.name]
             metadata._fid = fid
-        elif self.redis.sismember('drivers:{}:transfers'
-                                  .format(self.name), fid):
+        elif self.session.sismember('drivers:{}:transfers'
+                                    .format(self.name), fid):
             # The event has been triggered during a transfer, we
             # have to cancel it.
             self.logger.warning(
@@ -126,7 +127,10 @@ class Plug(object):
 
         metadata.write()
 
-        self.redis.rpush('events', "{}:{}".format(self.name, fid))
+        self.logger.debug(
+            "Notifying the Referee about '{}'", metadata.filename
+        )
+        self.session.rpush('events', "{}:{}".format(self.name, fid))
 
     def get_metadata(self, filename):
         """Returns a `Metadata` object corresponding to the given

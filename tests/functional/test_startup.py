@@ -1,6 +1,6 @@
 from os import unlink
 from utils.launcher import Launcher
-from utils.entries import Entries
+from utils.setup import Setup
 from utils.loop import CounterLoop
 from utils.tempdirs import TempDirs
 
@@ -11,10 +11,10 @@ json_file = 'test_startup.json'
 
 def setup_module(module):
     global launcher
-    entries = Entries()
-    entries.add('local_storage', 'rep1', {'root': dirs.create()})
-    entries.add('local_storage', 'rep2', {'root': dirs.create()})
-    entries.save(json_file)
+    setup = Setup()
+    setup.add('local_storage', 'rep1', {'root': dirs.create()})
+    setup.add('local_storage', 'rep2', {'root': dirs.create()})
+    setup.save(json_file)
     launcher = Launcher(json_file)
 
 

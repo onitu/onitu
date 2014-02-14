@@ -21,8 +21,14 @@ logs = {
     ),
     'transfer_aborted': (
         (
-            "{d_to} - Router",
+            "{d_to} - Worker",
             "Aborting transfer of '{filename}' from {d_from}"
         ),
-    )
+    ),
+    'transfer_restarted': (
+        (
+            "{d_to} - Worker",
+            "Restarting transfer of '{filename}' from {d_from}"
+        ),
+    ),
 }

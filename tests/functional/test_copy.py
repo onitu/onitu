@@ -4,7 +4,7 @@ from os import unlink
 import sh
 
 from utils.launcher import Launcher
-from utils.entries import Entries
+from utils.setup import Setup
 from utils.loop import BooleanLoop, CounterLoop, TimeoutError
 from utils.files import generate, checksum, KB, MB
 from utils.tempdirs import TempDirs
@@ -17,10 +17,10 @@ json_file = 'test_copy.json'
 
 def setup_module(module):
     global launcher
-    entries = Entries()
-    entries.add('local_storage', 'rep1', {'root': rep1})
-    entries.add('local_storage', 'rep2', {'root': rep2})
-    entries.save(json_file)
+    setup = Setup()
+    setup.add('local_storage', 'rep1', {'root': rep1})
+    setup.add('local_storage', 'rep2', {'root': rep2})
+    setup.save(json_file)
     loop = CounterLoop(3)
     launcher = Launcher(json_file)
     launcher.on_referee_started(loop.check)

@@ -1,0 +1,17 @@
+{
+  "name": "example",
+  "entries": {
+    "A": {
+      "driver": "local_storage",
+      "options": {
+        "root": "example/driver_a"
+      }
+    },
+    "B": {
+      "driver": "local_storage",
+      "options": {
+        "root": "example/driver_b"
+      }
+    }
+  }
+}

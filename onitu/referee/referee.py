@@ -30,6 +30,7 @@ class Referee(object):
 
         self.logger = Logger("Referee")
         self.redis = connect_to_redis()
+        self.session = self.redis.session
         self.entries = False
 
         self.logger.info("Started")
@@ -39,7 +40,7 @@ class Referee(object):
         """
         while True:
             try:
-                _, event = self.redis.blpop(['events'])
+                _, event = self.session.blpop('events')
                 driver, fid = event.split(':')
             except redis.ConnectionError:
                 exit()
@@ -48,10 +49,10 @@ class Referee(object):
                 # We received our first event, therefore we can get
                 # the currents entries (if we did it before, it could
                 # the entries from a previous session)
-                self.entries = self.redis.smembers('entries')
+                self.entries = self.session.smembers('entries')
 
             # delete all the newer events referring to this file
-            self.redis.lrem('events', fid)
+            self.session.lrem('events', fid)
             self._handle_event(driver, fid)
 
     def _handle_event(self, driver, fid):
@@ -61,7 +62,7 @@ class Referee(object):
         For the moment all the entries are notified for each event, but
         this should change when the rules will be introduced.
         """
-        metadata = self.redis.hgetall('files:{}'.format(fid))
+        metadata = self.session.hgetall('files:{}'.format(fid))
         owners = metadata['owners'].split(':')
         uptodate = metadata['uptodate'].split(':')
         filename = metadata['filename']
@@ -84,13 +85,13 @@ class Referee(object):
 
         if new_owners:
             value = ':'.join(owners + new_owners)
-            self.redis.hset('files:{}'.format(fid), 'owners', value)
+            self.session.hset('files:{}'.format(fid), 'owners', value)
 
         for name in to_notify:
             self.logger.debug(
                 "Notifying {} about '{}'", name, filename
             )
-            self.redis.rpush(
+            self.session.rpush(
                 'drivers:{}:events'.format(name),
                 "{}:{}".format(uptodate[0], fid)
             )

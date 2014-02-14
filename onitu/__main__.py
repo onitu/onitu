@@ -2,6 +2,8 @@ import sys
 import signal
 import socket
 import argparse
+import string
+import random
 
 import simplejson
 import circus
@@ -17,27 +19,55 @@ from .utils import connect_to_redis
 
 
 @gen.coroutine
-def load_drivers(*args, **kwargs):
-    logger.info("Loading entries...")
+def start_setup(*args, **kwargs):
+    logger.info("Loading setup...")
 
     redis = connect_to_redis()
-    redis.delete('ports')
-    redis.delete('entries')
-    redis.delete('events')
 
     try:
-        with open(entries_file) as f:
-            entries = simplejson.load(f)
+        with open(setup_file) as f:
+            setup = simplejson.load(f)
     except simplejson.JSONDecodeError as e:
-        logger.error("Error parsing '{}' : {}", entries_file, e)
+        logger.error("Error parsing '{}' : {}", setup_file, e)
         loop.stop()
     except Exception as e:
         logger.error(
-            "Can't process entries file '{}' : {}", entries_file, e
+            "Can't process setup file '{}' : {}", setup_file, e
         )
         loop.stop()
 
-    redis.sadd('entries', *entries.keys())
+    session = setup.get('name')
+
+    if not session:
+        # If the current setup does not have a name, we create a random one
+        session = ''.join(
+            random.sample(string.ascii_letters + string.digits, 10)
+        )
+    elif ':' in session:
+        logger.error("Illegal character ':' in name '{}'", session)
+        loop.stop()
+
+    redis.set('session', session)
+    redis.session.start(session)
+    redis.session.delete('ports')
+    redis.session.delete('entries')
+
+    if not 'entries' in setup:
+        logger.warn("No entries specified in '{}'", setup_file)
+        loop.stop()
+
+    entries = setup['entries']
+
+    redis.session.sadd('entries', *entries.keys())
+
+    referee = arbiter.add_watcher(
+        "Referee",
+        sys.executable,
+        args=['-m', 'onitu.referee', log_uri],
+        copy_env=True,
+    )
+
+    loop.add_callback(start_watcher, referee)
 
     for name, conf in entries.items():
         logger.debug("Loading entry {}", name)
@@ -49,7 +79,9 @@ def load_drivers(*args, **kwargs):
         script = 'onitu.drivers.{}'.format(conf['driver'])
 
         if 'options' in conf:
-            redis.hmset('drivers:{}:options'.format(name), conf['options'])
+            redis.session.hmset(
+                'drivers:{}:options'.format(name), conf['options']
+            )
 
         watcher = arbiter.add_watcher(
             name,
@@ -99,8 +131,8 @@ def get_logs_dispatcher(uri=None, debug=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("onitu")
     parser.add_argument(
-        '--entries', default='entries.json',
-        help="A JSON file with the entries (defaults to entries.json)"
+        '--setup', default='setup.json',
+        help="A JSON file with Onitu's configuration (defaults to setup.json)"
     )
     parser.add_argument(
         '--log-uri', help="A ZMQ socket where all the logs will be sent"
@@ -110,7 +142,7 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    entries_file = args.entries
+    setup_file = args.setup
     log_uri = args.log_uri
     dispatcher = None
 
@@ -131,12 +163,6 @@ if __name__ == '__main__':
                     'cmd': 'redis-server',
                     'args': 'redis/redis.conf',
                     'copy_env': True,
-                    'priority': 1,
-                },
-                {
-                    'cmd': sys.executable,
-                    'args': ['-m', 'onitu.referee', log_uri],
-                    'copy_env': True,
                 },
             ],
             proc_name="Onitu",
@@ -148,7 +174,7 @@ if __name__ == '__main__':
 
         try:
             future = arbiter.start()
-            loop.add_future(future, load_drivers)
+            loop.add_future(future, start_setup)
             arbiter.start_io_loop()
         except (KeyboardInterrupt, SystemExit):
             pass
