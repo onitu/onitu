@@ -24,7 +24,7 @@ class Redis(redis.Redis):
         def _wrap(self, method):
             @functools.wraps(method)
             def wrapper(*args, **kwargs):
-                if len(args) and isinstance(args[0], basestring):
+                if len(args) and isinstance(args[0], str):
                     args = (self.prefix + args[0],) + args[1:]
                 return method(*args, **kwargs)
 
