@@ -130,11 +130,12 @@ class Worker(object):
                 'drivers:{}:transfers:{}'.format(self.dealer.name, self.fid),
                 {'from': self.driver, 'offset': self.offset}
             )
+
+            self.call('start_upload', self.metadata)
+
             self.logger.info(
                 "Starting to get '{}' from {}", self.filename, self.driver
             )
-
-            self.call('start_upload', self.metadata)
 
     def get_file(self):
         dealer = self.get_dealer()
