@@ -1,6 +1,7 @@
 import time
 
 from threading import Thread, Event
+from multiprocessing.pool import ThreadPool
 
 import zmq
 import redis
@@ -18,6 +19,8 @@ class Dealer(Thread):
         self.logger = Logger("{} - Dealer".format(self.name))
         self.context = zmq.Context.instance()
         self.in_progress = {}
+
+        self.pool = ThreadPool()
 
         self.logger.info("Started")
 
@@ -56,16 +59,16 @@ class Dealer(Thread):
 
     def get_file(self, fid, *args, **kwargs):
         if fid in self.in_progress:
-            worker = self.in_progress[fid]
+            worker, result = self.in_progress[fid]
             worker.stop.set()
-            worker.join()
+            result.wait()
 
         worker = Worker(self, fid, *args, **kwargs)
-        self.in_progress[fid] = worker
-        worker.start()
+        result = self.pool.apply_async(worker)
+        self.in_progress[fid] = (worker, result)
 
 
-class Worker(Thread):
+class Worker(object):
     def __init__(self, dealer, fid, driver, offset=0, restart=False):
         super(Worker, self).__init__()
 
@@ -83,10 +86,10 @@ class Worker(Thread):
             'chunk_size', 1 << 20  # 1MB
         )
 
-        self.metadata = Metadata.get_by_id(dealer.plug, fid)
+    def __call__(self):
+        self.metadata = Metadata.get_by_id(self.dealer.plug, self.fid)
         self.filename = self.metadata.filename
 
-    def run(self):
         self.start_transfer()
         success = self.get_file()
         self.end_transfer(success)
