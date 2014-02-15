@@ -104,6 +104,7 @@ class Worker(object):
             if port:
                 self.logger.debug("Got ROUTER port for {}", self.driver)
                 dealer.connect('tcp://localhost:{}'.format(port))
+                self.logger.debug("Connected")
                 return dealer
             time.sleep(0.1)
 
@@ -173,7 +174,9 @@ class Worker(object):
     def end_transfer(self, success):
         self.call('end_upload', self.metadata)
 
-        self.session.delete('drivers:{}:transfers'.format(self.dealer.name))
+        self.session.delete(
+            'drivers:{}:transfers:{}'.format(self.dealer.name, self.fid)
+        )
         self.session.srem(
             'drivers:{}:transfers'.format(self.dealer.name),
             self.fid
