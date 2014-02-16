@@ -105,16 +105,16 @@ class Plug(object):
         It takes a `Metadata` object in parameter that should have been
         updated with the new value of the properties.
         """
-        fid = self.session.hget('files', metadata.filename)
+        fid = metadata._fid
 
-        if not fid:
+        if not metadata._fid:
             fid = self.session.incr('last_id')
             self.session.hset('files', metadata.filename, fid)
             self.session.hset('drivers:{}:files'.format(self.name), fid, "")
             metadata.owners = [self.name]
             metadata._fid = fid
         elif self.session.sismember('drivers:{}:transfers'
-                                    .format(self.name), fid):
+                                    .format(self.name), metadata._fid):
             # The event has been triggered during a transfer, we
             # have to cancel it.
             self.logger.warning(
@@ -130,7 +130,10 @@ class Plug(object):
         self.logger.debug(
             "Notifying the Referee about '{}'", metadata.filename
         )
-        self.session.rpush('events', "{}:{}".format(self.name, fid))
+        self.session.rpush(
+            'events',
+            "{}:{}".format(self.name, metadata._fid)
+        )
 
     def get_metadata(self, filename):
         """Returns a `Metadata` object corresponding to the given

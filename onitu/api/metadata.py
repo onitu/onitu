@@ -49,6 +49,10 @@ class Metadata(object):
         with the given id.
         """
         values = plug.session.hgetall('files:{}'.format(fid))
+
+        if not values:
+            return None
+
         metadata = cls(plug)
         metadata._fid = fid
 
