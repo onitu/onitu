@@ -34,7 +34,8 @@ class Dealer(Thread):
             except redis.ConnectionError:
                 exit()
 
-            self.session.lrem('events', fid)
+            # Remove the newer events for this file
+            self.session.lrem('drivers:{}:events'.format(self.name), fid)
             self.get_file(fid, driver)
 
     def resume_transfers(self):
