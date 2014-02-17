@@ -31,7 +31,7 @@ class Referee(object):
         self.logger = Logger("Referee")
         self.redis = connect_to_redis()
         self.session = self.redis.session
-        self.entries = False
+        self.entries = self.session.smembers('entries')
 
         self.logger.info("Started")
 
@@ -44,12 +44,6 @@ class Referee(object):
                 driver, fid = event.split(':')
             except redis.ConnectionError:
                 exit()
-
-            if not self.entries:
-                # We received our first event, therefore we can get
-                # the currents entries (if we did it before, it could
-                # the entries from a previous session)
-                self.entries = self.session.smembers('entries')
 
             # delete all the newer events referring to this file
             self.session.lrem('events', fid)
