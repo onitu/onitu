@@ -63,7 +63,8 @@ def launch_with_files(launcher, reps, prefix, n, size, delete=True):
         if delete:
             for filename in files:
                 try:
-                    unlink(filename)
+                    for n in ('rep1', 'rep2'):
+                        unlink(os.path.join(reps[n], filename))
                 except:
                     pass
 
