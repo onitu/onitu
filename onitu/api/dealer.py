@@ -35,7 +35,7 @@ class Dealer(Thread):
                 exit()
 
             # Remove the newer events for this file
-            self.session.lrem('drivers:{}:events'.format(self.name), fid)
+            self.session.lrem('drivers:{}:events'.format(self.name), event)
             self.get_file(fid, driver)
 
     def resume_transfers(self):

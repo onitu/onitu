@@ -46,7 +46,7 @@ class Referee(object):
                 exit()
 
             # delete all the newer events referring to this file
-            self.session.lrem('events', fid)
+            self.session.lrem('events', event)
             self._handle_event(driver, fid)
 
     def _handle_event(self, driver, fid):
