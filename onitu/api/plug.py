@@ -3,6 +3,8 @@ The Plug is the part of any Driver that communicates with the rest of
 Onitu. This part is common between all the drivers.
 """
 
+import redis
+
 from logbook import Logger
 
 from .metadata import Metadata
@@ -107,14 +109,38 @@ class Plug(object):
         """
         fid = metadata._fid
 
-        if not metadata._fid:
-            fid = self.session.incr('last_id')
-            self.session.hset('files', metadata.filename, fid)
-            self.session.hset('drivers:{}:files'.format(self.name), fid, "")
+        if not fid:
+            # We try to add the file with a Redis transaction. If a file is
+            # created in the meantime, we try again (not very efficient...),
+            # and if it was this file, we stop here.
+            # This solve a race-condition happening when two threads try to
+            # create the same file. cf Issue #9
+            while True:
+                fid = self.session.hget('files', metadata.filename)
+                if fid:
+                    break
+
+                with self.session.pipeline() as pipe:
+                    try:
+                        pipe.watch('files')
+                        new_fid = pipe.incr('last_id')
+                        pipe.multi()
+                        self.session.hset('files', metadata.filename, new_fid)
+                        self.session.hset(
+                            'drivers:{}:files'.format(self.name),
+                            new_fid, ""
+                        )
+                        pipe.execute()
+                    except redis.WatchError:
+                        pass
+
+            # This might be an issue if the file was actually created
+            # by another entry
             metadata.owners = [self.name]
             metadata._fid = fid
-        elif self.session.sismember('drivers:{}:transfers'
-                                    .format(self.name), metadata._fid):
+
+        if self.session.sismember('drivers:{}:transfers'
+                                  .format(self.name), fid):
             # The event has been triggered during a transfer, we
             # have to cancel it.
             self.logger.warning(
@@ -130,10 +156,7 @@ class Plug(object):
         self.logger.debug(
             "Notifying the Referee about '{}'", metadata.filename
         )
-        self.session.rpush(
-            'events',
-            "{}:{}".format(self.name, metadata._fid)
-        )
+        self.session.rpush('events', "{}:{}".format(self.name, fid))
 
     def get_metadata(self, filename):
         """Returns a `Metadata` object corresponding to the given
