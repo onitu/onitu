@@ -46,7 +46,7 @@ def copy_file(filename, size):
         loop.stop, d_from='rep1', d_to='rep2', filename=filename
     )
     generate(os.path.join(rep1, filename), size)
-    loop.run(timeout=5)
+    loop.run(timeout=10)
     assert(checksum(os.path.join(rep1, filename)) ==
            checksum(os.path.join(rep2, filename)))
 
@@ -85,7 +85,7 @@ def test_empty_file():
         loop.stop, d_from='rep1', d_to='rep2', filename=filename
     )
     sh.touch(os.path.join(rep1, filename))
-    loop.run(timeout=5)
+    loop.run(timeout=10)
     assert os.path.getsize(os.path.join(rep2, filename)) == 0
 
 

@@ -45,7 +45,7 @@ def crash(filename, d_from, d_to):
     )
     generate(os.path.join(reps[d_from], filename), 1000)
     launcher_startup()
-    loop.run(timeout=5)
+    loop.run(timeout=10)
     launcher.kill()
 
     launcher.unset_all_events()
@@ -57,7 +57,7 @@ def crash(filename, d_from, d_to):
         loop.check, d_from=d_from, d_to=d_to, filename=filename
     )
     launcher_startup()
-    loop.run(timeout=5)
+    loop.run(timeout=10)
 
     assert(checksum(os.path.join(reps[d_from], filename)) ==
            checksum(os.path.join(reps[d_to], filename)))
