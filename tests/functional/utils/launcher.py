@@ -1,7 +1,7 @@
 import signal
 import socket
+from subprocess import Popen
 
-import sh
 import logbook
 from logbook.queues import ZeroMQSubscriber
 
@@ -48,7 +48,10 @@ class Launcher(object):
         if self.process is None:
             return
 
-        self.process.signal(signal.SIGINT)
+        try:
+            self.process.send_signal(signal.SIGINT)
+        except OSError: # Process already exited
+            self.process = None
         if wait:
             self.wait()
 
@@ -56,7 +59,10 @@ class Launcher(object):
         if self.process is None:
             return
 
-        self.process.signal(signal.SIGTERM)
+        try:
+            self.process.send_signal(signal.SIGTERM)
+        except OSError: # Process already exited
+            self.process = None
         if wait:
             self.wait()
 
@@ -95,12 +101,9 @@ class Launcher(object):
         self.subscriber = ZeroMQSubscriber(log_uri, multi=True)
         self.subscriber.dispatch_in_background(setup=setup)
 
-        self.process = sh.python(
-            '-m', 'onitu',
-            '--setup', self.setup,
-            '--log-uri', log_uri,
-            _bg=self.bg,
-        )
+        self.process = Popen(('python', '-m', 'onitu',
+                              '--setup', self.setup,
+                              '--log-uri', log_uri))
 
         return self.process
 
