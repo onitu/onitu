@@ -50,7 +50,7 @@ class Launcher(object):
 
         try:
             self.process.send_signal(signal.SIGINT)
-        except OSError: # Process already exited
+        except OSError:  # Process already exited
             self.process = None
         if wait:
             self.wait()
@@ -61,7 +61,7 @@ class Launcher(object):
 
         try:
             self.process.send_signal(signal.SIGTERM)
-        except OSError: # Process already exited
+        except OSError:  # Process already exited
             self.process = None
         if wait:
             self.wait()
