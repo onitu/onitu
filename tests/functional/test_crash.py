@@ -13,22 +13,16 @@ json_file = 'test_crash.json'
 
 def setup_module(module):
     global launcher
-    setup = Setup(session=True)
-    setup.add(*reps['rep1'].setup)
-    setup.add(*reps['rep2'].setup)
-    setup.save(json_file)
     launcher = Launcher(json_file)
 
 
 def teardown_module(module):
-    launcher.kill()
     unlink(json_file)
     for rep in reps.values():
         rep.close()
 
 
 def launcher_startup():
-    launcher.kill()
     loop = CounterLoop(3)
     launcher.on_referee_started(loop.check)
     launcher.on_driver_started(loop.check, driver='rep1')
@@ -38,6 +32,11 @@ def launcher_startup():
 
 
 def crash(filename, d_from, d_to):
+    setup = Setup(session=True)
+    setup.add(*reps['rep1'].setup)
+    setup.add(*reps['rep2'].setup)
+    setup.save(json_file)
+
     loop = BooleanLoop()
     launcher.on_transfer_started(
         loop.stop, d_from=d_from, d_to=d_to, filename=filename
