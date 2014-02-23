@@ -1,19 +1,21 @@
 from os import unlink
+
 from utils.launcher import Launcher
 from utils.setup import Setup
+from utils.driver import LocalStorageDriver
 from utils.loop import CounterLoop
-from utils.tempdirs import TempDirs
+from utils.tempdirs import dirs
 
 launcher = None
-dirs = TempDirs()
+rep1, rep2 = LocalStorageDriver('rep1'), LocalStorageDriver('rep2')
 json_file = 'test_startup.json'
 
 
 def setup_module(module):
     global launcher
     setup = Setup()
-    setup.add('local_storage', 'rep1', {'root': dirs.create()})
-    setup.add('local_storage', 'rep2', {'root': dirs.create()})
+    setup.add(*rep1.setup)
+    setup.add(*rep2.setup)
     setup.save(json_file)
     launcher = Launcher(json_file)
 
@@ -27,9 +29,9 @@ def teardown_module(module):
 def test_all_active():
     loop = CounterLoop(3)
 
+    launcher.on_referee_started(loop.check)
     launcher.on_driver_started(loop.check, driver='rep1')
     launcher.on_driver_started(loop.check, driver='rep2')
-    launcher.on_referee_started(loop.check)
     launcher()
 
     loop.run(timeout=5)

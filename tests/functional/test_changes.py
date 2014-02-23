@@ -1,24 +1,24 @@
-import os.path
 from os import unlink
 
 from utils.launcher import Launcher
 from utils.setup import Setup
+from utils.driver import LocalStorageDriver
 from utils.loop import CounterLoop
-from utils.files import generate, checksum
-from utils.tempdirs import TempDirs
+from utils.tempdirs import dirs
 
 launchers = [None, None]
-dirs = TempDirs()
-reps = [{'rep1': dirs.create(), 'rep2': dirs.create()},
-        {'rep1': dirs.create(), 'rep2': dirs.create()}]
+reps = [{'rep1': LocalStorageDriver('rep1'),
+         'rep2': LocalStorageDriver('rep2')},
+        {'rep1': LocalStorageDriver('rep1'),
+         'rep2': LocalStorageDriver('rep2')}]
 json_files = ['test_changes.json', 'test_changes_session.json']
 
 
 def setup_module(module):
     for i, session in enumerate([False, True]):
         setup = Setup(session=session)
-        setup.add('local_storage', 'rep1', {'root': reps[i]['rep1']})
-        setup.add('local_storage', 'rep2', {'root': reps[i]['rep2']})
+        setup.add(*reps[i]['rep1'].setup)
+        setup.add(*reps[i]['rep2'].setup)
         setup.save(json_files[i])
         launchers[i] = Launcher(json_files[i])
 
@@ -45,7 +45,7 @@ def launch_with_files(launcher, reps, prefix, n, size, delete=True):
 
     try:
         for filename in files:
-            generate(os.path.join(reps['rep1'], filename), size)
+            reps['rep1'].generate(filename, size)
 
         loop = CounterLoop(n)
         for filename in files:
@@ -56,15 +56,15 @@ def launch_with_files(launcher, reps, prefix, n, size, delete=True):
         launcher_startup(launcher)
         loop.run(timeout=(10 + n // 5))
         for filename in files:
-            assert(checksum(os.path.join(reps['rep1'], filename)) ==
-                   checksum(os.path.join(reps['rep2'], filename)))
+            assert (reps['rep1'].checksum(filename) ==
+                    reps['rep2'].checksum(filename))
     finally:
         launcher.kill()
         if delete:
             for filename in files:
                 try:
                     for n in ('rep1', 'rep2'):
-                        unlink(os.path.join(reps[n], filename))
+                        reps[n].unlink(filename)
                 except:
                     pass
 

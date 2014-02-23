@@ -1,25 +1,22 @@
-import os.path
 from os import unlink
-
-import sh
 
 from utils.launcher import Launcher
 from utils.setup import Setup
+from utils.driver import LocalStorageDriver
 from utils.loop import BooleanLoop, CounterLoop, TimeoutError
-from utils.files import generate, checksum, KB, MB
-from utils.tempdirs import TempDirs
+from utils.files import KB, MB
+from utils.tempdirs import dirs
 
 launcher = None
-dirs = TempDirs()
-rep1, rep2 = dirs.create(), dirs.create()
+rep1, rep2 = LocalStorageDriver('rep1'), LocalStorageDriver('rep2')
 json_file = 'test_copy.json'
 
 
 def setup_module(module):
     global launcher
     setup = Setup()
-    setup.add('local_storage', 'rep1', {'root': rep1})
-    setup.add('local_storage', 'rep2', {'root': rep2})
+    setup.add(*rep1.setup)
+    setup.add(*rep2.setup)
     setup.save(json_file)
     loop = CounterLoop(3)
     launcher = Launcher(json_file)
@@ -45,10 +42,9 @@ def copy_file(filename, size):
     launcher.on_transfer_ended(
         loop.stop, d_from='rep1', d_to='rep2', filename=filename
     )
-    generate(os.path.join(rep1, filename), size)
+    rep1.generate(filename, size)
     loop.run(timeout=10)
-    assert(checksum(os.path.join(rep1, filename)) ==
-           checksum(os.path.join(rep2, filename)))
+    assert rep1.checksum(filename) == rep2.checksum(filename)
 
 
 def test_small_copy():
@@ -84,13 +80,13 @@ def test_empty_file():
     launcher.on_transfer_ended(
         loop.stop, d_from='rep1', d_to='rep2', filename=filename
     )
-    sh.touch(os.path.join(rep1, filename))
+    rep1.touch(filename)
     loop.run(timeout=10)
-    assert os.path.getsize(os.path.join(rep2, filename)) == 0
+    assert rep2.filesize(filename) == 0
 
 
 def test_subdirectories():
-    sh.mkdir('-p', os.path.join(rep1, 'sub/dir/deep/'))
+    rep1.mkdir('sub/dir/deep/')
     copy_file('sub/dir/deep/file', 100)
 
 
@@ -104,8 +100,8 @@ def test_multipass_copy():
         loop.stop, d_from='rep1', d_to='rep2', filename=filename
     )
 
-    generate(os.path.join(rep1, filename), 10 * KB, count)
-    size = os.path.getsize(os.path.join(rep1, filename))
+    rep1.generate(filename, 10 * KB, count)
+    size = rep1.filesize(filename)
 
     for _ in range(count):
         try:
@@ -115,8 +111,7 @@ def test_multipass_copy():
 
         loop.restart()
 
-        if os.path.getsize(os.path.join(rep2, filename)) == size:
+        if rep2.filesize(filename) == size:
             break
 
-    assert (checksum(os.path.join(rep1, filename)) ==
-            checksum(os.path.join(rep2, filename)))
+    assert rep1.checksum(filename) == rep2.checksum(filename)

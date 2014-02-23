@@ -19,3 +19,5 @@ class TempDirs(object):
             rmtree(d)
 
         self.dirs = set()
+
+dirs = TempDirs()

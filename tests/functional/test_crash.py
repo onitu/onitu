@@ -1,23 +1,22 @@
-import os.path
 from os import unlink
 
 from utils.launcher import Launcher
 from utils.setup import Setup
+from utils.driver import LocalStorageDriver
 from utils.loop import CounterLoop, BooleanLoop
-from utils.files import generate, checksum
-from utils.tempdirs import TempDirs
+from utils.tempdirs import dirs
 
 launcher = None
-dirs = TempDirs()
-reps = {'rep1': dirs.create(), 'rep2': dirs.create()}
+reps = {'rep1': LocalStorageDriver('rep1'),
+        'rep2': LocalStorageDriver('rep2')}
 json_file = 'test_crash.json'
 
 
 def setup_module(module):
     global launcher
     setup = Setup(session=True)
-    setup.add('local_storage', 'rep1', {'root': reps['rep1']})
-    setup.add('local_storage', 'rep2', {'root': reps['rep2']})
+    setup.add(*reps['rep1'].setup)
+    setup.add(*reps['rep2'].setup)
     setup.save(json_file)
     launcher = Launcher(json_file)
 
@@ -43,7 +42,7 @@ def crash(filename, d_from, d_to):
     launcher.on_transfer_started(
         loop.stop, d_from=d_from, d_to=d_to, filename=filename
     )
-    generate(os.path.join(reps[d_from], filename), 1000)
+    reps[d_from].generate(filename, 1000)
     launcher_startup()
     loop.run(timeout=10)
     launcher.kill()
@@ -59,8 +58,7 @@ def crash(filename, d_from, d_to):
     launcher_startup()
     loop.run(timeout=10)
 
-    assert(checksum(os.path.join(reps[d_from], filename)) ==
-           checksum(os.path.join(reps[d_to], filename)))
+    assert reps[d_from].checksum(filename) == reps[d_to].checksum(filename)
     launcher.kill()
 
 
