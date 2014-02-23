@@ -94,7 +94,7 @@ class Launcher(object):
         setup = logbook.NestedSetup([
             logbook.NullHandler(),
             logbook.StderrHandler(
-                level=logbook.INFO, format_string=FORMAT_STRING
+                level=logbook.DEBUG, format_string=FORMAT_STRING
             ),
             logbook.Processor(self._process_record),
         ])
