@@ -5,7 +5,6 @@ from utils.setup import Setup
 from utils.driver import LocalStorageDriver, TargetDriver
 from utils.loop import BooleanLoop, CounterLoop, TimeoutError
 from utils.files import KB, MB
-from utils.tempdirs import dirs
 
 launcher = None
 rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
@@ -34,7 +33,8 @@ def setup_module(module):
 def teardown_module(module):
     launcher.kill()
     unlink(json_file)
-    dirs.delete()
+    rep1.close()
+    rep2.close()
 
 
 def copy_file(filename, size):

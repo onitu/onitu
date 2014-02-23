@@ -20,6 +20,9 @@ class LocalStorageDriver(Driver):
     def setup(self):
         return ('local_storage', self.name, {'root': self.directory})
 
+    def close(self):
+        dirs.delete(self.directory)
+
     def mkdir(self, subdirs):
         return sh.mkdir('-p', os.path.join(self.directory, subdirs))
 

@@ -4,7 +4,6 @@ from utils.launcher import Launcher
 from utils.setup import Setup
 from utils.driver import LocalStorageDriver, TargetDriver
 from utils.loop import CounterLoop, BooleanLoop
-from utils.tempdirs import dirs
 
 launcher = None
 reps = {'rep1': LocalStorageDriver('rep1'),
@@ -24,7 +23,8 @@ def setup_module(module):
 def teardown_module(module):
     launcher.kill()
     unlink(json_file)
-    dirs.delete()
+    for rep in reps.values():
+        rep.close()
 
 
 def launcher_startup():
