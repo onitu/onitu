@@ -38,3 +38,17 @@ class LocalStorageDriver(Driver):
 
     def checksum(self, filename):
         return files.checksum(os.path.join(self.directory, filename))
+
+
+class TargetDriver(Driver):
+    _types = {
+        'local_storage': LocalStorageDriver
+    }
+
+    def __new__(cls, name):
+        driver = os.environ.get('ONITU_TEST_DRIVER', 'local_storage')
+        try:
+            driver_type = cls._types[driver]
+        except KeyError:
+            raise KeyError("No such driver {}".format(repr(driver)))
+        return driver_type(name)

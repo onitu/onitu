@@ -2,13 +2,13 @@ from os import unlink
 
 from utils.launcher import Launcher
 from utils.setup import Setup
-from utils.driver import LocalStorageDriver
+from utils.driver import LocalStorageDriver, TargetDriver
 from utils.loop import CounterLoop, BooleanLoop
 from utils.tempdirs import dirs
 
 launcher = None
 reps = {'rep1': LocalStorageDriver('rep1'),
-        'rep2': LocalStorageDriver('rep2')}
+        'rep2': TargetDriver('rep2')}
 json_file = 'test_crash.json'
 
 

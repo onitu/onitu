@@ -2,15 +2,15 @@ from os import unlink
 
 from utils.launcher import Launcher
 from utils.setup import Setup
-from utils.driver import LocalStorageDriver
+from utils.driver import LocalStorageDriver, TargetDriver
 from utils.loop import CounterLoop
 from utils.tempdirs import dirs
 
 launchers = [None, None]
 reps = [{'rep1': LocalStorageDriver('rep1'),
-         'rep2': LocalStorageDriver('rep2')},
+         'rep2': TargetDriver('rep2')},
         {'rep1': LocalStorageDriver('rep1'),
-         'rep2': LocalStorageDriver('rep2')}]
+         'rep2': TargetDriver('rep2')}]
 json_files = ['test_changes.json', 'test_changes_session.json']
 
 
