@@ -32,33 +32,40 @@ def launcher_startup():
 
 
 def crash(filename, d_from, d_to):
-    setup = Setup(session=True)
-    setup.add(*reps['rep1'].setup)
-    setup.add(*reps['rep2'].setup)
-    setup.save(json_file)
+    try:
+        setup = Setup(session=True)
+        setup.add(*reps['rep1'].setup)
+        setup.add(*reps['rep2'].setup)
+        setup.save(json_file)
 
-    loop = BooleanLoop()
-    launcher.on_transfer_started(
-        loop.stop, d_from=d_from, d_to=d_to, filename=filename
-    )
-    reps[d_from].generate(filename, 1000)
-    launcher_startup()
-    loop.run(timeout=10)
-    launcher.kill()
+        loop = BooleanLoop()
+        launcher.on_transfer_started(
+            loop.stop, d_from=d_from, d_to=d_to, filename=filename
+        )
+        reps[d_from].generate(filename, 1000)
+        launcher_startup()
+        loop.run(timeout=10)
+        launcher.kill()
 
-    launcher.unset_all_events()
-    loop = CounterLoop(2)
-    launcher.on_transfer_restarted(
-        loop.check, d_from=d_from, d_to=d_to, filename=filename
-    )
-    launcher.on_transfer_ended(
-        loop.check, d_from=d_from, d_to=d_to, filename=filename
-    )
-    launcher_startup()
-    loop.run(timeout=10)
+        launcher.unset_all_events()
+        loop = CounterLoop(2)
+        launcher.on_transfer_restarted(
+            loop.check, d_from=d_from, d_to=d_to, filename=filename
+        )
+        launcher.on_transfer_ended(
+            loop.check, d_from=d_from, d_to=d_to, filename=filename
+        )
+        launcher_startup()
+        loop.run(timeout=10)
 
-    assert reps[d_from].checksum(filename) == reps[d_to].checksum(filename)
-    launcher.kill()
+        assert reps[d_from].checksum(filename) == reps[d_to].checksum(filename)
+    finally:
+        try:
+            for rep in reps.values():
+                rep.unlink(filename)
+        except:
+            pass
+        launcher.kill()
 
 
 def test_crash_rep1_to_rep2():
