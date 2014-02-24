@@ -32,6 +32,7 @@ def launcher_startup():
 
 
 def crash(filename, d_from, d_to):
+    launcher.unset_all_events()
     try:
         setup = Setup(session=True)
         setup.add(*reps['rep1'].setup)

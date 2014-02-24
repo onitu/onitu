@@ -38,6 +38,7 @@ def teardown_module(module):
 
 
 def copy_file(filename, size):
+    launcher.unset_all_events()
     loop = BooleanLoop()
     launcher.on_transfer_ended(
         loop.stop, d_from='rep1', d_to='rep2', filename=filename
@@ -75,6 +76,7 @@ def test_big_copy():
 
 
 def test_empty_file():
+    launcher.unset_all_events()
     filename = 'empty'
     loop = BooleanLoop()
     launcher.on_transfer_ended(
@@ -91,6 +93,7 @@ def test_subdirectories():
 
 
 def test_multipass_copy():
+    launcher.unset_all_events()
     count = 10
     filename = 'multipass'
 
