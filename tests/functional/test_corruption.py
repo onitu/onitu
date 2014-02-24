@@ -51,14 +51,14 @@ def corruption(filename, size, newcontent):
     launcher.on_transfer_ended(
         abort_loop.stop, d_from='rep1', d_to='rep2', filename=filename
     )
-    rep1.generate(filename, size)
-    start_loop.run(timeout=5)
-    rep2.write(filename, newcontent)
-    abort_loop.run(timeout=5)
     end_loop = BooleanLoop()
     launcher.on_transfer_ended(
         end_loop.stop, d_from='rep2', d_to='rep1', filename=filename
     )
+    rep1.generate(filename, size)
+    start_loop.run(timeout=5)
+    rep2.write(filename, newcontent)
+    abort_loop.run(timeout=5)
     assert rep1.checksum(filename) == rep2.checksum(filename) == content_hash
 
 
