@@ -96,8 +96,8 @@ def test_multipass_copy():
 
     loop = BooleanLoop()
 
-    launcher.on_transfer_ended(
-        loop.stop, d_from='rep1', d_to='rep2', filename=filename
+    event = launcher.on_transfer_ended(
+        loop.stop, d_from='rep1', d_to='rep2', filename=filename, unique=False
     )
 
     rep1.generate(filename, 10 * KB, count)
@@ -114,4 +114,5 @@ def test_multipass_copy():
         if rep2.filesize(filename) == size:
             break
 
+    launcher.unset_event(event)
     assert rep1.checksum(filename) == rep2.checksum(filename)
