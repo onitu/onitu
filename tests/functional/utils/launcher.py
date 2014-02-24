@@ -1,6 +1,7 @@
 import signal
 import socket
 from subprocess import Popen
+from collections import defaultdict
 
 import logbook
 from logbook.queues import ZeroMQSubscriber
@@ -14,35 +15,35 @@ FORMAT_STRING = (
 )
 
 
+class Event(object):
+    def __init__(self, triggers, action, unique):
+        self.triggers = triggers
+        self.state = [False] * len(triggers)
+        self.action = action
+        self.unique = unique
+
+
 class Launcher(object):
     def __init__(self, setup='setup.json', background=True):
         self.setup = setup
         self.bg = background
         self.process = None
 
-        self.events = {}
-        self.event_triggers = {}
+        self.event_triggers = defaultdict(set)
 
-    def set_event(self, name, triggers, action):
-        event = {
-            'triggers': list(triggers),
-            'state': [False] * len(triggers),
-            'action': action,
-        }
+    def set_event(self, triggers, action, unique):
+        event = Event(list(triggers), action, unique)
 
-        self.events[name] = event
+        for trigger in event.triggers:
+            self.event_triggers[trigger].add(event)
+        return event
 
-        for trigger in triggers:
-            self.event_triggers[trigger] = event
-
-    def unset_event(self, name):
-        for trigger in self.events[name]['triggers']:
-            del self.event_triggers[trigger]
-        del self.events[name]
+    def unset_event(self, event):
+        for trigger in event.triggers:
+            self.event_triggers[trigger].remove(event)
 
     def unset_all_events(self):
-        self.events = {}
-        self.event_triggers = {}
+        self.event_triggers = defaultdict(set)
 
     def quit(self, wait=True):
         if self.process is None:
@@ -72,16 +73,20 @@ class Launcher(object):
 
     def _process_record(self, record):
         trigger = (record.channel, record.message)
-        event = self.event_triggers.get(trigger)
+        events = self.event_triggers.get(trigger)
 
-        if not event:
+        if not events:
             return
 
-        event['state'][event['triggers'].index(trigger)] = True
-
-        if all(event['state']):
-            event['state'] = [False] * len(event['triggers'])
-            event['action']()
+        unset_events = set()
+        for event in events:
+            event.state[event.triggers.index(trigger)] = True
+            if all(event.state):
+                if event.unique:
+                    unset_events.add(event)
+                event.action()
+        for event in unset_events:
+            self.unset_event(event)
 
     def __call__(self):
         # Find an open port for the logs
@@ -110,7 +115,7 @@ class Launcher(object):
     def _on_event(self, name):
         log_triggers = logs[name]
 
-        def caller(action, **kwargs):
+        def caller(action, unique=True, **kwargs):
             triggers = set(
                 (
                     channel.format(**kwargs),
@@ -118,7 +123,7 @@ class Launcher(object):
                 )
                 for (channel, message) in log_triggers
             )
-            self.set_event(name, triggers, action)
+            return self.set_event(triggers, action, unique)
 
         return caller
 
