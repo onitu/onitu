@@ -1,4 +1,4 @@
-from .timer import Timer
+from timer import Timer
 from codespeed_client import Client
 
 
@@ -143,4 +143,5 @@ if __name__ == '__main__':
 
     t = TestBenchmark()
     t.run()
+    t.display()
     print(t.get_results())
