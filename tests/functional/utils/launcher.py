@@ -24,11 +24,12 @@ class Event(object):
 
 
 class Launcher(object):
-    def __init__(self, setup='setup.json', background=True):
+    def __init__(self, setup='setup.json', background=True, debug=True):
         self.setup = setup
         self.bg = background
-        self.process = None
+        self.debug = debug
 
+        self.process = None
         self.event_triggers = defaultdict(set)
 
     def set_event(self, triggers, action, unique):
@@ -96,10 +97,11 @@ class Launcher(object):
         log_uri = 'tcp://{}:{}'.format(*tmpsock.getsockname())
         tmpsock.close()
 
+        level = logbook.DEBUG if self.debug else logbook.INFO
         setup = logbook.NestedSetup([
             logbook.NullHandler(),
             logbook.StderrHandler(
-                level=logbook.DEBUG, format_string=FORMAT_STRING
+                level=level, format_string=FORMAT_STRING
             ),
             logbook.Processor(self._process_record),
         ])
