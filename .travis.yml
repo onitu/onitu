@@ -13,7 +13,7 @@ script:
   - tox -e $TOX_ENV
 notifications:
   email:
-    - louis.roche@epitech.eu
+    - onitu_2015@labeip.epitech.eu
     - on_success: change
   irc:
       channels:
