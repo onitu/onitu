@@ -58,7 +58,7 @@ class BenchmarkSimpleCopy(Benchmark):
         total = BenchmarkData('test_small', 'Copy 1000 times a 1M file')
         for i in range(1000):
             try:
-                t = self.copy_file('small', SMALL)
+                t = self.copy_file('small{}'.format(i), SMALL)
                 total.add_result(t)
             except BaseException as e:
                 self._log('Error in test_small')
@@ -69,7 +69,7 @@ class BenchmarkSimpleCopy(Benchmark):
         total = BenchmarkData('test_medium', 'Copy 100 times a 10M file')
         for i in range(100):
             try:
-                t = self.copy_file('medium', MEDIUM)
+                t = self.copy_file('medium{}'.format(i), MEDIUM)
                 total.add_result(t)
             except BaseException as e:
                 self._log('Error in test_medium')
@@ -80,7 +80,7 @@ class BenchmarkSimpleCopy(Benchmark):
         total = BenchmarkData('test_big', 'Copy 10 times a 100M file')
         for i in range(10):
             try:
-                t = self.copy_file('big', BIG)
+                t = self.copy_file('big{}'.format(i), BIG)
                 total.add_result(t)
             except BaseException as e:
                 self._log('Error in test_big')
@@ -88,7 +88,7 @@ class BenchmarkSimpleCopy(Benchmark):
         return total
 
 
-class BenchmarkMultipleCopy(Benchmark):
+class BenchmarkMultipleCopies(Benchmark):
     def launch_onitu(self):
         self.launcher = None
         self.json_file = 'bench_multiple_copy.json'
@@ -175,7 +175,7 @@ class BenchmarkMultipleCopy(Benchmark):
 if __name__ == '__main__':
     bench_simple = BenchmarkSimpleCopy(verbose=True)
     bench_simple.run()
-    bench_multiple = BenchmarkMultipleCopy(verbose=True)
+    bench_multiple = BenchmarkMultipleCopies(verbose=True)
     bench_multiple.run()
     print('{:=^28}'.format(' simple copy '))
     bench_simple.display()

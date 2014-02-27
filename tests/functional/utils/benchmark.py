@@ -11,7 +11,6 @@ class BenchmarkData():
         self._num_format = '.4f'
 
     def add_result(self, result):
-        print(self.description, 'add one result', result)
         self._results.append(result)
 
     def average(self):
@@ -34,7 +33,7 @@ class BenchmarkData():
         text.append('{:-^28}'.format(self.title))
         if self.description:
             text.append(self.description)
-        text.append('{} times'.format(len(self)))
+        text.append('run {} times'.format(len(self)))
         text.append('Total:\t\t{:{f}} {}'
                     .format(self.sum(), self.unit, f=self._num_format))
         text.append('Min:\t\t{:{f}} {}'
@@ -74,9 +73,9 @@ class Benchmark():
             tests = self._collect_tests()
             for t in tests:
                 self._run_test(t)
-        #except BaseException as e:
-        #    self._log('Fatal exception. Benchmark shutdown.')
-        #    self._log(e)
+        except BaseException as e:
+            self._log('Fatal exception. Benchmark shutdown.')
+            self._log(e)
         finally:
             self._run_function('teardown')
 

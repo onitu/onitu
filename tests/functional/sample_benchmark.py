@@ -1,4 +1,5 @@
 import time
+from random import randint
 from utils.benchmark import Benchmark, BenchmarkData
 
 
@@ -24,13 +25,21 @@ class TestBenchmark(Benchmark):
         print('teardown, reset value of test to 1')
         self.test = 1
 
+    def test_youhou(self):
+        test = BenchmarkData('YOUHOU', 'this test launch 30 tests')
+        for i in range(30):
+            test.add_result(randint(0, 1000))
+        return test
+
     def test_zorglub(self):
         print('eviv bulgroz')
         print('the test is {}'.format(self.test))
-        return 9999
+        test = BenchmarkData('zorglub', 'this test took 9999 ms')
+        test.add_result(9999)
+        return test
 
 if __name__ == '__main__':
     t = TestBenchmark()
     t.run()
-    print(t)
+    t.display()
     print(t.get_results())
