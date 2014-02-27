@@ -46,7 +46,7 @@ class Benchmark():
 
     def _log(self, msg):
         if self._verbose:
-            print(msg)
+            print('BENCHMARKS: ' + msg)
 
     def run(self, *args):
         """All functions whose name starts with prefix.
@@ -59,6 +59,11 @@ class Benchmark():
             tests = self._collect_tests()
             for t in tests:
                 self._run_test(t)
+        except BaseException as e:
+            self._log('Fatal exception. Benchmark shutdown.')
+            self._log(e)
+        except:
+            print 'cest la mort'
         finally:
             self._run_function('teardown')
 
@@ -82,7 +87,7 @@ class Benchmark():
                 r = BenchmarkData(None)
                 r.add_result(t.msecs)
             self._results[name] = r
-        except Exception as e:
+        except BaseException as e:
             self._log('The test is skipped because it raised an exception')
             self._log(e)
         finally:
