@@ -51,18 +51,17 @@ class BenchmarkSimpleCopy(Benchmark):
         self.rep1.generate(filename, size)
         with Timer() as t:
             loop.run(timeout=timeout)
-        assert (self.rep1.checksum(filename) == self.rep2.checksum(filename)), "ca marche pas"
+        assert (self.rep1.checksum(filename) == self.rep2.checksum(filename))
         return t.msecs
 
     def test_small(self):
-        total = BenchmarkData('Copy 1000 times a 1M file')
-        for i in range(1000):
-            print 'test small before'
-            t = self.copy_file('small', SMALL)
-            print 'test small middle'
-            total.add_result(t)
-            print 'test small end'
-        print 'apres ls for'
+        total = BenchmarkData('test_small', 'Copy 1000 times a 1M file')
+        for i in range(10):
+            try:
+                t = self.copy_file('small', SMALL)
+                total.add_result(t)
+            except BaseException as e:
+                self._log(e)
         return total
 
 #    def test_medium(self):

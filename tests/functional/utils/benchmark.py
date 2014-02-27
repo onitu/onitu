@@ -3,10 +3,12 @@ from codespeed_client import Client
 
 
 class BenchmarkData():
-    def __init__(self, description, unit="ms"):
+    def __init__(self, title, description, unit="ms"):
+        self.title = title
         self.description = description
         self.unit = unit
         self._results = []
+        self._num_format = '.4f'
 
     def add_result(self, result):
         print(self.description, 'add one result', result)
@@ -28,7 +30,20 @@ class BenchmarkData():
         return len(self._results)
 
     def __str__(self):
-        return str(self._results)
+        text = []
+        text.append('{:-^28}'.format(self.title))
+        if self.description:
+            text.append(self.description)
+        text.append('{} times'.format(len(self)))
+        text.append('Total:\t\t{:{f}} {}'
+                    .format(self.sum(), self.unit, f=self._num_format))
+        text.append('Min:\t\t{:{f}} {}'
+                    .format(self.min(), self.unit, f=self._num_format))
+        text.append('Max:\t\t{:{f}} {}'
+                    .format(self.max(), self.unit, f=self._num_format))
+        text.append('Average:\t{:{f}} {}'
+                    .format(self.average(), self.unit, f=self._num_format))
+        return '\n'.join(text)
 
 
 class Benchmark():
@@ -46,7 +61,7 @@ class Benchmark():
 
     def _log(self, msg):
         if self._verbose:
-            print('BENCHMARKS: ' + msg)
+            print('BENCHMARKS: ' + str(msg))
 
     def run(self, *args):
         """All functions whose name starts with prefix.
@@ -59,11 +74,9 @@ class Benchmark():
             tests = self._collect_tests()
             for t in tests:
                 self._run_test(t)
-        except BaseException as e:
-            self._log('Fatal exception. Benchmark shutdown.')
-            self._log(e)
-        except:
-            print 'cest la mort'
+        #except BaseException as e:
+        #    self._log('Fatal exception. Benchmark shutdown.')
+        #    self._log(e)
         finally:
             self._run_function('teardown')
 
@@ -84,7 +97,7 @@ class Benchmark():
             if res:
                 r = res
             else:
-                r = BenchmarkData(None)
+                r = BenchmarkData(name, None)
                 r.add_result(t.msecs)
             self._results[name] = r
         except BaseException as e:
@@ -109,18 +122,7 @@ class Benchmark():
     def display(self):
         for k in self._results.keys():
             res = self._results[k]
-            print('{:-^28}'.format(k))
-            if res.description:
-                print(res.description)
-            print('{} times'.format(len(res)))
-            print('Total: {:{f}} {}'
-                  .format(res.sum(), res.unit, f=self._num_format))
-            print('Min: {:{f}} {}'
-                  .format(res.min(), res.unit, f=self._num_format))
-            print('Max: {:{f}} {}'
-                  .format(res.max(), res.unit, f=self._num_format))
-            print('Average: {:{f}} {}'
-                  .format(res.average(), res.unit, f=self._num_format))
+            print(res)
 
     def upload_results(self,
                        name,
