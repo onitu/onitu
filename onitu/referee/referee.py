@@ -1,4 +1,7 @@
+import re
+import json
 import redis
+from os import path
 
 from logbook import Logger
 
@@ -33,6 +36,8 @@ class Referee(object):
         self.session = self.redis.session
         self.entries = self.session.smembers('entries')
 
+        self.rules = json.loads(self.session.get("rules"))
+
         self.logger.info("Started")
 
     def listen(self):
@@ -57,35 +62,36 @@ class Referee(object):
         this should change when the rules will be introduced.
         """
         metadata = self.session.hgetall('files:{}'.format(fid))
-        owners = metadata['owners'].split(':')
-        uptodate = metadata['uptodate'].split(':')
-        filename = metadata['filename']
+        owners = set(metadata['owners'].split(':'))
+        uptodate = set(metadata['uptodate'].split(':'))
+
+        filename = path.join("/", metadata['filename'])
 
         self.logger.info("New event for '{}' from {}", filename, driver)
 
-        to_notify = []
-        new_owners = []
+        should_own = set()
 
-        for name in self.entries:
-            if name in uptodate:
-                continue
+        for rule in self.rules:
+            if re.match(rule["match"].get("path", ""), filename):
+                should_own.update(rule.get("sync", []))
+                should_own.difference_update(rule.get("ban", []))
 
-            if name in owners:
-                to_notify.append(name)
-                continue
-
-            to_notify.append(name)
-            new_owners.append(name)
-
-        if new_owners:
-            value = ':'.join(owners + new_owners)
+        if should_own != owners:
+            value = ':'.join(should_own)
             self.session.hset('files:{}'.format(fid), 'owners', value)
 
-        for name in to_notify:
-            self.logger.debug(
-                "Notifying {} about '{}'", name, filename
-            )
-            self.session.rpush(
-                'drivers:{}:events'.format(name),
-                "{}:{}".format(uptodate[0], fid)
-            )
+        assert uptodate
+        source = next(iter(uptodate))
+
+        for name in should_own:
+            if name not in uptodate:
+                self.logger.debug("Notifying {} about '{}' from {}.", name, filename, source)
+
+                self.session.rpush(
+                    'drivers:{}:events'.format(name),
+                    "{}:{}".format(source, fid)
+                    )
+
+        for name in owners.difference(should_own):
+            self.logger.debug("The file '{}' on {} is no longer under onitu control. should be deleted.", filename, name)
+

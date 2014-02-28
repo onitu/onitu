@@ -1,5 +1,6 @@
 {
   "name": "example",
+
   "entries": {
     "A": {
       "driver": "local_storage",
@@ -13,5 +14,17 @@
         "root": "example/driver_b"
       }
     }
-  }
+  },
+
+  "rules": [
+    {
+      "match": {"path": "/"},
+      "sync": ["A"]
+    },
+    {
+      "match": {"path": "/backedup/"},
+      "sync": ["B"]
+    }
+  ]
+
 }
