@@ -1,12 +1,11 @@
-[Onitu](logo.png)
+![Onitu](logo.png)
 =====
-![Build Status](https://travis-ci.org/onitu/onitu.png?branch=develop)](https://travis-ci.org/onitu/onitu)
 
 Onitu - One cloud to sync them all
 
 Launch it with ```python -m onitu```
 
-Tests and Benchmarks
+Tests and Benchmarks [![Build Status](https://travis-ci.org/onitu/onitu.png?branch=develop)](https://travis-ci.org/onitu/onitu)
 --------------------
 
 ```
