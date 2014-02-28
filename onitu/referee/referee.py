@@ -1,6 +1,7 @@
 import re
 import json
 import redis
+import mimetypes
 from os import path
 
 from logbook import Logger
@@ -54,6 +55,15 @@ class Referee(object):
             self.session.lrem('events', event)
             self._handle_event(driver, fid)
 
+    def rule_match(self, rule, filename):
+        if re.match(rule["match"].get("path", ""), filename):
+            return True
+
+        if not set(mimetypes.guess_type(filename)).isdisjoint(rule["match"].get("mime", [])):
+            return True
+
+        return False
+
     def _handle_event(self, driver, fid):
         """Choose who are the entries that are concerned by the event
         and send a notification to them.
@@ -69,10 +79,13 @@ class Referee(object):
 
         self.logger.info("New event for '{}' from {}", filename, driver)
 
+        if driver not in owners:
+            self.logger.debug("The file '{}' was not suposed to be on {}, but syncing anyway.", filename, driver)
+
         should_own = set()
 
         for rule in self.rules:
-            if re.match(rule["match"].get("path", ""), filename):
+            if self.rule_match(rule, filename):
                 should_own.update(rule.get("sync", []))
                 should_own.difference_update(rule.get("ban", []))
 
@@ -91,6 +104,7 @@ class Referee(object):
                     'drivers:{}:events'.format(name),
                     "{}:{}".format(source, fid)
                     )
+
 
         for name in owners.difference(should_own):
             self.logger.debug("The file '{}' on {} is no longer under onitu control. should be deleted.", filename, name)
