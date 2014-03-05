@@ -1,12 +1,13 @@
 import time
 from os import unlink
 from random import randint
-from utils.launcher import Launcher
-from utils.setup import Setup
-from utils.loop import BooleanLoop, CounterLoop
-from utils.driver import LocalStorageDriver
-from utils.benchmark import Benchmark, BenchmarkData
-from utils.timer import Timer
+
+from tests.utils.launcher import Launcher
+from tests.utils.setup import Setup
+from tests.utils.loop import BooleanLoop, CounterLoop
+from tests.utils.driver import LocalStorageDriver
+from tests.utils.benchmark import Benchmark, BenchmarkData
+from tests.utils.timer import Timer
 
 SMALL = 1024 * 1024
 MEDIUM = SMALL * 10

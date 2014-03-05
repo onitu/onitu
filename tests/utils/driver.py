@@ -2,8 +2,8 @@ import os
 
 import sh
 
-from utils import files
-from utils.tempdirs import dirs
+from . import files
+from .tempdirs import dirs
 
 
 class Driver(object):

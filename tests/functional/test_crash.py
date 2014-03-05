@@ -1,9 +1,9 @@
 from os import unlink
 
-from utils.launcher import Launcher
-from utils.setup import Setup
-from utils.driver import LocalStorageDriver, TargetDriver
-from utils.loop import CounterLoop, BooleanLoop
+from tests.utils.launcher import Launcher
+from tests.utils.setup import Setup
+from tests.utils.driver import LocalStorageDriver, TargetDriver
+from tests.utils.loop import CounterLoop, BooleanLoop
 
 launcher = None
 reps = {'rep1': LocalStorageDriver('rep1'),
