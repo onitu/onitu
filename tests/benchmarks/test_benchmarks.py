@@ -125,12 +125,16 @@ class TestBenchmark(Benchmark):
         test.add_result(9999)
         return test
 
-if __name__ == '__main__':
+
+def test_demo_benchmark():
     t = TestBenchmark()
     t.run()
-    bench_simple = BenchmarkSimpleCopy(verbose=True)
-    bench_simple.run()
-    print('{:=^28}'.format(' sample bench '))
+    print('{:=^28}'.format(' demo benchmark '))
     t.display()
-    print('{:=^28}'.format(' simple copy '))
-    bench_simple.display()
+
+
+def test_copy_benchmark():
+    t = BenchmarkSimpleCopy(verbose=True)
+    t.run()
+    print('{:=^28}'.format(' copy benchmark '))
+    t.display()

@@ -76,6 +76,7 @@ class Benchmark():
         except BaseException as e:
             self._log('Fatal exception. Benchmark shutdown.')
             self._log(e)
+            raise e
         finally:
             self._run_function('teardown')
 

@@ -12,5 +12,5 @@ Tests and Benchmarks [![Build Status](https://travis-ci.org/onitu/onitu.png?bran
 $ pip install tox
 $ tox -e py27 # tests with python2.7
 $ tox -e flake8 # syntaxe
-$ tox -e bench # run the benchmarks
+$ tox -e benchmarks # run the benchmarks
 ```
