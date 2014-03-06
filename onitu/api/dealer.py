@@ -19,12 +19,11 @@ class Dealer(Thread):
         self.logger = Logger("{} - Dealer".format(self.name))
         self.context = zmq.Context.instance()
         self.in_progress = {}
-
         self.pool = ThreadPool()
 
+    def run(self):
         self.logger.info("Started")
 
-    def run(self):
         while True:
             try:
                 _, event = self.session.blpop(

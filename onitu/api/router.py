@@ -16,16 +16,15 @@ class Router(Thread):
         self.name = plug.name
         self.get_chunk = plug._handlers.get('get_chunk')
         self.router = None
-
         self.logger = Logger("{} - Router".format(self.name))
-        self.logger.info("Started")
-
         self.context = zmq.Context.instance()
 
     def run(self):
         self.router = self.context.socket(zmq.ROUTER)
         port = self.router.bind_to_random_port('tcp://*')
         self.plug.session.hset('ports', self.name, port)
+
+        self.logger.info("Started")
 
         while True:
             msg = self.router.recv_multipart()
