@@ -1,8 +1,8 @@
 import os
 
+import pyinotify
+
 from path import path
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 
 from onitu.api import Plug
 
@@ -111,29 +111,9 @@ def update_file(metadata, path):
     plug.update_file(metadata)
 
 
-class EventHandler(FileSystemEventHandler):
-    def on_moved(self, event):
-        def handle_move(event):
-            if event.is_directory:
-                return
-
-            #if event.src_path:
-                #self._handle_deletion(event.src_path.decode())
-            self._handle_update(event.dest_path.decode())
-
-        handle_move(event)
-        if event.is_directory:
-            for subevent in event.sub_moved_events():
-                handle_move(subevent)
-
-    def on_modified(self, event):
-        if event.is_directory:
-            return
-
-        self._handle_update(event.src_path.decode())
-
-    def _handle_update(self, abs_path):
-        abs_path = path(abs_path)
+class Watcher(pyinotify.ProcessEvent):
+    def process_IN_CLOSE_WRITE(self, event):
+        abs_path = path(event.pathname)
         filename = root.relpathto(abs_path)
         metadata = plug.get_metadata(filename)
         update_file(metadata, abs_path)
@@ -149,9 +129,13 @@ def start(*args, **kwargs):
         plug.logger.error("Can't access directory `{}`.", root)
         return
 
-    observer = Observer()
-    observer.schedule(EventHandler(), path=root, recursive=True)
-    observer.start()
+    manager = pyinotify.WatchManager()
+    notifier = pyinotify.ThreadedNotifier(manager, Watcher())
+    notifier.start()
+
+    mask = pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE
+    manager.add_watch(root, mask, rec=True, auto_add=True)
 
     check_changes()
     plug.listen()
+    notifier.stop()
