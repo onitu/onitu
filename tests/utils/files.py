@@ -6,10 +6,9 @@ MB = 1 << 20
 GB = 1 << 30
 
 
-def generate(filename, bs, count=1):
-    for _ in range(count):
-        with open(filename, 'wb+') as f:
-            f.write(os.urandom(bs))
+def generate(filename, size):
+    with open(filename, 'wb+') as f:
+        f.write(os.urandom(size))
 
 
 def checksum(filename):

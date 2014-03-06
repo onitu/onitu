@@ -76,15 +76,7 @@ def test_big_copy():
 
 
 def test_empty_file():
-    launcher.unset_all_events()
-    filename = 'empty'
-    loop = BooleanLoop()
-    launcher.on_transfer_ended(
-        loop.stop, d_from='rep1', d_to='rep2', filename=filename
-    )
-    rep1.touch(filename)
-    loop.run(timeout=10)
-    assert rep2.filesize(filename) == 0
+    copy_file('empty', 0)
 
 
 def test_subdirectories():
@@ -99,12 +91,12 @@ def test_multipass_copy():
 
     loop = BooleanLoop()
 
-    event = launcher.on_transfer_ended(
+    launcher.on_transfer_ended(
         loop.stop, d_from='rep1', d_to='rep2', filename=filename, unique=False
     )
 
-    rep1.generate(filename, 10 * KB, count)
-    size = rep1.filesize(filename)
+    for _ in range(count):
+        rep1.generate(filename, 100 * KB)
 
     for _ in range(count):
         try:
@@ -114,8 +106,7 @@ def test_multipass_copy():
 
         loop.restart()
 
-        if rep2.filesize(filename) == size:
-            break
+        if rep1.checksum(filename) == rep2.checksum(filename):
+            return
 
-    launcher.unset_event(event)
-    assert rep1.checksum(filename) == rep2.checksum(filename)
+    assert False
