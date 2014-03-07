@@ -5,10 +5,12 @@ from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup
 from tests.utils.driver import LocalStorageDriver, TargetDriver
 from tests.utils.loop import BooleanLoop, CounterLoop
-from tests.utils.files import KB
 
 launcher = None
-rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
+# We use chunks of size 1 to slow down the transfers. This way, we have
+# more chances to stop a transfer before its completion
+rep1 = LocalStorageDriver('rep1', chunk_size=1)
+rep2 = TargetDriver('rep2', chunk_size=1)
 json_file = 'test_corruption.json'
 
 
@@ -56,4 +58,4 @@ def corruption(filename, size, newcontent):
 
 
 def test_corruption():
-    corruption('simple', 10 * KB, 'corrupted')
+    corruption('simple', 100, 'corrupted')

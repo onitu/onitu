@@ -6,8 +6,12 @@ from tests.utils.driver import LocalStorageDriver, TargetDriver
 from tests.utils.loop import CounterLoop, BooleanLoop
 
 launcher = None
-reps = {'rep1': LocalStorageDriver('rep1'),
-        'rep2': TargetDriver('rep2')}
+# We use chunks of size 1 to slow down the transfers. This way, we have
+# more chances to stop a transfer before its completion
+reps = {
+    'rep1': LocalStorageDriver('rep1', chunk_size=1),
+    'rep2': TargetDriver('rep2', chunk_size=1)
+}
 json_file = 'test_crash.json'
 
 
@@ -51,7 +55,7 @@ def crash(filename, d_from, d_to):
             end_loop.check, d_from=d_from, d_to=d_to, filename=filename
         )
 
-        reps[d_from].generate(filename, 1000)
+        reps[d_from].generate(filename, 100)
         launcher_startup()
         start_loop.run(timeout=10)
         launcher.kill()
