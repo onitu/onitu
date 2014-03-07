@@ -5,6 +5,7 @@ from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup
 from tests.utils.driver import LocalStorageDriver, TargetDriver
 from tests.utils.loop import BooleanLoop, CounterLoop
+from tests.utils.files import KB
 
 launcher = None
 rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
@@ -38,18 +39,10 @@ def teardown_module(module):
 
 
 def corruption(filename, size, newcontent):
-    content_hash = hashlib.md5(newcontent).hexdigest()
+    content_hash = hashlib.md5(newcontent.encode()).hexdigest()
     start_loop = BooleanLoop()
     launcher.on_transfer_started(
         start_loop.stop, d_from='rep1', d_to='rep2', filename=filename
-    )
-    abort_loop = BooleanLoop()
-    # If transfer is aborted, or too small and finished
-    launcher.on_transfer_aborted(
-        abort_loop.stop, d_from='rep1', d_to='rep2', filename=filename
-    )
-    launcher.on_transfer_ended(
-        abort_loop.stop, d_from='rep1', d_to='rep2', filename=filename
     )
     end_loop = BooleanLoop()
     launcher.on_transfer_ended(
@@ -58,9 +51,9 @@ def corruption(filename, size, newcontent):
     rep1.generate(filename, size)
     start_loop.run(timeout=5)
     rep2.write(filename, newcontent)
-    abort_loop.run(timeout=5)
+    end_loop.run(timeout=5)
     assert rep1.checksum(filename) == rep2.checksum(filename) == content_hash
 
 
 def test_corruption():
-    corruption('simple', 10, 'corrupted')
+    corruption('simple', 10 * KB, 'corrupted')

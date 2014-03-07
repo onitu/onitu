@@ -37,6 +37,15 @@ class Dealer(Thread):
             self.session.lrem('drivers:{}:events'.format(self.name), event)
             self.get_file(fid, driver)
 
+    def stop_transfer(self, fid):
+        if fid in self.in_progress:
+            worker, result = self.in_progress[fid]
+            worker.stop.set()
+            result.wait()
+            return True
+
+        return False
+
     def resume_transfers(self):
         transfers = self.session.smembers(
             'drivers:{}:transfers'.format(self.name)
@@ -58,11 +67,7 @@ class Dealer(Thread):
             self.get_file(fid, driver, offset=offset, restart=True)
 
     def get_file(self, fid, *args, **kwargs):
-        if fid in self.in_progress:
-            worker, result = self.in_progress[fid]
-            worker.stop.set()
-            result.wait()
-
+        self.stop_transfer(fid)
         worker = Worker(self, fid, *args, **kwargs)
         result = self.pool.apply_async(worker)
         self.in_progress[fid] = (worker, result)
@@ -172,7 +177,11 @@ class Worker(object):
         return True
 
     def end_transfer(self, success):
-        self.call('end_upload', self.metadata)
+        if self.stop.is_set():
+            success = False
+
+        handler = 'end_upload' if success else 'abort_upload'
+        self.call(handler, self.metadata)
 
         self.session.delete(
             'drivers:{}:transfers:{}'.format(self.dealer.name, self.fid)
