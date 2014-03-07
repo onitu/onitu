@@ -139,15 +139,11 @@ class Plug(object):
             metadata.owners = [self.name]
             metadata._fid = fid
 
-        if self.session.sismember('drivers:{}:transfers'
-                                  .format(self.name), fid):
-            # The event has been triggered during a transfer, we
-            # have to cancel it.
-            self.logger.warning(
-                "About to send an event for '{}' when downloading it, "
-                "aborting the event", metadata.filename
-            )
-            return
+        # If the file is being uploaded, we stop it
+        self.dealer.stop_transfer(fid)
+        # We make sure that the key has been deleted
+        # (if this event occurs before the transfer was restarted)
+        self.session.srem('drivers:{}:transfers'.format(self.name), fid)
 
         metadata.uptodate = [self.name]
 

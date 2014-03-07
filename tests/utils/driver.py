@@ -26,6 +26,10 @@ class LocalStorageDriver(Driver):
     def mkdir(self, subdirs):
         return sh.mkdir('-p', os.path.join(self.directory, subdirs))
 
+    def write(self, filename, content):
+        with open(os.path.join(self.directory, filename), 'w+') as f:
+            f.write(content)
+
     def generate(self, filename, size):
         return files.generate(os.path.join(self.directory, filename),
                               size)
