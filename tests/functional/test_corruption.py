@@ -1,10 +1,10 @@
 from os import unlink
 import hashlib
 
-from utils.launcher import Launcher
-from utils.setup import Setup
-from utils.driver import LocalStorageDriver, TargetDriver
-from utils.loop import BooleanLoop, CounterLoop
+from tests.utils.launcher import Launcher
+from tests.utils.setup import Setup
+from tests.utils.driver import LocalStorageDriver, TargetDriver
+from tests.utils.loop import BooleanLoop, CounterLoop
 
 launcher = None
 rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
