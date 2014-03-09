@@ -3,5 +3,4 @@ pyzmq
 redis
 simplejson
 git+git://github.com/onitu/logbook.git@master
-pyinotify
 path.py
