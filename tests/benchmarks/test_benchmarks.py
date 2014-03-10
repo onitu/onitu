@@ -1,5 +1,4 @@
 import time
-from os import unlink
 from random import randint
 
 from tests.utils.benchmark import Benchmark, BenchmarkData
