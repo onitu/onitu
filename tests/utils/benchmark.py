@@ -44,16 +44,22 @@ class BenchmarkData():
                     .format(self.average(), self.unit, f=self._num_format))
         return '\n'.join(text)
 
+    def get(self):
+        return {
+            'title': self.title,
+            'desc': self.description,
+            'unit': self.unit,
+            'results': self._results
+            }
+
 
 class Benchmark():
     def __init__(self,
                  prefix='test_',
-                 each=1,
                  num_format='.4f',
                  verbose=False
                  ):
         self._prefix = prefix
-        self._each = each
         self._num_format = num_format
         self._results = {}
         self._verbose = verbose
@@ -106,15 +112,8 @@ class Benchmark():
         finally:
             self._run_function(teardown_test)
 
-    # TODO: fix this function
-    def _run_test_loop(self, name):
-        total = {
-            'description': None,
-            'unit': 'ms',
-            'results': {}
-        }
-        for i in self._each:
-            total['results'][i] = self._run_test(name)
+    def execute(self, name):
+        return self._run_test(name)
 
     def _collect_tests(self):
         return [t for t in dir(self) if t.startswith(self._prefix)]
@@ -124,6 +123,7 @@ class Benchmark():
             res = self._results[k]
             print(res)
 
+    # TODO: fix codespeed
     def upload_results(self,
                        name,
                        host,
@@ -165,4 +165,4 @@ class Benchmark():
         """return a dictionnary with the results of all tests.
         The key is the test's name and the value is the time.
         """
-        return self._results
+        return {k: r.get() for k, r in self._results.items()}
