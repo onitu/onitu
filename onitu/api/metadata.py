@@ -1,9 +1,29 @@
 class Metadata(object):
     """The Metadata class represent the metadata of any file in Onitu.
 
-    This class should be instantiated via the
+    This class should always be instantiated via the
     :func:`Metadata.get_by_id` or :func:`Metadata.get_by_filename`
     class methods.
+
+    The metadata of each file are the following :
+
+    filename
+        The absolute filename of the file
+    size
+        The size of the file, in octets
+    revision
+        This field is specific to each entry. It is a string
+        representing the current revision of the file for the
+        current entry.
+        The drivers should compare an upstream and a local version
+        of a file with this field. The format is dependant from the
+        driver (it can be whatever you want: a timestamp, a number,
+        a hash...).
+    owners
+        The entries which should have this file
+    uptodate
+        The entries with an up-to-date version of this file
+
 
     The PROPERTIES class property represent each property found in the
     metadata common to all drivers. This is a dict where the key is the
@@ -65,7 +85,7 @@ class Metadata(object):
     def revision(self):
         """Return the current revision of the file for this entry.
 
-        If the value has been setted manualy but not saved, returns it.
+        If the value has been set manually but not saved, returns it.
         Otherwise, seeks the value in the database.
         """
         if self._revision:
