@@ -116,7 +116,7 @@ class Watcher(pyinotify.ProcessEvent):
 
 
 def start(*args, **kwargs):
-    plug.start(*args, **kwargs)
+    plug.initialize(*args, **kwargs)
 
     global root
     root = path(plug.options['root'])
