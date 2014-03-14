@@ -60,13 +60,15 @@ class Plug(object):
         self.router = Router(self)
         self.dealer = Dealer(self)
 
-    def listen(self):
         """Waits until the :class:`Plug` is killed by another process.
+    def listen(self, wait=True):
         """
         self.router.start()
         self.dealer.resume_transfers()
         self.dealer.start()
-        self.dealer.join()
+
+        if wait:
+            self.dealer.join()
 
     def handler(self, task=None):
         """Decorator used to bind to a function assigned to a specific
