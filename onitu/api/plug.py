@@ -58,13 +58,12 @@ class Plug(object):
         self.logger.info("Started")
 
         self.router = Router(self)
-        self.router.start()
-
         self.dealer = Dealer(self)
 
     def listen(self):
         """Waits until the :class:`Plug` is killed by another process.
         """
+        self.router.start()
         self.dealer.resume_transfers()
         self.dealer.start()
         self.dealer.join()
