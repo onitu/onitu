@@ -35,6 +35,7 @@ class Plug(object):
         self.options = {}
         self._handlers = {}
 
+    def initialize(self, name):
         """This method should be called when the driver is ready to
         communicate with Onitu.
 
@@ -42,7 +43,6 @@ class Plug(object):
         parameter given to the Driver at start.
 
         :func:`start` launches two threads :
-    def initialize(self, name):
 
         - The :class:`dealer.Dealer`, listening to notifications from the
           Referee and handling them by calling the handlers defined by the
@@ -60,8 +60,8 @@ class Plug(object):
         self.router = Router(self)
         self.dealer = Dealer(self)
 
-        """Waits until the :class:`Plug` is killed by another process.
     def listen(self, wait=True):
+        """Waits until the :class:`Plug` is killed by another process.
         """
         self.router.start()
         self.dealer.resume_transfers()
