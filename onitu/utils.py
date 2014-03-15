@@ -1,3 +1,8 @@
+"""
+This module provides a set of classes and functions useful in several
+parts of Onitu.
+"""
+
 import time
 import functools
 
@@ -5,6 +10,20 @@ import redis
 
 
 class Redis(redis.Redis):
+    """This is a simple wrapper around the :class:`redis.Redis` object
+    from the redis-py library.
+
+    It adds a :attr:`session` attribute, which can be used as a
+    standard :class:`redis.Redis` object, but will prefix every key
+    by the current session-key.
+
+    This session key is used by Onitu to separate the different
+    sessions in the database. As Redis only handles a small finite
+    number of databases, we use a single database, but prefix all the
+    keys.
+
+    The session attribute should always be used.
+    """
 
     class RedisSession(object):
 
@@ -36,6 +55,13 @@ class Redis(redis.Redis):
 
 
 def connect_to_redis(*args, **kwargs):
+    """This class return a new :class:`.Redis` object, ready to
+    receive requests, with the session enabled.
+    It blocks until the connection is made.
+
+    You can pass extra arguments to the :class:`.Redis` class by
+    giving them to this function.
+    """
     client = Redis(
         *args,
         unix_socket_path='redis/redis.sock',

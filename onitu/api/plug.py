@@ -15,11 +15,18 @@ from onitu.utils import connect_to_redis
 
 
 class Plug(object):
-    """The Plug is the communication pipe between a Driver and Onitu.
+    """The Plug is the preferred way for a driver to communicate
+    with other drivers, the :class:`onitu.referee.Referee`, or
+    the database.
 
-    The driver should instantiate a new Plug as soon as possible, define
-    his handlers (see :func:`Plug.handler`) and call :func:`Plug.start`
-    when it's ready to receive notifications.
+    Each driver must instantiate a new Plug, and define handlers
+    (see :meth:`.handler`).
+
+    :meth:`.initialize` should be called at the beginning of the
+    `start` function, and
+    When it is ready to receive requests from other drivers,
+    it should call :meth:`.listen`. This function blocks until
+    the driver is shut down.
     """
 
     def __init__(self):
@@ -36,20 +43,13 @@ class Plug(object):
         self._handlers = {}
 
     def initialize(self, name):
-        """This method should be called when the driver is ready to
-        communicate with Onitu.
+        """Initialize the different components of the Plug. The
+        drivers should call it in the beginning of the `start`
+        function.
 
-        Takes a parameter `name` that corresponds to the first
-        parameter given to the Driver at start.
-
-        :func:`start` launches two threads :
-
-        - The :class:`dealer.Dealer`, listening to notifications from the
-          Referee and handling them by calling the handlers defined by the
-          Driver
-        - The :class:`router.Router`, listening to requests by other Drivers
-          that need a chunk of a file and getting this chunk by calling the
-          `get_chunk` handler.
+        :param name: The name of the current entry, as given in
+                     the `start` function.
+        :type name: string
         """
         self.name = name
         self.logger = Logger(self.name)
@@ -61,7 +61,17 @@ class Plug(object):
         self.dealer = Dealer(self)
 
     def listen(self, wait=True):
-        """Waits until the :class:`Plug` is killed by another process.
+        """Start listening to requests from other drivers or the
+        :class:`onitu.referee.Referee`.
+
+        :param wait: Optional. If true, blocks until the Plug is
+                     killed. Default to True.
+        :type wait: bool
+
+        This method starts two threads :
+
+        - .. autoclass:: onitu.api.router.Router
+        - .. autoclass:: onitu.api.dealer.Dealer
         """
         self.router.start()
         self.dealer.resume_transfers()
@@ -71,30 +81,19 @@ class Plug(object):
             self.dealer.join()
 
     def handler(self, task=None):
-        """Decorator used to bind to a function assigned to a specific
-        task. Example::
+        """Decorator used register a handler for a particular task.
 
-            @plug.handler('get_chunk')
-            def read(filename, offset, size):
+        :param task: Optional. The name of the handler. If not
+                     specified, the name of the function will be used.
+        :type task: string
+
+        Example::
+
+            @plug.handler()
+            def get_chunk(filename, offset, size):
                 with open(filename, 'rb') as f:
                     f.seek(offset)
                     return f.read(size)
-
-        Currently, the supported tasks are :
-
-        - `get_chunk`, which takes the name of the file, the offset and
-          the size of the chunk in parameter, and should return a
-          string.
-        - `start_upload`, which takes a `Metadata` in parameter,
-          returns nothing, and is called before each transfer of a
-          complete file.
-        - `upload_chunk`, which takes the name of the file, the offset
-          and the chunk to be uploaded and return nothing.
-        - `end_upload`, which takes a `Metadata` in parameter, returns
-          nothing, and is called at the end of each transfer of a
-          complete file.
-
-        A Driver can implement any, all or none of the tasks above.
         """
         def decorator(handler):
             self._handlers[task if task else handler.__name__] = handler
@@ -105,7 +104,7 @@ class Plug(object):
     def update_file(self, metadata):
         """This method should be called by the Driver after each update
         of a file or after the creation of a file.
-        It takes a `Metadata` object in parameter that should have been
+        It takes a :class:`.Metadata` object in parameter that should have been
         updated with the new value of the properties.
         """
         fid = metadata._fid
@@ -156,8 +155,15 @@ class Plug(object):
         self.session.rpush('events', "{}:{}".format(self.name, fid))
 
     def get_metadata(self, filename):
-        """Returns a `Metadata` object corresponding to the given
-        filename.
+        """
+        :param filename: The name of the file, with the absolute path
+                         from the driver's root
+        :type string:
+
+        :rtype: :class:`.Metadata`
+
+        If the file does not exists in Onitu, it will be created when
+        :meth:`.Metadata.write` will be called.
         """
         metadata = Metadata.get_by_filename(self, filename)
 
