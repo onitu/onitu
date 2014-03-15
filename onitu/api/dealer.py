@@ -123,6 +123,8 @@ class Worker(object):
 
     def start_transfer(self):
         if self.restart:
+            self.call('restart_upload', self.metadata, self.offset)
+
             self.logger.info(
                 "Restarting transfer of '{}' from {}",
                 self.filename, self.driver
