@@ -5,9 +5,9 @@ Getting started
 Onitu at a glance
 ==================
 
-Onitu must deal with a lot of events coming from different places. Therefore, Onitu is build around an asynchrony model. Each part runs in a separate process, and communicate with the rest via ZeroMQ messages and Redis.
+Onitu must deal with a lot of events coming from different places. Therefore, Onitu is build around an asynchronous model. Each part runs in a separate process, and communicate with the others via ZeroMQ messages and Redis.
 
-In order to synchronize files between external services, Onitu uses a system of drivers. You can find more information about this system in :doc:`drivers`. Each driver send events and receive orders from the :class:`.Referee`, which choose where the files should be synchronised according to the configuration rules.
+In order to synchronize files between external services, Onitu uses a system of drivers. You can find more information about this system in :doc:`drivers`. Each driver sends events and receives orders from the :class:`.Referee`, which chooses where the files should be synchronised according to the configuration rules.
 
 Global architecture
 ===================
@@ -15,11 +15,11 @@ Global architecture
 .. figure:: images/global_archi.png
    :alt: Global architecture of Onitu
 
-   A schema illustrating the global architecture of Onitu with two drivers.
+   A schematic illustrating the global architecture of Onitu with two drivers.
 
 Dependencies
 ============
-The core of Onitu uses several libraries (other dependencies exists but are specific to some drivers) :
+The core of Onitu uses several libraries (other dependencies exists but are specific to some drivers):
 
 Circus_
   Used to start, manage and monitor the different processes
@@ -46,18 +46,18 @@ We made some difficult technical choices in order to build Onitu in the most mai
 Python
 ------
 
-Python is a general-purpose and flexible language. This was our first choice, as we were all already using it and loving it. It allows us to distribute Onitu easily, without having to compile the sources or distribute binaries. Python is available in a lot of different systems, has a lot of built-in functionalities, and is easy to understand and read.
+Python is a general-purpose and flexible language. This was our first choice because all of us were already using and loving it. It allows us to distribute Onitu easily, without having to compile the sources or distribute binaries. Python is available on a lot of different systems, has a lot of built-in functionalities and is easy to understand and read.
 
-You might have some concerns regarding the speed, but Onitu is an I/O bound application, so most of the time it is not executing Python code but downloading/uploading files or exchanging information over sockets. The same program with a low-level language like C would introduce a lot of complexity, and probably a very small performance amelioration.
+You might have some concerns regarding the speed, but Onitu is an I/O bound application, so most of the time it is not executing Python code but downloading/uploading files or exchanging information over sockets. The same program with a low-level language like C would introduce a lot of complexity and probably only a very small performance amelioration.
 
 ZeroMQ
 ------
 
 As Onitu is an application with a lot of different processes and threads, we need a way to communicate between them. ZeroMQ is a layer on top of IP and Unix sockets, and provides messaging patterns. Onitu uses several of them, like ROUTER/DEALER, PUBLISH/SUBSCRIBE and REQUEST/REPLY.
 
-ZeroMQ is really fast, available on a lot of platforms and have a Python binding. It is much more flexible and lightweight than other message brockers, like RabbitMQ or ActiveMQ.
+ZeroMQ is really fast, available on a lot of platforms and has Python bindings. It is much more flexible and lightweight than other message brockers, such as RabbitMQ or ActiveMQ.
 
 Redis
 -----
 
-Onitu needs to store some informations in a persistent database. This database should be cross-platforms, schema-less and easy to install and maintain. For that purpose, Redis has been chosen. But Redis is not available in the same version in all platforms, and is not really persistent. Also, the entire database is in-memory, limiting its size. Therefore, another solution will soon be chosen to replace it, as it is not the perfect solution.
+Onitu needs to store information in a persistent database. This database should be cross-platform, schema-less and easy to install and maintain. For that purpose, Redis has been chosen. But Redis is not available in the same version on all platforms, and is not really persistent. Also, the entire database is in-memory, limiting its size. Therefore, another solution will soon be chosen to replace it as it is not the perfect solution.

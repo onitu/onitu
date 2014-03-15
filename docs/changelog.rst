@@ -2,7 +2,7 @@
 Changelog
 =================================
 
-You can find a detailed summary of the changes between the releases on `Github <https://github.com/onitu/onitu/releases>`_. Here is a brief :
+You can find a detailed summary of the changes between the releases on `Github <https://github.com/onitu/onitu/releases>`_. Here is a brief summary :
 
 0.1
 ===
