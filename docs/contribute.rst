@@ -8,7 +8,7 @@ Here are some guidelines on what to look out for if you are hacking the code or 
 Reporting issues
 ================
 
-When you encounter an issue with Onitu we'dd love to here about it. Not that we particularly like having problems with the codebase, but its better to fix them than to leave them in there.
+When you encounter an issue with Onitu we'dd love to hear about it. Not that we particularly like having problems with the codebase, but its better to fix them than to leave them in there.
 If you submit a bug report please include all the information available to you, here are some things you can do:
 - If the problem is reproductible you can restart Onitu in debugging mode.
 - Onitu generate logging output, this is very usefull to us.
