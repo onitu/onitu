@@ -9,6 +9,31 @@ Onitu must deal with a lot of events coming from different places. Therefore, On
 
 In order to synchronize files between external services, Onitu uses a system of drivers. You can find more information about this system in :doc:`drivers`. Each driver sends events and receives orders from the :class:`.Referee`, which chooses where the files should be synchronised according to the configuration rules.
 
+Glossary
+========
+
+.. glossary::
+  :doc:`Driver <drivers>`
+    A program making the junction between Onitu and a remote service (SSH, Dropbox, a hard drive…).
+
+  Entry
+    A driver configured by the user. For example, it can be the Dropbox driver configured to run with a specific account. You can view an entry as an instance of a driver.
+
+  Rule
+    Maps a set of matching files to a set of entries. Used in the configuration to split up the files.
+
+  Setup
+    A JSON configuration file, which describes the entries and the rules.
+
+  :class:`.Referee`
+    Receive events from the drivers and allocate the files among the entries regarding the configuration rules.
+
+  :class:`.Plug`
+    A helper class which implements all the boilerplate needed by a driver to communicate with Onitu.
+
+  :ref:`Handler <handlers>`
+    A function defined by a driver, which responds to a specific task. This function will be called by the :class:`.Plug` when needed.
+
 Global architecture
 ===================
 
