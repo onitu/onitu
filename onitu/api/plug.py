@@ -1,5 +1,5 @@
 """
-The Plug is the part of any Driver that communicates with the rest of
+The Plug is the part of any driver that communicates with the rest of
 Onitu. This part is common between all the drivers.
 """
 
@@ -102,7 +102,7 @@ class Plug(object):
         return decorator
 
     def update_file(self, metadata):
-        """This method should be called by the Driver after each update
+        """This method should be called by the driver after each update
         of a file or after the creation of a file.
         It takes a :class:`.Metadata` object in parameter that should have been
         updated with the new value of the properties.

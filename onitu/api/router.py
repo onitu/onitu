@@ -33,7 +33,7 @@ class Router(Thread):
             self._respond_to(*msg)
 
     def _respond_to(self, identity, filename, offset, size):
-        """Calls the `get_chunk` handler defined by the Driver to get
+        """Calls the `get_chunk` handler defined by the driver to get
         the chunk and send it to the addressee.
         """
         filename = filename.decode()
