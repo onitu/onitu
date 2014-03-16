@@ -29,7 +29,7 @@ The unit tests can be launched by the command `py.test tests/`. You can also use
 
 Finnaly, some environment variables are useful to execute the tests, they are:
 
-  ONITU_TEST_TUME_UNIT
+  ONITU_TEST_TIME_UNIT
     Many tests are based on timeout to consider a transfer as failed. This variable contains thus a number of seconds corresponding to a time unit, *1s* by default.
 
   ONITU_TEST_DRIVER
