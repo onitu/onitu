@@ -16,7 +16,7 @@ from onitu.utils import connect_to_redis
 
 class Plug(object):
     """The Plug is the preferred way for a driver to communicate
-    with other drivers, the :class:`onitu.referee.Referee`, or
+    with other drivers, the :class:`.Referee`, or
     the database.
 
     Each driver must instantiate a new Plug, and define handlers
@@ -62,7 +62,7 @@ class Plug(object):
 
     def listen(self, wait=True):
         """Start listening to requests from other drivers or the
-        :class:`onitu.referee.Referee`.
+        :class:`.Referee`.
 
         :param wait: Optional. If true, blocks until the Plug is
                      killed. Default to True.

@@ -31,7 +31,7 @@ from .utils import connect_to_redis
 @gen.coroutine
 def start_setup(*args, **kwargs):
     """Parse the setup JSON file, clean the database,
-    and start the :class:`onitu.referee.Referee` and the drivers.
+    and start the :class:`.Referee` and the drivers.
     """
     logger.info("Loading setup...")
 
