@@ -37,6 +37,9 @@ Glossary
 Global architecture
 ===================
 
+You can here find an illustration of the global architecture of Onitu: :ref:`Figure 1.1 <schematic>`.
+
+.. _schematic:
 .. figure:: images/global_archi.png
    :alt: Global architecture of Onitu
 
