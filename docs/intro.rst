@@ -13,8 +13,8 @@ Glossary
 ========
 
 .. glossary::
-  :doc:`Driver <drivers>`
-    A program making the junction between Onitu and a remote service (SSH, Dropbox, a hard drive…).
+  Driver
+    A program making the junction between Onitu and a remote service (SSH, Dropbox, a hard drive…). *cf* :doc:`drivers`
 
   Entry
     A driver configured by the user. For example, it can be the Dropbox driver configured to run with a specific account. You can view an entry as an instance of a driver.
@@ -25,14 +25,14 @@ Glossary
   Setup
     A JSON configuration file, which describes the entries and the rules.
 
-  :class:`.Referee`
-    Receive events from the drivers and allocate the files among the entries regarding the configuration rules.
+  Referee
+    Receive events from the drivers and allocate the files among the entries regarding the configuration rules. *cf* :class:`.Referee`
 
-  :class:`.Plug`
-    A helper class which implements all the boilerplate needed by a driver to communicate with Onitu.
+  Plug
+    A helper class which implements all the boilerplate needed by a driver to communicate with Onitu. *cf* :class:`.Plug`
 
-  :ref:`Handler <handlers>`
-    A function defined by a driver, which responds to a specific task. This function will be called by the :class:`.Plug` when needed.
+  Handler
+    A function defined by a driver, which responds to a specific task. This function will be called by the :class:`.Plug` when needed. *cf* :ref:`handlers`
 
 Global architecture
 ===================
