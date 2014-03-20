@@ -5,8 +5,10 @@ from logbook import Logger
 
 
 class Router(Thread):
-    """Thread waiting for a request by another Driver and responding to
-    it with the chunked asked.
+    """Receive and reply to requests from other drivers. This is the
+    component which calls the `get_chunk` handler.
+    It uses a single thread, which means that only one call to
+    `get_chunk` can be made at a time.
     """
 
     def __init__(self, plug):
@@ -31,7 +33,7 @@ class Router(Thread):
             self._respond_to(*msg)
 
     def _respond_to(self, identity, filename, offset, size):
-        """Calls the `get_chunk` handler defined by the Driver to get
+        """Calls the `get_chunk` handler defined by the driver to get
         the chunk and send it to the addressee.
         """
         filename = filename.decode()

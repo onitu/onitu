@@ -1,41 +1,23 @@
-Onitu's documentation
-=================================
+Onitu |version| technical documentation
+=======================================
+
+Onitu is a tool that can synchronize files between various places. This documentation contains everything you need to know in order to start hacking Onitu.
+
+.. note::
+  This is a technical documentation. If you want to learn how to use Onitu, you should take a look at our `User Documentation`_.
+
+.. _User Documentation: http://github.com/onitu/onitu
+
+Content table
+=============
 .. toctree::
-   :maxdepth: 2
+  :maxdepth: 2
 
-.. automodule:: onitu
-
-How Onitu works
-==================
-
-TODO
-
-Writing a driver
-==================
-.. automodule:: onitu.api
-.. autoclass:: onitu.api.Plug
-  :members:
-  :private-members:
-
-.. autoclass:: onitu.api.metadata.Metadata
-  :members:
-  :private-members:
-
-.. autoclass:: onitu.api.worker.Worker
-  :members:
-  :private-members:
-
-.. autoclass:: onitu.api.router.Router
-  :members:
-  :private-members:
-
-The Referee
-==================
-.. automodule:: onitu.referee
-
-.. autoclass:: onitu.referee.Referee
-  :members:
-  :private-members:
+  intro
+  drivers
+  components
+  contribute
+  changelog
 
 Indices and tables
 ==================
@@ -43,4 +25,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

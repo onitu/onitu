@@ -2,16 +2,19 @@ class Metadata(object):
     """The Metadata class represent the metadata of any file in Onitu.
 
     This class should always be instantiated via the
-    :func:`Metadata.get_by_id` or :func:`Metadata.get_by_filename`
+    :meth:`.get_by_id` or :meth:`.get_by_filename`
     class methods.
+    However, the drivers should never instantiate a new
+    :class:`.Metadata` object themselves, but use the
+    :meth:`.Plug.get_metadata` function.
 
-    The metadata of each file are the following :
+    The attributes available for each file are the following :
 
-    filename
+    **filename**
         The absolute filename of the file
-    size
+    **size**
         The size of the file, in octets
-    revision
+    **revision**
         This field is specific to each entry. It is a string
         representing the current revision of the file for the
         current entry.
@@ -19,17 +22,10 @@ class Metadata(object):
         of a file with this field. The format is dependant from the
         driver (it can be whatever you want: a timestamp, a number,
         a hash...).
-    owners
+    **owners**
         The entries which should have this file
-    uptodate
+    **uptodate**
         The entries with an up-to-date version of this file
-
-
-    The PROPERTIES class property represent each property found in the
-    metadata common to all drivers. This is a dict where the key is the
-    name of the property and the item is a tuple containing two
-    functions, one which should be applied the metadata are extracted
-    from the database, the other one they are written.
     """
 
     PROPERTIES = {
@@ -53,7 +49,7 @@ class Metadata(object):
 
     @classmethod
     def get_by_filename(cls, plug, filename):
-        """Instantiate a new :class:`Metadata` object for the file
+        """Instantiate a new :class:`.Metadata` object for the file
         with the given name.
         """
         fid = plug.session.hget('files', filename)
@@ -65,7 +61,7 @@ class Metadata(object):
 
     @classmethod
     def get_by_id(cls, plug, fid):
-        """Instantiate a new :class:`Metadata` object for the file
+        """Instantiate a new :class:`.Metadata` object for the file
         with the given id.
         """
         values = plug.session.hgetall('files:{}'.format(fid))
@@ -83,10 +79,11 @@ class Metadata(object):
 
     @property
     def revision(self):
-        """Return the current revision of the file for this entry.
+        """The revision of a file can be any string, and should be
+        used to compare the different versions of a file on driver.
 
-        If the value has been set manually but not saved, returns it.
-        Otherwise, seeks the value in the database.
+        Each driver can use its own system of revisions, as it is
+        stored for each entry.
         """
         if self._revision:
             return self._revision
@@ -98,15 +95,12 @@ class Metadata(object):
 
     @revision.setter
     def revision(self, value):
-        """Set the current revision of the file for this entry.
-
-        The value is only saved when either
-        :func:`Metadata.write_revision` or :func:`Metadata.write` is
-        called.
-        """
         self._revision = value
 
     def write_revision(self):
+        """Write the current revision in the database. Called
+        by :meth:`.write`.
+        """
         if not self._revision:
             return
 
@@ -119,7 +113,7 @@ class Metadata(object):
         self._revision = None
 
     def write(self):
-        """Write the metadata for the current object in the database.
+        """Write the metadata of the current file in the database.
         """
         metadata = {}
 

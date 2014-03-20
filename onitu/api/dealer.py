@@ -11,6 +11,11 @@ from .metadata import Metadata
 
 
 class Dealer(Thread):
+    """Receive and reply to orders from the Referee.
+
+    All the requests are handled in a thread-pool.
+    """
+
     def __init__(self, plug):
         super(Dealer, self).__init__()
         self.plug = plug
@@ -47,6 +52,9 @@ class Dealer(Thread):
         return False
 
     def resume_transfers(self):
+        """Resume transfers after a crash. Called in
+        :meth:`.Plug.listen`.
+        """
         transfers = self.session.smembers(
             'drivers:{}:transfers'.format(self.name)
         )
@@ -114,7 +122,7 @@ class Worker(object):
             time.sleep(0.1)
 
     def call(self, handler_name, *args, **kwargs):
-        """Calls a handler defined by the Driver if it exists.
+        """Call a handler if it has been registered by the driver
         """
         handler = self.dealer.plug._handlers.get(handler_name)
 

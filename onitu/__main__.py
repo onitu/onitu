@@ -1,3 +1,13 @@
+"""
+This module starts Onitu. It does the following:
+
+- parse the command line options
+- configure the logger
+- parse the setup
+- clean the database
+- launch the different elements using the Circus library
+"""
+
 import sys
 import signal
 import socket
@@ -20,6 +30,9 @@ from .utils import connect_to_redis
 
 @gen.coroutine
 def start_setup(*args, **kwargs):
+    """Parse the setup JSON file, clean the database,
+    and start the :class:`.Referee` and the drivers.
+    """
     logger.info("Loading setup...")
 
     redis = connect_to_redis()
@@ -97,6 +110,9 @@ def start_setup(*args, **kwargs):
 
 @gen.coroutine
 def start_watcher(watcher):
+    """Start a Circus Watcher.
+    If a command is already running, we try again.
+    """
     try:
         watcher.start()
     except ConflictError as e:
@@ -107,6 +123,9 @@ def start_watcher(watcher):
 
 
 def get_logs_dispatcher(uri=None, debug=False):
+    """Configure the dispatcher that will print the logs received
+    on the ZeroMQ channel.
+    """
     handlers = []
 
     if not debug:
