@@ -102,13 +102,13 @@ At this stage, the list of the handlers that can be defined is the following :
 The Plug
 ========
 
-.. autoclass:: onitu.api.Plug
+.. autoclass:: onitu.plug.Plug
   :members:
 
 Metadata
 ========
 
-.. autoclass:: onitu.api.metadata.Metadata
+.. autoclass:: onitu.plug.metadata.Metadata
   :members:
 
 Exceptions
