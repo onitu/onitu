@@ -47,9 +47,32 @@ class Entry(EntryBase):
         return super(Entry, cls).__new__(cls)
 
 
+class Rule(object):
+    def __init__(self):
+        self._match = {}
+        self._sync = []
+
+    def match_path(self, path):
+        self._match['path'] = path
+        return self
+
+    def match_mime(self, *mimes):
+        self._match['mime'] = self._match.get('mime', []) + list(mimes)
+        return self
+
+    def sync(self, *entries):
+        self._sync += list(entries)
+        return self
+
+    @property
+    def dump(self):
+        return {'match': self._match, 'sync': self._sync}
+
+
 class Setup(object):
     def __init__(self, session=True):
         self.entries = set()
+        self.rules = []
 
         if session:
             # Each time the launcher will be started, it will use the
@@ -64,6 +87,11 @@ class Setup(object):
         if name is None:
             name = driver
         self.entries.add(Entry(driver, name, options))
+        return self
+
+    def add_rule(self, rule):
+        self.rules.append(rule)
+        return self
 
     @property
     def dump(self):
@@ -71,6 +99,7 @@ class Setup(object):
         if self.name:
             setup['name'] = self.name
         setup['entries'] = {e.name: e.dump for e in self.entries}
+        setup['rules'] = [r.dump for r in self.rules]
         return setup
 
     @property

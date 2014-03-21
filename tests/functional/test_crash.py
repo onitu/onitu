@@ -1,7 +1,7 @@
 from os import unlink
 
 from tests.utils.launcher import Launcher
-from tests.utils.setup import Setup
+from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
 from tests.utils.loop import CounterLoop, BooleanLoop
 
@@ -41,6 +41,8 @@ def crash(filename, d_from, d_to):
         setup = Setup(session=True)
         setup.add(*reps['rep1'].setup)
         setup.add(*reps['rep2'].setup)
+        setup.add_rule(Rule().match_path('/').sync(reps['rep1'].name,
+                                                   reps['rep2'].name))
         setup.save(json_file)
 
         start_loop = BooleanLoop()

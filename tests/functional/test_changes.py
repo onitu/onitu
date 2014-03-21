@@ -1,7 +1,7 @@
 from os import unlink
 
 from tests.utils.launcher import Launcher
-from tests.utils.setup import Setup
+from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
 from tests.utils.loop import CounterLoop
 
@@ -18,6 +18,8 @@ def setup_module(module):
         setup = Setup(session=session)
         setup.add(*reps[i]['rep1'].setup)
         setup.add(*reps[i]['rep2'].setup)
+        setup.add_rule(Rule().match_path('/').sync(reps[i]['rep1'].name,
+                                                   reps[i]['rep2'].name))
         setup.save(json_files[i])
         launchers[i] = Launcher(json_files[i])
 

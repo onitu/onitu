@@ -2,7 +2,7 @@ from os import unlink
 import hashlib
 
 from tests.utils.launcher import Launcher
-from tests.utils.setup import Setup
+from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
 from tests.utils.loop import BooleanLoop, CounterLoop
 
@@ -19,6 +19,7 @@ def setup_module(module):
     setup = Setup()
     setup.add(*rep1.setup)
     setup.add(*rep2.setup)
+    setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
     setup.save(json_file)
     loop = CounterLoop(3)
     launcher = Launcher(json_file)
