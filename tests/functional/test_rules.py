@@ -1,7 +1,5 @@
 from os import unlink
 
-import pytest
-
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
@@ -137,7 +135,8 @@ def test_multi_mime():
         setup = Setup(session=True)
         setup.add(rep1)
         setup.add(rep2)
-        setup.add_rule(Rule().match_mime('image/png', 'text/plain').sync('rep2'))
+        setup.add_rule(Rule().match_mime('image/png', 'text/plain')
+                       .sync('rep2'))
         setup.save(json_file)
         launcher_startup()
 

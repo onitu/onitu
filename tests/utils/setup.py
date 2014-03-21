@@ -1,7 +1,7 @@
 import random
 import string
 import json
-import sys
+
 
 class Rule(object):
     def __init__(self):

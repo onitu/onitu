@@ -35,7 +35,7 @@ class Driver(object):
 
 class LocalStorageDriver(Driver):
     def __init__(self, *args, **options):
-        if not 'root' in options:
+        if 'root' not in options:
             options['root'] = dirs.create()
         super(LocalStorageDriver, self).__init__('local_storage',
                                                  *args,

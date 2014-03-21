@@ -82,7 +82,8 @@ class Referee(object):
         self.logger.info("New event for '{}' from {}", filename, driver)
 
         if driver not in owners:
-            self.logger.debug("The file '{}' was not suposed to be on {}, but syncing anyway.", filename, driver)
+            self.logger.debug("The file '{}' was not suposed to be on {}, "
+                              "but syncing anyway.", filename, driver)
 
         should_own = set()
 
@@ -100,14 +101,14 @@ class Referee(object):
 
         for name in should_own:
             if name not in uptodate:
-                self.logger.debug("Notifying {} about '{}' from {}.", name, filename, source)
+                self.logger.debug("Notifying {} about '{}' from {}.",
+                                  name, filename, source)
 
                 self.session.rpush(
                     'drivers:{}:events'.format(name),
                     "{}:{}".format(source, fid)
                     )
 
-
         for name in owners.difference(should_own):
-            self.logger.debug("The file '{}' on {} is no longer under onitu control. should be deleted.", filename, name)
-
+            self.logger.debug("The file '{}' on {} is no longer under onitu "
+                              "control. should be deleted.", filename, name)
