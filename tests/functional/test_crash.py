@@ -39,8 +39,8 @@ def crash(filename, d_from, d_to):
     launcher.unset_all_events()
     try:
         setup = Setup(session=True)
-        setup.add(*reps['rep1'].setup)
-        setup.add(*reps['rep2'].setup)
+        setup.add(reps['rep1'])
+        setup.add(reps['rep2'])
         setup.add_rule(Rule().match_path('/').sync(reps['rep1'].name,
                                                    reps['rep2'].name))
         setup.save(json_file)

@@ -16,8 +16,8 @@ json_files = ['test_changes.json', 'test_changes_session.json']
 def setup_module(module):
     for i, session in enumerate([False, True]):
         setup = Setup(session=session)
-        setup.add(*reps[i]['rep1'].setup)
-        setup.add(*reps[i]['rep2'].setup)
+        setup.add(reps[i]['rep1'])
+        setup.add(reps[i]['rep2'])
         setup.add_rule(Rule().match_path('/').sync(reps[i]['rep1'].name,
                                                    reps[i]['rep2'].name))
         setup.save(json_files[i])

@@ -1,4 +1,5 @@
 import os
+import re
 
 import sh
 
@@ -7,32 +8,42 @@ from .tempdirs import dirs
 
 
 class Driver(object):
-    def __init__(self, name, chunk_size=None):
-        self.type = None
-        self.root = None
-        self.name = name
-        self.chunk_size = chunk_size
-
-    def options(self):
-        options = {
-            'root': self.root
-        }
-
-        if self.chunk_size:
-            options['chunk_size'] = self.chunk_size
-
-        return options
+    def __init__(self, type, name=None, **options):
+        self.type = type
+        self.name = name if name else type
+        self.options = options
 
     @property
-    def setup(self):
-        return (self.type, self.name, self.options())
+    def slugname(self):
+        return re.sub(r'__+', '_', re.sub(r'[^a-z0-9]', '_',
+                                          self.name.lower()))
+
+    @property
+    def dump(self):
+        return {'driver': self.type, 'options': self.options}
+
+    @property
+    def id(self):
+        return (self.type, self.name)
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def __eq__(self, other):
+        return self.id == other.id
 
 
 class LocalStorageDriver(Driver):
-    def __init__(self, *args, **kwargs):
-        super(LocalStorageDriver, self).__init__(*args, **kwargs)
-        self.type = 'local_storage'
-        self.root = dirs.create()
+    def __init__(self, *args, **options):
+        if not 'root' in options:
+            options['root'] = dirs.create()
+        super(LocalStorageDriver, self).__init__('local_storage',
+                                                 *args,
+                                                 **options)
+
+    @property
+    def root(self):
+        return self.options['root']
 
     def close(self):
         dirs.delete(self.root)
