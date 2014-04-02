@@ -56,13 +56,15 @@ class Referee(object):
             self._handle_event(driver, fid)
 
     def rule_match(self, rule, filename):
-        if re.match(rule["match"].get("path", ""), filename):
-            return True
+        if not re.match(rule["match"].get("path", ""), filename):
+            return False
 
-        if not set(mimetypes.guess_type(filename)).isdisjoint(rule["match"].get("mime", [])):
-            return True
+        filemime = set(mimetypes.guess_type(filename))
+        wanted = rule["match"].get("mime", [])
+        if wanted and filemime.isdisjoint(wanted):
+            return False
 
-        return False
+        return True
 
     def _handle_event(self, driver, fid):
         """Choose who are the entries that are concerned by the event
