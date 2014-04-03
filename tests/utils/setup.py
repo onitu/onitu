@@ -1,7 +1,7 @@
 import random
 import string
 import json
-
+import sys
 
 class Rule(object):
     def __init__(self):
@@ -61,5 +61,8 @@ class Setup(object):
         return json.dumps(self.dump, indent=2)
 
     def save(self, filename):
+        config = json.dumps(self.dump, indent=2)
+        print('config = """%s"""' % config)
+
         with open(filename, 'w+') as f:
             json.dump(self.dump, f, indent=2)

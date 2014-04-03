@@ -153,7 +153,6 @@ def test_multi_mime():
         launcher.kill()
 
 
-@pytest.mark.xfail
 def test_path_mime():
     try:
         directory = 'foo'
