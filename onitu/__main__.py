@@ -65,7 +65,7 @@ def start_setup(*args, **kwargs):
     redis.session.delete('ports')
     redis.session.delete('entries')
 
-    if not 'entries' in setup:
+    if 'entries' not in setup:
         logger.warn("No entries specified in '{}'", setup_file)
         loop.stop()
 

@@ -28,7 +28,7 @@ class EntryBase(object):
 class LocalStorageEntry(EntryBase):
     def __init__(self, *args, **kwargs):
         super(LocalStorageEntry, self).__init__(*args, **kwargs)
-        if not 'root' in self.options:
+        if 'root' not in self.options:
             self.options['root'] = 'test/driver_' + slugify(self.name)
 
     def __hash__(self):
