@@ -15,7 +15,7 @@ import argparse
 import string
 import random
 
-import simplejson
+import json
 import circus
 
 from circus.exc import ConflictError
@@ -39,8 +39,8 @@ def start_setup(*args, **kwargs):
 
     try:
         with open(setup_file) as f:
-            setup = simplejson.load(f)
-    except simplejson.JSONDecodeError as e:
+            setup = json.load(f)
+    except json.JSONDecodeError as e:
         logger.error("Error parsing '{}' : {}", setup_file, e)
         loop.stop()
     except Exception as e:
@@ -64,6 +64,9 @@ def start_setup(*args, **kwargs):
     redis.session.start(session)
     redis.session.delete('ports')
     redis.session.delete('entries')
+    redis.session.delete('rules')
+
+    redis.session.set('rules', json.dumps(setup.get('rules', [])))
 
     if 'entries' not in setup:
         logger.warn("No entries specified in '{}'", setup_file)
