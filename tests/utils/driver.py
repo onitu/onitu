@@ -13,7 +13,7 @@ class Driver(TestDriver):
                 mod = import_module('onitu.drivers.{}.tests.driver'.
                                     format(type))
             except ImportError:
-                raise KeyError("No such driver '{}'".format(repr(type)))
+                raise KeyError("No such driver {}".format(repr(type)))
             cls.drivers[type] = mod.Driver
         return cls.drivers[type](*args, **kwargs)
 
