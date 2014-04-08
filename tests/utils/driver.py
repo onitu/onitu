@@ -8,7 +8,7 @@ class Driver(TestDriver):
     drivers = {}
 
     def __new__(cls, type, *args, **kwargs):
-        if not type in cls.drivers:
+        if type not in cls.drivers:
             try:
                 mod = import_module('onitu.drivers.{}.tests.driver'.
                                     format(type))
