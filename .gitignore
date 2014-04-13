@@ -34,13 +34,6 @@ nosetests.xml
 .project
 .pydevproject
 
-# Redis
-redis/redis.log
-redis/redis.pid
-redis/redis.sock
-redis/dump.rdb
-redis/appendonly.aof
-
 # Emacs
 *~
 \#*\#

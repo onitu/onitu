@@ -1,6 +1,5 @@
 circus
 pyzmq
-redis
 simplejson
 logbook
 path.py
