@@ -5,3 +5,4 @@ logbook
 path.py
 plyvel
 msgpack-python
+bottle
