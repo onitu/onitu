@@ -87,13 +87,13 @@ def start_setup(*args, **kwargs):
     logger.debug("Entries loaded")
 
     api = arbiter.add_watcher(
-        "Web API",
+        "Rest API",
         sys.executable,
-        args=['-m', 'onitu.webapi'],
+        args=['-m', 'onitu.api'],
         copy_env=True,
     )
     loop.add_callback(start_watcher, api)
-    logger.debug("Web API loaded")
+    logger.debug("Rest API loaded")
 
 
 @gen.coroutine
