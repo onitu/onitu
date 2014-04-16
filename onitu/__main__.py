@@ -69,6 +69,8 @@ def start_setup(*args, **kwargs):
             logger.error("Illegal character ':' in entry {}", name)
             continue
 
+        escalator.put('entry:{}:driver'.format(name), conf['driver'])
+
         if 'options' in conf:
             escalator.put(
                 'entry:{}:options'.format(name), conf['options']

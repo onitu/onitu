@@ -24,6 +24,14 @@ def metadatas(fid):
     return m
 
 
+def entry(name):
+    driver = session.get('drivers:{}:driver'.format(name))
+    if not driver:
+        return None
+    options = session.hgetall('drivers:{}:options'.format(name))
+    return {'name': name, 'driver': driver, 'options': options}
+
+
 @app.route('/api/v1.0/files', method='GET')
 def get_files():
     files = [metadatas(fid) for fid in session.hgetall('files').values()]
@@ -32,10 +40,24 @@ def get_files():
 
 @app.route('/api/v1.0/files/<fid:int>/metadata', method='GET')
 def get_file(fid):
-    m = metadatas(fid)
-    if not m:
+    f = metadatas(fid)
+    if not f:
         abort(404)
-    return json.dumps(m)
+    return json.dumps(f)
+
+
+@app.route('/api/v1.0/entries', method='GET')
+def get_entries():
+    entries = [entry(name) for name in session.smembers('entries')]
+    return json.dumps({'entries': entries})
+
+
+@app.route('/api/v1.0/entries/<name>', method='GET')
+def get_entry(name):
+    e = entry(name)
+    if not e:
+        abort(404)
+    return json.dumps(e)
 
 
 if __name__ == '__main__':
