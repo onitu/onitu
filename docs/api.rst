@@ -73,7 +73,7 @@ Files
 
   .. sourcecode:: http
 
-    GET /api/v1/files/1 HTTP/1.1
+    GET /api/v1/files/1/metadata HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
