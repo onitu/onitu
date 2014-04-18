@@ -1,5 +1,3 @@
-import json
-
 from bottle import Bottle, run, response, abort
 
 from ..utils import connect_to_redis
@@ -46,7 +44,7 @@ def entry(name):
 @app.route('/api/v1.0/files', method='GET')
 def get_files():
     files = [metadatas(fid) for fid in session.hgetall('files').values()]
-    return json.dumps({'files': files})
+    return {'files': files}
 
 
 @app.route('/api/v1.0/files/<fid:int>/metadata', method='GET')
@@ -54,13 +52,13 @@ def get_file(fid):
     f = metadatas(fid)
     if not f:
         abort(404)
-    return json.dumps(f)
+    return f
 
 
 @app.route('/api/v1.0/entries', method='GET')
 def get_entries():
     entries = [entry(name) for name in session.smembers('entries')]
-    return json.dumps({'entries': entries})
+    return {'entries': entries}
 
 
 @app.route('/api/v1.0/entries/<name>', method='GET')
@@ -68,7 +66,7 @@ def get_entry(name):
     e = entry(name)
     if not e:
         abort(404)
-    return json.dumps(e)
+    return e
 
 
 if __name__ == '__main__':
