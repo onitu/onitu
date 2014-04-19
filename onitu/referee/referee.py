@@ -85,7 +85,7 @@ class Referee(object):
             self.logger.debug("The file '{}' was not suposed to be on {}, "
                               "but syncing anyway.", filename, driver)
 
-        should_own = set()
+        should_own = set(uptodate)
 
         for rule in self.rules:
             if self.rule_match(rule, filename):
