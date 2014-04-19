@@ -202,6 +202,8 @@ class Worker(object):
         )
 
         if success:
+            self.metadata.uptodate.append(self.dealer.name)
+
             self.logger.info(
                 "Transfer of '{}' from {} successful",
                 self.filename, self.driver
