@@ -144,7 +144,7 @@ class Plug(object):
 
         metadata.uptodate = [self.name]
 
-        if not self.name in metadata.owners:
+        if self.name not in metadata.owners:
             metadata.owners.append(self.name)
 
         metadata.write()
