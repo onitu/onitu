@@ -134,9 +134,6 @@ class Plug(object):
                     except redis.WatchError:
                         pass
 
-            # This might be an issue if the file was actually created
-            # by another entry
-            metadata.owners = [self.name]
             metadata._fid = fid
 
         # If the file is being uploaded, we stop it
@@ -146,6 +143,9 @@ class Plug(object):
         self.session.srem('drivers:{}:transfers'.format(self.name), fid)
 
         metadata.uptodate = [self.name]
+
+        if not self.name in metadata.owners:
+            metadata.owners.append(self.name)
 
         metadata.write()
 

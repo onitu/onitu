@@ -40,6 +40,8 @@ class Metadata(object):
 
         self.filename = filename
         self.size = size
+        self.owners = []
+        self.uptodate = []
 
         self.plug = plug
         self.session = plug.session
