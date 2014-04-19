@@ -203,6 +203,7 @@ class Worker(object):
 
         if success:
             self.metadata.uptodate.append(self.dealer.name)
+            self.metadata.write()
 
             self.logger.info(
                 "Transfer of '{}' from {} successful",
