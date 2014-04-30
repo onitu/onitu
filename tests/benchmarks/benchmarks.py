@@ -2,15 +2,16 @@ from os import unlink
 from sys import argv
 
 from tests.utils.launcher import Launcher
-from tests.utils.setup import Setup
+from tests.utils.setup import Setup, Rule
 from tests.utils.loop import BooleanLoop, CounterLoop
 from tests.utils.driver import LocalStorageDriver
 from tests.utils.benchmark import Benchmark, BenchmarkData
 from tests.utils.timer import Timer
+from tests.utils.files import MB
 
-SMALL = 1024 * 1024
-MEDIUM = SMALL * 10
-BIG = MEDIUM * 10
+SMALL = 1 * MB
+MEDIUM = 10 * MB
+BIG = 100 * MB
 
 
 class BenchmarkSimpleCopy(Benchmark):
@@ -22,6 +23,9 @@ class BenchmarkSimpleCopy(Benchmark):
         setup = Setup()
         setup.add(self.rep1)
         setup.add(self.rep2)
+        setup.add_rule(Rule().match_path('/').sync(
+            self.rep1.name, self.rep2.name
+        ))
         setup.save(self.json_file)
         loop = CounterLoop(3)
         self.launcher = Launcher(self.json_file)
