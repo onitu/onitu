@@ -67,10 +67,8 @@ def upload_chunk(filename, offset, chunk):
     tmp_file = to_tmp(root.joinpath(filename))
 
     try:
-        # We should not append the file but seek to the right
-        # position.
-        # However, the behavior of `offset` isn't well defined
-        with open(tmp_file, 'ab') as f:
+        with open(tmp_file, 'r+b') as f:
+            f.seek(offset)
             f.write(chunk)
     except IOError as e:
         plug.logger.warn("Error writting file `{}`: {}", tmp_file, e)
