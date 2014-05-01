@@ -4,6 +4,9 @@ logs = {
         ("{driver} - Router", "Started"),
         ("{driver} - Dealer", "Started"),
     ),
+    'plug_started': (
+        ("{driver}", "Started"),
+    ),
     'referee_started': (
         ("Referee", "Started"),
     ),

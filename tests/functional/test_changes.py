@@ -36,7 +36,7 @@ def teardown_module(module):
 def launcher_startup(launcher):
     loop = CounterLoop(3)
     launcher.on_referee_started(loop.check)
-    launcher.on_driver_started(loop.check, driver='rep1')
+    launcher.on_plug_started(loop.check, driver='rep1')
     launcher.on_driver_started(loop.check, driver='rep2')
     launcher()
     loop.run(timeout=5)
