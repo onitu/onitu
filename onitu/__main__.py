@@ -40,7 +40,7 @@ def start_setup(*args, **kwargs):
     try:
         with open(setup_file) as f:
             setup = json.load(f)
-    except json.JSONDecodeError as e:
+    except ValueError as e:
         logger.error("Error parsing '{}' : {}", setup_file, e)
         loop.stop()
     except Exception as e:
