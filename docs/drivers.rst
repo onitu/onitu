@@ -14,7 +14,7 @@ In Onitu the file transfers are made by chunks. When a new transfer begin, the :
 Each driver should expose a function called `start`, which takes a name as first parameter, and returns nothing. The name is chosen by the user when he configures the driver.
 This function will be called by Onitu during the initialization of the driver, and should not return until the end of life of the driver (*cf* :meth:`.Plug.listen`).
 
-When a driver detects an update in a file, it should update the :class:`.Metadata` of the file, specify a :attr:`.Metadata.revision`, and call :meth.`.Plug.update_file`.
+When a driver detects an update in a file, it should update the :class:`.Metadata` of the file, specify a :attr:`.Metadata.revision`, and call :meth:`.Plug.update_file`.
 
 .. note::
   During their startup, the drivers should look for new files or updates on their remote file system. They should also listen to changes during their lifetime. The mechanism used to do that is specific to each driver, and can't be abstracted by the :class:`.Plug`.
