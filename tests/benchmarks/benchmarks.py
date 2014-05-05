@@ -1,4 +1,8 @@
+import socket
 from os import unlink
+
+import logbook
+from logbook.queues import ZeroMQSubscriber
 
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
@@ -13,6 +17,13 @@ MEDIUM = 10 * MB
 BIG = 100 * MB
 
 
+FORMAT_STRING = (
+    u'[{record.time:%H:%M:%S}] '
+    u'{record.level_name}: {record.channel}: {record.message}'
+)
+
+
+# TODO: this function should raise an exception if something is wrong
 def launcher(benchmark, num):
     benchmark.launcher = None
     benchmark.json_file = 'bench_copy.json'
@@ -29,7 +40,13 @@ def launcher(benchmark, num):
     setup.add_rule(rule)
     setup.save(benchmark.json_file)
     loop = CounterLoop(num + 1)
-    benchmark.launcher = Launcher(setup=benchmark.json_file, debug=False)
+    benchmark.launcher = Launcher(
+        setup=benchmark.json_file,
+        debug=False,
+        log_setup=benchmark.log_setup,
+        # log_uri=None
+        log_uri=benchmark.log_uri
+    )
     benchmark.launcher.on_referee_started(loop.check)
     for i in range(num):
         benchmark.launcher.on_driver_started(
@@ -40,8 +57,41 @@ def launcher(benchmark, num):
     loop.run(timeout=5)
 
 
+def process_record(record):
+    print ("toto")
+    print (record)
+
+
+def get_log_uri():
+        tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        tmpsock.bind(('localhost', 0))
+        log_uri = 'tcp://{}:{}'.format(*tmpsock.getsockname())
+        tmpsock.close()
+        return log_uri
+
+
+def get_log_setup(debug=False):
+        level = logbook.DEBUG if debug else logbook.INFO
+        log_setup = logbook.NestedSetup([
+            logbook.NullHandler(),
+            logbook.StderrHandler(
+                level=level, format_string=FORMAT_STRING
+            ),
+            # logbook.Processor(None),
+        ])
+        return log_setup
+
+
 class BenchmarkSimpleCopy(Benchmark):
     def launch_onitu(self):
+        self.tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.tmpsock.bind(('localhost', 0))
+        self.log_uri = 'tcp://{}:{}'.format(*self.tmpsock.getsockname())
+        self.tmpsock.close()
+        # self.log_uri = get_log_uri()
+        self.log_setup = get_log_setup(self.debug)
+        self.subscriber = ZeroMQSubscriber(self.log_uri, multi=True)
+        self.subscriber.dispatch_in_background(setup=self.log_setup)
         launcher(self, 2)
 
     def stop_onitu(self):
