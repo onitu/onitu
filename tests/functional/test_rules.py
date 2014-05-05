@@ -39,7 +39,7 @@ class ShouldNotCopy(BaseException):
 def test_no_rule():
     try:
         filename = 'bar'
-        setup = Setup(session=True)
+        setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
         setup.save(json_file)
@@ -64,7 +64,7 @@ def test_path():
     try:
         directory = 'foo'
         filename = '{}/bar'.format(directory)
-        setup = Setup(session=True)
+        setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
         setup.add_rule(Rule().match_path('/{}'.format(directory)).sync('rep2'))
@@ -86,7 +86,7 @@ def test_path():
 def test_not_mime():
     try:
         filename = 'bar.txt'
-        setup = Setup(session=True)
+        setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
         setup.add_rule(Rule().match_mime('image/png').sync('rep2'))
@@ -111,7 +111,7 @@ def test_not_mime():
 def test_simple_mime():
     try:
         filename = 'bar.png'
-        setup = Setup(session=True)
+        setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
         setup.add_rule(Rule().match_mime('image/png').sync('rep2'))
@@ -132,7 +132,7 @@ def test_simple_mime():
 def test_multi_mime():
     try:
         filenames = 'bar.png', 'foo.txt'
-        setup = Setup(session=True)
+        setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
         setup.add_rule(Rule().match_mime('image/png', 'text/plain')
@@ -155,7 +155,7 @@ def test_multi_mime():
 def test_path_mime():
     try:
         directory = 'foo'
-        setup = Setup(session=True)
+        setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
         setup.add_rule(Rule().match_path('/{}'.format(directory))
