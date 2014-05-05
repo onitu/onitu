@@ -28,6 +28,19 @@ def launcher(benchmark, num):
     if num < 1:
         benchmark.log.error("You should launch at least 1 driver")
         raise
+    benchmark.tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    benchmark.tmpsock.bind(('localhost', 0))
+    benchmark.log_uri = 'tcp://{}:{}'.format(*benchmark.tmpsock.getsockname())
+    benchmark.tmpsock.close()
+    benchmark.level = logbook.DEBUG if benchmark.verbose else logbook.INFO
+    benchmark.log_setup = logbook.NestedSetup([
+        logbook.NullHandler(),
+        # logbook.StderrHandler(
+        #     level=benchmark.level, format_string=FORMAT_STRING
+        # ),
+    ])
+    benchmark.subscriber = ZeroMQSubscriber(benchmark.log_uri, multi=True)
+    benchmark.subscriber.dispatch_in_background(setup=benchmark.log_setup)
     benchmark.launcher = None
     benchmark.json_file = 'bench_copy.json'
     benchmark.reps = []
@@ -45,8 +58,7 @@ def launcher(benchmark, num):
     loop = CounterLoop(num + 1)
     benchmark.launcher = Launcher(
         setup=benchmark.json_file
-        # log_setup=benchmark.log_setup,
-        # log_uri=None
+        # log_setup=benchmark.log_setup
         # log_uri=benchmark.log_uri
     )
     benchmark.launcher.on_referee_started(loop.check)
@@ -59,41 +71,8 @@ def launcher(benchmark, num):
     loop.run(timeout=5)
 
 
-def process_record(record):
-    print ("toto")
-    print (record)
-
-
-def get_log_uri():
-        tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        tmpsock.bind(('localhost', 0))
-        log_uri = 'tcp://{}:{}'.format(*tmpsock.getsockname())
-        tmpsock.close()
-        return log_uri
-
-
-def get_log_setup(debug=False):
-        level = logbook.DEBUG if debug else logbook.INFO
-        log_setup = logbook.NestedSetup([
-            logbook.NullHandler(),
-            logbook.StderrHandler(
-                level=level, format_string=FORMAT_STRING
-            ),
-            # logbook.Processor(None),
-        ])
-        return log_setup
-
-
 class BenchmarkSimpleCopy(Benchmark):
     def launch_onitu(self):
-        self.tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.tmpsock.bind(('localhost', 0))
-        self.log_uri = 'tcp://{}:{}'.format(*self.tmpsock.getsockname())
-        self.tmpsock.close()
-        # self.log_uri = get_log_uri()
-        self.log_setup = get_log_setup(self.debug)
-        self.subscriber = ZeroMQSubscriber(self.log_uri, multi=True)
-        self.subscriber.dispatch_in_background(setup=self.log_setup)
         launcher(self, 2)
 
     def stop_onitu(self):
@@ -241,7 +220,7 @@ class BenchmarkMultipleCopies(Benchmark):
         return total
 
 if __name__ == '__main__':
-    bench_simple = BenchmarkSimpleCopy('Bench simple copy', verbose=True)
+    bench_simple = BenchmarkSimpleCopy('BENCH_SIMPLE_COPY', verbose=True)
     bench_simple.run()
     # bench_multiple = BenchmarkMultipleCopies(
     #     'Bench multiple copies',

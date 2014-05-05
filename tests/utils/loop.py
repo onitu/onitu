@@ -46,6 +46,8 @@ class CounterLoop(EventLoop):
     def check(self):
         self.count -= 1
 
+    # TODO: this function should take a logger as parameter
+    # and use it instead of print
     def timeout(self):
         print(
             "CounterLoop : {} on {} done."

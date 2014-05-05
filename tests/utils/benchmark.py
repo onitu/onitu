@@ -67,7 +67,7 @@ class Benchmark():
         self._num_format = num_format
         self._results = {}
         self.log = Logger(self._name)
-        self._verbose = verbose
+        self.verbose = verbose
 
     def run(self, *args):
         """All functions whose name starts with prefix.
@@ -89,7 +89,7 @@ class Benchmark():
 
     def _run_function(self, name, *args):
         try:
-            self.log.info('Run function {}'.format(name))
+            self.log.debug('Run function {}'.format(name))
             return getattr(self, name)(*args)
         except:
             pass
@@ -122,7 +122,7 @@ class Benchmark():
     def display(self):
         for k in self._results.keys():
             res = self._results[k]
-            self.log.notice(res)
+            print(res)
 
     # TODO: fix codespeed
     def upload_results(self,
