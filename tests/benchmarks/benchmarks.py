@@ -25,6 +25,9 @@ FORMAT_STRING = (
 
 # TODO: this function should raise an exception if something is wrong
 def launcher(benchmark, num):
+    if num < 1:
+        benchmark.log.error("You should launch at least 1 driver")
+        raise
     benchmark.launcher = None
     benchmark.json_file = 'bench_copy.json'
     benchmark.reps = []
@@ -32,8 +35,8 @@ def launcher(benchmark, num):
         name = 'rep{}'.format(i + 1)
         benchmark.reps.append(LocalStorageDriver(name))
     setup = Setup()
-    for i in range(num):
-        setup.add(benchmark.reps[i])
+    for rep in benchmark.reps:
+        setup.add(rep)
     rule = Rule().match_path('/')
     for rep in benchmark.reps:
         rule.sync(rep.name)
@@ -41,11 +44,10 @@ def launcher(benchmark, num):
     setup.save(benchmark.json_file)
     loop = CounterLoop(num + 1)
     benchmark.launcher = Launcher(
-        setup=benchmark.json_file,
-        debug=False,
-        log_setup=benchmark.log_setup,
+        setup=benchmark.json_file
+        # log_setup=benchmark.log_setup,
         # log_uri=None
-        log_uri=benchmark.log_uri
+        # log_uri=benchmark.log_uri
     )
     benchmark.launcher.on_referee_started(loop.check)
     for i in range(num):

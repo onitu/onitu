@@ -121,6 +121,8 @@ class Launcher(object):
                               '--setup', self.setup,
                               '--log-uri', self.log_uri))
 
+        self.log_uri = None
+        self.log_setup = None
         return self.process
 
     def _on_event(self, name):
