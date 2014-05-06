@@ -83,31 +83,3 @@ def test_empty_file():
 def test_subdirectories():
     rep1.mkdir('sub/dir/deep/')
     copy_file('sub/dir/deep/file', 100)
-
-
-def test_multipass_copy():
-    launcher.unset_all_events()
-    count = 10
-    filename = 'multipass'
-
-    loop = BooleanLoop()
-
-    launcher.on_transfer_ended(
-        loop.stop, d_from='rep1', d_to='rep2', filename=filename, unique=False
-    )
-
-    for _ in range(count):
-        rep1.generate(filename, 100 * KB)
-
-    for _ in range(count):
-        try:
-            loop.run(timeout=2)
-        except TimeoutError:
-            continue
-
-        loop.restart()
-
-        if rep1.checksum(filename) == rep2.checksum(filename):
-            return
-
-    assert False
