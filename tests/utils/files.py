@@ -12,8 +12,11 @@ def generate(filename, size):
 
 
 def checksum(filename):
-    h = hashlib.md5()
-    with open(filename, 'rb') as f:
-        for chunk in iter(lambda: f.read(8192), b''):
-            h.update(chunk)
-    return h.hexdigest()
+    try:
+        h = hashlib.md5()
+        with open(filename, 'rb') as f:
+            for chunk in iter(lambda: f.read(8192), b''):
+                h.update(chunk)
+        return h.hexdigest()
+    except IOError:
+        return ''

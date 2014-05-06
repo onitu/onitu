@@ -42,8 +42,13 @@ def test_multipass_copy():
     count = 10
     filename = 'multipass'
 
+    startloop = BooleanLoop()
     loop = BooleanLoop()
 
+    launcher.on_transfer_started(
+        startloop.stop, d_from='rep1', d_to='rep2', filename=filename,
+        unique=False
+    )
     launcher.on_transfer_ended(
         loop.stop, d_from='rep1', d_to='rep2', filename=filename, unique=False
     )
@@ -52,10 +57,15 @@ def test_multipass_copy():
     )
 
     rep1.generate(filename, 100 * KB)
+    startloop.run(timeout=2)
 
     for _ in range(count):
+        startloop.restart()
         loop.restart()
         rep1.generate(filename, 100 * KB)
         loop.run(timeout=5)
+        startloop.run(timeout=2)
+    loop.restart()
+    loop.run(timeout=5)
 
     assert rep1.checksum(filename) == rep2.checksum(filename)
