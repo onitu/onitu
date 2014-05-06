@@ -34,11 +34,11 @@ In order to register a handler, the :meth:`.Plug.handler` decorator is used.
 
 At this stage, the list of the handlers that can be defined is the following :
 
-.. function:: get_chunk(filename, offset, size)
+.. function:: get_chunk(metadata, offset, size)
 
   Return a chunk of a given size, starting at the given offset, from a file.
 
-  :param filename: The absolute path to the file
+  :param metadata: The metadata of the file
   :type filename: string
   :param offset: The offset from which the content should be retrieved
   :type offset: int
@@ -46,11 +46,11 @@ At this stage, the list of the handlers that can be defined is the following :
   :type size: int
   :rtype: string
 
-.. function:: upload_chunk(filename, offset, chunk)
+.. function:: upload_chunk(metadata, offset, chunk)
 
   Write a chunk in a file at a given offset.
 
-  :param filename: The absolute path to the file
+  :param metadata: The metadata of the file
   :type filename: string
   :param offset: The offset from which the content should be written
   :type offset: int

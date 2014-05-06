@@ -9,15 +9,15 @@ plug = Plug()
 
 
 @plug.handler()
-def get_chunk(filename, offset, size):
-    with open(filename, 'rb') as f:
+def get_chunk(metadata, offset, size):
+    with open(metadata.filename, 'rb') as f:
         f.seek(offset)
         return f.read(size)
 
 
 @plug.handler()
-def upload_chunk(filename, offset, chunk):
-    with open(filename, 'ab') as f:
+def upload_chunk(metadata, offset, chunk):
+    with open(metadata.filename, 'r+b') as f:
         f.seek(offset)
         f.write(chunk)
 

@@ -37,8 +37,8 @@ def check_changes():
 
 
 @plug.handler()
-def get_chunk(filename, offset, size):
-    filename = root.joinpath(filename)
+def get_chunk(metadata, offset, size):
+    filename = root.joinpath(metadata.filename)
 
     try:
         with open(filename, 'rb') as f:
@@ -63,8 +63,8 @@ def start_upload(metadata):
 
 
 @plug.handler()
-def upload_chunk(filename, offset, chunk):
-    tmp_file = to_tmp(root.joinpath(filename))
+def upload_chunk(metadata, offset, chunk):
+    tmp_file = to_tmp(root.joinpath(metadata.filename))
 
     try:
         with open(tmp_file, 'r+b') as f:

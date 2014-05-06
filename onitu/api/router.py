@@ -3,6 +3,8 @@ from threading import Thread
 import zmq
 from logbook import Logger
 
+from .metadata import Metadata
+
 
 class Router(Thread):
     """Receive and reply to requests from other drivers. This is the
@@ -32,17 +34,17 @@ class Router(Thread):
             msg = self.router.recv_multipart()
             self._respond_to(*msg)
 
-    def _respond_to(self, identity, filename, offset, size):
+    def _respond_to(self, identity, fid, offset, size):
         """Calls the `get_chunk` handler defined by the driver to get
         the chunk and send it to the addressee.
         """
-        filename = filename.decode()
+        metadata = Metadata.get_by_id(self.plug, int(fid.decode()))
         offset = int(offset.decode())
         size = int(size.decode())
 
         self.logger.debug(
             "Getting chunk of size {} from offset {} in '{}'",
-            size, offset, filename
+            size, offset, metadata.filename
         )
-        chunk = self.get_chunk(filename, offset, size) or b''
+        chunk = self.get_chunk(metadata, offset, size) or b''
         self.router.send_multipart((identity, chunk))

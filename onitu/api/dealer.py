@@ -163,7 +163,7 @@ class Worker(object):
             self.logger.debug("Asking {} for a new chunk", self.driver)
 
             dealer.send_multipart((
-                self.filename.encode(),
+                str(self.fid).encode(),
                 str(self.offset).encode(),
                 str(self.chunk_size).encode()
             ))
@@ -177,7 +177,7 @@ class Worker(object):
             if not chunk or len(chunk) == 0:
                 return False
 
-            self.call('upload_chunk', self.filename, self.offset, chunk)
+            self.call('upload_chunk', self.metadata, self.offset, chunk)
 
             self.offset = self.session.hincrby(
                 'drivers:{}:transfers:{}'.format(self.dealer.name, self.fid),
