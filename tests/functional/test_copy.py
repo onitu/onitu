@@ -3,7 +3,7 @@ from os import unlink
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
-from tests.utils.loop import BooleanLoop, CounterLoop, TimeoutError
+from tests.utils.loop import BooleanLoop, CounterLoop
 from tests.utils.files import KB, MB
 
 launcher = None
