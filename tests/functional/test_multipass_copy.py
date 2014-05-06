@@ -3,8 +3,8 @@ from os import unlink
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
-from tests.utils.loop import BooleanLoop, CounterLoop, TimeoutError
-from tests.utils.files import KB, MB
+from tests.utils.loop import BooleanLoop, CounterLoop
+from tests.utils.files import KB
 
 launcher = None
 rep1, rep2 = LocalStorageDriver('rep1', chunk_size=1), TargetDriver('rep2')
@@ -45,10 +45,12 @@ def test_multipass_copy():
     loop_end, loop_abort = BooleanLoop(), BooleanLoop()
 
     launcher.on_transfer_ended(
-        loop_end.stop, d_from='rep1', d_to='rep2', filename=filename, unique=False
+        loop_end.stop, d_from='rep1', d_to='rep2', filename=filename,
+        unique=False
     )
     launcher.on_transfer_aborted(
-        loop_abort.stop, d_from='rep1', d_to='rep2', filename=filename, unique=False
+        loop_abort.stop, d_from='rep1', d_to='rep2', filename=filename,
+        unique=False
     )
 
     rep1.generate(filename, 100 * KB)
