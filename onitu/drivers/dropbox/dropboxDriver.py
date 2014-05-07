@@ -3,14 +3,16 @@ import os
 import sys
 import requests
 import threading
+import time
 
 from dropbox import rest
 from configobj import ConfigObj
 
-# from onitu.api import Plug
+from onitu.api import Plug
 
-# plug = Plug()
- 
+plug = Plug()
+drop = None
+
 ########################################################################
 class DropboxDriver :
     """
@@ -27,23 +29,11 @@ class DropboxDriver :
         self.client = None
         self.session = None
         self.access_type = "dropbox"
-        self.client_tokens_file = "client_tokens"
+        self.client_tokens_file = plug.options['token_file']
         self.chunked_file_size = 25600000 # 25Mo
         
-        config_path = os.path.join(self.base_path, "config.ini")
-        if os.path.exists(config_path):
-            try:
-                cfg = ConfigObj(config_path)
-            except IOError:
-                print "ERROR opening config file!"
-                sys.exit(1)
-            self.cfg_dict = cfg.dict()
-        else:
-            print "ERROR: config.ini not found! Exiting!"
-            sys.exit(1)
-                 
-        self.session = dropbox.session.DropboxSession(self.cfg_dict["key"],
-                                                      self.cfg_dict["secret"],
+        self.session = dropbox.session.DropboxSession(plug.options["key"],
+                                                      plug.options["secret"],
                                                       self.access_type)
  
         # Try to get a saved token, or get and store a new token with first_connect()
@@ -55,7 +45,6 @@ class DropboxDriver :
  
         self.session.set_token(token_key, token_secret)
         self.client = dropbox.client.DropboxClient(self.session)
-        self.change_watcher()
  
     #----------------------------------------------------------------------
     def first_connect(self):
@@ -68,9 +57,12 @@ class DropboxDriver :
         url = self.session.build_authorize_url(request_token)
         msg = "Open %s and allow Onitu to use your dropbox."
         print msg % url
-        raw_input("Press enter to continue")
-        access_token = self.session.obtain_access_token(request_token)
- 
+        while not ('access_token' in locals() or 'access_token' in globals()) :
+            try :
+                access_token = self.session.obtain_access_token(request_token)
+            except (dropbox.rest.ErrorResponse) as e:
+                time.sleep(2)
+
         with open(self.client_tokens_file, 'w') as token_file:
             token_file.write("%s|%s" % (access_token.key, access_token.secret))
    
@@ -117,7 +109,6 @@ class DropboxDriver :
         with open(fname, "wb") as fh:
             try:
                 while startchunk < size:
-                    print "New chunk: ", startchunk, " - ", endchunk
                     url, params, headers = self.client.request("/files/dropbox/"+fname, {}, method='GET', content_server=True)
                     headers['Range'] = 'bytes=' + str(startchunk)+"-"+str(endchunk)
                     f = self.client.rest_client.request("GET", url, headers=headers, raw_response=True)
@@ -134,12 +125,24 @@ class DropboxDriver :
  
     #----------------------------------------------------------------------
     def download_chunk(self, filename, offset, size):
-        filename = "/files/dropbox"+filename
-        print "New chunk: ", offset, " - ", offset+size
-        url, params, headers = self.client.request("/files/dropbox/"+fname, {}, method='GET', content_server=True)
+        if not filename.startswith("/files/dropbox/") :
+            filename = "/files/dropbox/"+filename
+        url, params, headers = self.client.request(filename, {}, method='GET', content_server=True)
         headers['Range'] = 'bytes=' + str(offset)+"-"+str(offset+size)
         f = self.client.rest_client.request("GET", url, headers=headers, raw_response=True)
         return f.read()
+    #----------------------------------------------------------------------
+    def upload_chunk(self, filename, offset, chunk):
+
+        e, upload_id = self.client.upload_chunk(StringIO(chunk), len(chunk), offset)
+        print "Uploaded: ", e, " upload_id: ", upload_id
+        # try:
+        #     url, params, headers = self.client.request("/chunked_upload?offset="+str(offset), {}, method='PUT', content_server=True)
+        #     print url
+        #     print params
+        #     self.client.rest_client.request("PUT", url, body=chunk, headers=headers, raw_response=True)
+        # except Exception, e:
+        #     plug.logger.warn("Error while uploading `{}`: {}", filename, e)
     #----------------------------------------------------------------------
     def upload_file(self, filename):
         """
@@ -201,8 +204,10 @@ class DropboxDriver :
     #----------------------------------------------------------------------
     def change_watcher(self):
         delta = self.client.delta(self.cursor)
-        print delta
-        for f in delta.entries:
+        # print delta
+        for f in delta["entries"]:
+            if f[0][0] == '/':
+                f[0] = f[0][1:]
             metadata = plug.get_metadata(f[0])
             metadata.size = f[1]["bytes"]
             metadata.revision = f[1]["revision"]
@@ -210,25 +215,34 @@ class DropboxDriver :
         if delta['has_more']:
             self.change_watcher()
         else:
-            threading.Timer(600, self.change_watcher).start()
+            threading.Timer(600.0, self.change_watcher).start()
  
-# @plug.handler()
-# def get_chunk(filename, offset, size):
-#     return drop.download_chunk(filename, offset, size)
-
-# @plug.handler()
-# def start_upload(metadata):
-
-# @plug.handler()
-# def upload_chunk(filename, offset, chunk):
-#     with open(filename, 'rb') as fd:
-#         return self.client.upload_chunk(fd, filename.size, offset)
-
-if __name__ == "__main__":
+@plug.handler()
+def get_chunk(filename, offset, size):
     drop = DropboxDriver()
- 
-#    print drop.list_folder()
-print drop.get_account_info()
-# drop.download_file("Premiers pas.pdf")
-# drop.upload_file("SUPERHOT-LINUX.zip")
-# drop.download_file("SUPERHOT-LINUX.zip")
+    return drop.download_chunk(filename, offset, size)
+
+@plug.handler()
+def upload_chunk(filename, offset, chunk):
+    # print "Upload chunk"
+    drop = DropboxDriver()
+    return drop.upload_chunk(filename, offset, chunk)
+
+@plug.handler()
+def end_upload(metadata):
+    print "End upload"
+
+@plug.handler()
+def start_upload(metadata):
+    print "Start upload: ", metadata.filename, " --- ", metadata.size
+    print drop
+    
+def start(*args, **kwargs):
+    plug.initialize(args[0])
+
+    # print "-----Starting the driver-----"
+
+    drop = DropboxDriver()
+
+    drop.change_watcher()
+    plug.listen()

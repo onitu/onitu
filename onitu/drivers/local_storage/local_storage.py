@@ -19,7 +19,6 @@ TMP_EXT = '.onitu-tmp'
 plug = Plug()
 root = None
 
-
 def to_tmp(filename):
     return filename.parent / ('.' + filename.name + TMP_EXT)
 
