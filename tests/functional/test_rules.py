@@ -6,7 +6,6 @@ from tests.utils.driver import LocalStorageDriver, TargetDriver
 from tests.utils.loop import BooleanLoop, CounterLoop, TimeoutError
 
 launcher = None
-rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
 json_file = 'test_rules.json'
 
 
@@ -17,8 +16,6 @@ def setup_module(module):
 
 def teardown_module(module):
     unlink(json_file)
-    rep1.close()
-    rep2.close()
 
 
 def launcher_startup():
@@ -39,6 +36,7 @@ class ShouldNotCopy(BaseException):
 def test_no_rule():
     try:
         filename = 'bar'
+        rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
         setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
@@ -58,12 +56,15 @@ def test_no_rule():
             raise ShouldNotCopy
     finally:
         launcher.kill()
+        rep1.close()
+        rep2.close()
 
 
 def test_path():
     try:
         directory = 'foo'
         filename = '{}/bar'.format(directory)
+        rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
         setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
@@ -81,11 +82,14 @@ def test_path():
         assert rep1.checksum(filename) == rep2.checksum(filename)
     finally:
         launcher.kill()
+        rep1.close()
+        rep2.close()
 
 
 def test_not_mime():
     try:
         filename = 'bar.txt'
+        rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
         setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
@@ -106,11 +110,14 @@ def test_not_mime():
             raise ShouldNotCopy
     finally:
         launcher.kill()
+        rep1.close()
+        rep2.close()
 
 
 def test_simple_mime():
     try:
         filename = 'bar.png'
+        rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
         setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
@@ -127,11 +134,14 @@ def test_simple_mime():
         assert rep1.checksum(filename) == rep2.checksum(filename)
     finally:
         launcher.kill()
+        rep1.close()
+        rep2.close()
 
 
 def test_multi_mime():
     try:
         filenames = 'bar.png', 'foo.txt'
+        rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
         setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
@@ -150,11 +160,14 @@ def test_multi_mime():
             assert rep1.checksum(filename) == rep2.checksum(filename)
     finally:
         launcher.kill()
+        rep1.close()
+        rep2.close()
 
 
 def test_path_mime():
     try:
         directory = 'foo'
+        rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
         setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
@@ -189,3 +202,5 @@ def test_path_mime():
                 raise ShouldNotCopy
     finally:
         launcher.kill()
+        rep1.close()
+        rep2.close()
