@@ -2,5 +2,5 @@ circus
 pyzmq
 redis
 simplejson
-git+git://github.com/onitu/logbook.git@master
+logbook
 path.py
