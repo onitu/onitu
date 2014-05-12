@@ -1,0 +1,8 @@
+Amazon S3 Driver
+================
+
+This is an Onitu driver for the Amazon S3 cloud service.
+
+To make it work you're going to need your Amazon Access ID and your Amazon Secret Access Key.
+
+This driver uses boto, the official Amazon Python module to interact with Amazon services.
