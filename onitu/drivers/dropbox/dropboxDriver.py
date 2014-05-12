@@ -132,10 +132,19 @@ class DropboxDriver :
         f = self.client.rest_client.request("GET", url, headers=headers, raw_response=True)
         return f.read()
     #----------------------------------------------------------------------
-    def upload_chunk(self, filename, offset, chunk):
+    def upload_chunk(self, metadata, offset, chunk):
 
-        e, upload_id = self.client.upload_chunk(StringIO(chunk), len(chunk), offset)
-        print "Uploaded: ", e, " upload_id: ", upload_id
+        uploader = self.client.get_chunked_uploader(StringIO(chunk), metadata.size)
+        print "uploading: ", metadata.size
+        print "uploading: ", metadata.filename
+        
+        uploader.offset = offset
+        uploader.upload_chunked(len(chunk))
+
+        res = uploader.finish(os.path.join(self.path, metadata.filename))
+        print res
+        # e, upload_id = self.client.upload_chunk(StringIO(chunk), len(chunk), offset)
+        # print "Uploaded: ", e, " upload_id: ", upload_id
         # try:
         #     url, params, headers = self.client.request("/chunked_upload?offset="+str(offset), {}, method='PUT', content_server=True)
         #     print url
@@ -218,15 +227,18 @@ class DropboxDriver :
             threading.Timer(600.0, self.change_watcher).start()
  
 @plug.handler()
-def get_chunk(filename, offset, size):
+def get_chunk(metadata, offset, size):
     drop = DropboxDriver()
-    return drop.download_chunk(filename, offset, size)
+    return drop.download_chunk(metadata.filename, offset, size)
 
 @plug.handler()
-def upload_chunk(filename, offset, chunk):
-    # print "Upload chunk"
+def upload_chunk(metadata, offset, chunk):
+    print "Upload chunk"
+    print metadata
+    print metadata.filename
+    print metadata.size
     drop = DropboxDriver()
-    return drop.upload_chunk(filename, offset, chunk)
+    return drop.upload_chunk(metadata, offset, chunk)
 
 @plug.handler()
 def end_upload(metadata):
