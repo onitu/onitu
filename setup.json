@@ -13,13 +13,21 @@
       "options": {
         "root": "example/driver_b"
       }
+    },
+    "C": {
+      "driver": "dropbox",
+      "options": {
+	"token_file": "token_file",
+	"key": "38jd72msqedx5n9",
+	"secret": "g4favy0bgjstt2w"
+      }
     }
   },
 
   "rules": [
     {
       "match": {"path": "/"},
-      "sync": ["A"]
+      "sync": ["C"]
     },
     {
       "match": {"path": "/backedup/", "mime": ["application/pdf"]},
