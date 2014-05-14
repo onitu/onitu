@@ -15,10 +15,14 @@ def to_tmp(path):
     return path.parent.joinpath('.' + path.name + TMP_EXT)
 
 
-def update_file(metadata, path):
-    metadata.size = path.size
-    metadata.revision = path.mtime
-    plug.update_file(metadata)
+def update_file(metadata, path, mtime=None):
+    try:
+        metadata.size = path.size
+        metadata.revision = mtime if mtime else path.mtime
+    except (IOError, OSError) as e:
+        plug.logger.warn("Error updating file `{}`: {}", metadata.filename, e)
+    else:
+        plug.update_file(metadata)
 
 
 def check_changes():
@@ -32,8 +36,14 @@ def check_changes():
         revision = metadata.revision
         revision = float(revision) if revision else .0
 
-        if abs_path.mtime > revision:
-            update_file(metadata, abs_path)
+        try:
+            mtime = abs_path.mtime
+        except (IOError, OSError) as e:
+            plug.logger.warn("Error updating file `{}`: {}", filename, e)
+            mtime = 0.
+
+        if mtime > revision:
+            update_file(metadata, abs_path, mtime)
 
 
 @plug.handler()
@@ -44,7 +54,7 @@ def get_chunk(metadata, offset, size):
         with open(filename, 'rb') as f:
             f.seek(offset)
             return f.read(size)
-    except IOError as e:
+    except (IOError, OSError) as e:
         plug.logger.warn("Error getting file `{}`: {}", filename, e)
 
 
@@ -70,7 +80,7 @@ def upload_chunk(metadata, offset, chunk):
         with open(tmp_file, 'r+b') as f:
             f.seek(offset)
             f.write(chunk)
-    except IOError as e:
+    except (IOError, OSError) as e:
         plug.logger.warn("Error writting file `{}`: {}", tmp_file, e)
 
 
@@ -82,7 +92,7 @@ def end_upload(metadata):
     try:
         tmp_file.move(filename)
         mtime = filename.mtime
-    except OSError as e:
+    except (IOError, OSError) as e:
         plug.logger.warn("Error for file `{}`: {}", filename, e)
         return
 
@@ -96,7 +106,7 @@ def abort_upload(metadata):
     tmp_file = to_tmp(filename)
     try:
         tmp_file.unlink()
-    except OSError as e:
+    except (IOError, OSError) as e:
         plug.logger.warn("Error deleting file `{}`: {}", tmp_file, e)
         return
 
