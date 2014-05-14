@@ -3,7 +3,7 @@ import os
 import pyinotify
 from path import path
 
-from onitu.api import Plug
+from onitu.api import Plug, DriverError, ServiceError
 
 TMP_EXT = '.onitu-tmp'
 
@@ -20,7 +20,9 @@ def update_file(metadata, path, mtime=None):
         metadata.size = path.size
         metadata.revision = mtime if mtime else path.mtime
     except (IOError, OSError) as e:
-        plug.logger.warn("Error updating file `{}`: {}", metadata.filename, e)
+        raise ServiceError(
+            "Error updating file '{}': {}".format(metadata.filename, e)
+        )
     else:
         plug.update_file(metadata)
 
@@ -39,7 +41,9 @@ def check_changes():
         try:
             mtime = abs_path.mtime
         except (IOError, OSError) as e:
-            plug.logger.warn("Error updating file `{}`: {}", filename, e)
+            raise ServiceError(
+                "Error updating file '{}': {}".format(filename, e)
+            )
             mtime = 0.
 
         if mtime > revision:
@@ -55,7 +59,9 @@ def get_chunk(metadata, offset, size):
             f.seek(offset)
             return f.read(size)
     except (IOError, OSError) as e:
-        plug.logger.warn("Error getting file `{}`: {}", filename, e)
+        raise ServiceError(
+            "Error getting file '{}': {}".format(filename, e)
+        )
 
 
 @plug.handler()
@@ -69,7 +75,9 @@ def start_upload(metadata):
 
         tmp_file.open('wb').close()
     except IOError as e:
-        plug.logger.warn("Error creating file `{}`: {}", tmp_file, e)
+        raise ServiceError(
+            "Error creating file '{}': {}".format(tmp_file, e)
+        )
 
 
 @plug.handler()
@@ -81,7 +89,9 @@ def upload_chunk(metadata, offset, chunk):
             f.seek(offset)
             f.write(chunk)
     except (IOError, OSError) as e:
-        plug.logger.warn("Error writting file `{}`: {}", tmp_file, e)
+        raise ServiceError(
+            "Error writting file '{}': {}".format(tmp_file, e)
+        )
 
 
 @plug.handler()
@@ -93,8 +103,9 @@ def end_upload(metadata):
         tmp_file.move(filename)
         mtime = filename.mtime
     except (IOError, OSError) as e:
-        plug.logger.warn("Error for file `{}`: {}", filename, e)
-        return
+        raise ServiceError(
+            "Error for file '{}': {}".format(filename, e)
+        )
 
     metadata.revision = mtime
     metadata.write_revision()
@@ -107,8 +118,9 @@ def abort_upload(metadata):
     try:
         tmp_file.unlink()
     except (IOError, OSError) as e:
-        plug.logger.warn("Error deleting file `{}`: {}", tmp_file, e)
-        return
+        raise ServiceError(
+            "Error deleting file '{}': {}".format(tmp_file, e)
+        )
 
 
 class Watcher(pyinotify.ProcessEvent):
@@ -130,8 +142,7 @@ def start(*args, **kwargs):
     root = path(plug.options['root'])
 
     if not root.access(os.W_OK | os.R_OK):
-        plug.logger.error("Can't access directory `{}`.", root)
-        return
+        raise DriverError("The root '{}' is not accessible".format(root))
 
     manager = pyinotify.WatchManager()
     notifier = pyinotify.ThreadedNotifier(manager, Watcher())
