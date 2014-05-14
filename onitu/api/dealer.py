@@ -8,6 +8,7 @@ import redis
 from logbook import Logger
 
 from .metadata import Metadata
+from .exceptions import DriverError, TryAgain, AbortOperation
 
 
 class Dealer(Thread):
@@ -103,8 +104,16 @@ class Worker(object):
         self.metadata = Metadata.get_by_id(self.dealer.plug, self.fid)
         self.filename = self.metadata.filename
 
-        self.start_transfer()
-        success = self.get_file()
+        success = False
+
+        try:
+            self.start_transfer()
+            self.get_file()
+        except AbortOperation:
+            pass
+        else:
+            success = True
+
         self.end_transfer(success)
 
     def get_dealer(self):
@@ -122,12 +131,41 @@ class Worker(object):
             time.sleep(0.1)
 
     def call(self, handler_name, *args, **kwargs):
-        """Call a handler if it has been registered by the driver
+        """Call a handler if it has been registered by the driver.
+
+        :raise AbortOperation: if the handler thinks the operation
+        should be aborted
         """
         handler = self.dealer.plug._handlers.get(handler_name)
 
-        if handler:
-            return handler(*args, **kwargs)
+        if not handler:
+            return None
+
+        wait = 2.5
+
+        while True:
+            try:
+                return handler(*args, **kwargs)
+            except TryAgain as e:
+                self.logger.warn(
+                    "Error during the call of '{}', trying again in {}s: {}",
+                    handler_name, wait, e
+                )
+                time.sleep(wait)
+                wait *= 2
+                continue
+            except DriverError as e:
+                self.logger.error(
+                    "An error occured during the call of '{}': {}",
+                    handler_name, e
+                )
+                raise AbortOperation()
+            except Exception as e:
+                self.logger.error(
+                    "Unexpected error calling '{}': {}",
+                    handler_name, e
+                )
+                raise AbortOperation()
 
     def start_transfer(self):
         if self.restart:
@@ -158,7 +196,7 @@ class Worker(object):
 
         while self.offset < self.metadata.size:
             if self.stop.is_set():
-                return False
+                raise AbortOperation()
 
             self.logger.debug("Asking {} for a new chunk", self.driver)
 
@@ -175,7 +213,7 @@ class Worker(object):
             )
 
             if not chunk or len(chunk) == 0:
-                return False
+                raise AbortOperation()
 
             self.call('upload_chunk', self.metadata, self.offset, chunk)
 
@@ -184,14 +222,30 @@ class Worker(object):
                 'offset', len(chunk)
             )
 
-        return True
-
     def end_transfer(self, success):
         if self.stop.is_set():
+            # Last chance to see if the transfer should be aborted.
+            # It could happen if the stop is set after the upload of
+            # the last chunk
             success = False
 
-        handler = 'end_upload' if success else 'abort_upload'
-        self.call(handler, self.metadata)
+        if success:
+            try:
+                self.call('end_upload', self.metadata)
+            except AbortOperation:
+                # If there is an error in this handler, we still
+                # want to abort the transfer
+                success = False
+
+        # Should not be in an elif branch as success could be set to False
+        # by the previous if
+        if not success:
+            try:
+                self.call('abort_upload', self.metadata)
+            except AbortOperation:
+                # If abort_transfer raise an AbortOperation, we can't do
+                # much about it
+                pass
 
         self.session.delete(
             'drivers:{}:transfers:{}'.format(self.dealer.name, self.fid)
@@ -211,6 +265,6 @@ class Worker(object):
             )
         else:
             self.logger.info(
-                "Aborting transfer of '{}' from {}",
+                "Transfer of '{}' from {} aborted",
                 self.filename, self.driver
             )

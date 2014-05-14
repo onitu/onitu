@@ -25,7 +25,7 @@ logs = {
     'transfer_aborted': (
         (
             "{d_to} - Dealer",
-            "Aborting transfer of '{filename}' from {d_from}"
+            "Transfer of '{filename}' from {d_from} aborted"
         ),
     ),
     'transfer_restarted': (
