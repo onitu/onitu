@@ -2,7 +2,7 @@
 Creating a new driver
 =================================
 
-A driver is a Python program that allows Onitu to synchronize files with a remote service, such as Dropbox, Google Drive, SSH, FTP or a local hard drive.
+A driver is a Python program which allows Onitu to synchronize files with a remote service, such as Dropbox, Google Drive, SSH, FTP or a local hard drive.
 
 Basics
 ======
@@ -39,7 +39,7 @@ At this stage, the list of the handlers that can be defined is the following :
   Return a chunk of a given size, starting at the given offset, from a file.
 
   :param metadata: The metadata of the file
-  :type filename: string
+  :type metadata: :class:`.Metadata`
   :param offset: The offset from which the content should be retrieved
   :type offset: int
   :param size: The maximum size of the chunk that should be returned
@@ -51,7 +51,7 @@ At this stage, the list of the handlers that can be defined is the following :
   Write a chunk in a file at a given offset.
 
   :param metadata: The metadata of the file
-  :type filename: string
+  :type metadata: :class:`.Metadata`
   :param offset: The offset from which the content should be written
   :type offset: int
   :param chunk: The content that should be written
@@ -100,6 +100,18 @@ Metadata
 
 .. autoclass:: onitu.api.metadata.Metadata
   :members:
+
+Exceptions
+==========
+
+If an error happen in a driver, it should raise an appropriate exception. Three exceptions are handled by the :class:`.Plug`, and should be used accordingly to the situation : :class:`.DriverError`, :class:`.ServiceError` and :class:`.TryAgain`. This last one is special, as it tells the Plug that it should retry the call later.
+
+.. autoclass:: onitu.api.exceptions.TryAgain
+
+.. autoclass:: onitu.api.exceptions.DriverError
+
+.. autoclass:: onitu.api.exceptions.ServiceError
+
 
 Example
 =======

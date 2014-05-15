@@ -21,7 +21,7 @@ class DriverError(RuntimeError):
     You can raise this exception if the error comes from your Driver and
     does not correspond to the other exceptions proposed.
 
-    You can should pass a string to the constructor describing the error.
+    You should pass a string to the constructor describing the error.
     """
     pass
 
@@ -30,7 +30,10 @@ class TryAgain(DriverError):
     """
     The Plug should wait and call the handler again.
 
-    You can should pass a string to the constructor describing the error.
+    If the error is raised again, the Plug will keep trying, doubling
+    the waiting time at each call.
+
+    You should pass a string to the constructor describing the error.
     """
     pass
 
@@ -40,6 +43,6 @@ class ServiceError(DriverError):
     The error is out of the Driver's reach, the current operation should
     be aborted.
 
-    You can should pass a string to the constructor describing the error.
+    You should pass a string to the constructor describing the error.
     """
     pass

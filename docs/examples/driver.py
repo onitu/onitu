@@ -1,6 +1,6 @@
 import os
 
-from onitu.api import Plug
+from onitu.api import Plug, ServiceError, DriverError
 
 # A dummy library supposed to watch the file system
 from fsmonitor import FSWatcher
@@ -10,16 +10,26 @@ plug = Plug()
 
 @plug.handler()
 def get_chunk(metadata, offset, size):
-    with open(metadata.filename, 'rb') as f:
-        f.seek(offset)
-        return f.read(size)
+    try:
+        with open(metadata.filename, 'rb') as f:
+            f.seek(offset)
+            return f.read(size)
+    except IOError as e:
+        raise ServiceError(
+            "Error reading '{}': {}".format(metadata.filename, e)
+        )
 
 
 @plug.handler()
 def upload_chunk(metadata, offset, chunk):
-    with open(metadata.filename, 'r+b') as f:
-        f.seek(offset)
-        f.write(chunk)
+    try:
+        with open(metadata.filename, 'r+b') as f:
+            f.seek(offset)
+            f.write(chunk)
+    except IOError as e:
+        raise ServiceError(
+            "Error writting '{}': {}".format(metadata.filename, e)
+        )
 
 
 @plug.handler()
@@ -54,8 +64,11 @@ class Watcher(FSWatcher):
 def start(*args, **kwargs):
     plug.initialize(*args, **kwargs)
 
-    root = plug.options['root']
-    os.chdir(root)
+    try:
+        root = plug.options['root']
+        os.chdir(root)
+    except OSError as e:
+        raise DriverError("Can't access '{}': {}".format(root, e))
 
     watcher = Watcher(root)
     watcher.check_changes()
