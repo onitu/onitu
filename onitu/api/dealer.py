@@ -97,6 +97,12 @@ class Worker(object):
         self.restart = restart
 
         self.chunk_size = self.dealer.plug.options['chunk_size']
+        # Some services have chunk size restrictions.
+        # The set_chunk_size handler allows the driver to set the size by
+        # itself if it isn't valid for its use.
+        driver_chunk_size = self.call('set_chunk_size', self.chunk_size)
+        if driver_chunk_size is not None:
+            self.chunk_size = driver_chunk_size
 
     def __call__(self):
         self.metadata = Metadata.get_by_id(self.dealer.plug, self.fid)
