@@ -12,7 +12,7 @@ def pack_msg(*args):
 
 
 def unpack_msg(packed):
-    return msgpack.unpackb(packed)
+    return msgpack.unpackb(packed, use_list=False)
 
 
 def format_request(cmd, uid, *args):

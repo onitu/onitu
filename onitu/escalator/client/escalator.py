@@ -80,7 +80,7 @@ class Escalator(object):
                                      reverse)
         if pack and include_value:
             if include_key:
-                values = [[key, protocol.msg.unpack_msg(value)]
+                values = [(key, protocol.msg.unpack_msg(value))
                           for key, value in values]
             else:
                 values = [protocol.msg.unpack_msg(value) for value in values]
