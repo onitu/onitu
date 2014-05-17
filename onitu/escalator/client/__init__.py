@@ -1,3 +1,3 @@
 from .escalator import Escalator
 
-_ = Escalator
+__all__ = ['Escalator']
