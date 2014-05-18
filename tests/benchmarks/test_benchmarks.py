@@ -46,13 +46,13 @@ class TestBenchmark(Benchmark):
             'zorglub',
             'this test took 9999 days',
             unit='days'
-            )
+        )
         test.add_result(self.test)
         return test
 
 
 def test_benchmark():
-    t = TestBenchmark(verbose=True)
+    t = TestBenchmark('TestBenchmark', verbose=True)
     t.run()
     print('{:=^28}'.format(' Test benchmark '))
     t.display()
