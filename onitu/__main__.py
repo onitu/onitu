@@ -92,8 +92,6 @@ def start_setup(*args, **kwargs):
             logger.error("Illegal character ':' in entry {}", name)
             continue
 
-        script = 'onitu.drivers.{}'.format(conf['driver'])
-
         if 'options' in conf:
             redis.session.hmset(
                 'drivers:{}:options'.format(name), conf['options']
@@ -102,7 +100,7 @@ def start_setup(*args, **kwargs):
         watcher = arbiter.add_watcher(
             name,
             sys.executable,
-            args=['-m', script, name, log_uri],
+            args=['-m', 'onitu.drivers', conf['driver'], name, log_uri],
             copy_env=True,
         )
 

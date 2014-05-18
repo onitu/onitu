@@ -3,6 +3,8 @@ The Plug is the part of any driver that communicates with the rest of
 Onitu. This part is common between all the drivers.
 """
 
+import json
+
 import redis
 
 from logbook import Logger
@@ -32,9 +34,6 @@ class Plug(object):
     def __init__(self):
         super(Plug, self).__init__()
 
-        self.redis = connect_to_redis()
-        self.session = self.redis.session
-
         self.name = None
         self.logger = None
         self.router = None
@@ -42,18 +41,27 @@ class Plug(object):
         self.options = {}
         self._handlers = {}
 
-    def initialize(self, name):
-        """Initialize the different components of the Plug. The
-        drivers should call it in the beginning of the `start`
-        function.
+    def initialize(self, name, manifest):
+        """Initialize the different components of the Plug.
+
+        You should never have to call this function directly
+        as it's called by the drivers' launcher.
 
         :param name: The name of the current entry, as given in
                      the `start` function.
         :type name: string
         """
+
+        self.redis = connect_to_redis()
+        self.session = self.redis.session
+
         self.name = name
         self.logger = Logger(self.name)
         self.options = self.session.hgetall('drivers:{}:options'.format(name))
+
+        self.session.set(
+            'drivers:{}:manifest'.format(name), json.dumps(manifest)
+        )
 
         self.logger.info("Started")
 
