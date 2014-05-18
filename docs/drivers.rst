@@ -19,6 +19,8 @@ When a driver detects an update in a file, it should update the :class:`.Metadat
 .. note::
   During their startup, the drivers should look for new files or updates on their remote file system. They should also listen to changes during their lifetime. The mechanism used to do that is specific to each driver, and can't be abstracted by the :class:`.Plug`.
 
+Each driver must have a manifest_ describing its purpose and its options.
+
 Onitu provide a set of :ref:`functional tests <tests>` that you can use to see if your driver respond to every exigence.
 
 .. _handlers:
@@ -112,6 +114,21 @@ If an error happen in a driver, it should raise an appropriate exception. Three 
 
 .. autoclass:: onitu.api.exceptions.ServiceError
 
+
+.. _manifest:
+
+Manifest
+========
+
+A manifest is a JSON file describing a driver in order to help the users configuring it. It contains several informations, such as the name of the driver, its description, and its available options. Each option must have a name, a description and a type.
+
+The type of the options will be used by Onitu to validate them, and by the interface in order to offer a proper input field. The available types are : Integers, Floats, Booleans, Strings and Enumerates. An enumerate type must add a `values` field with the list of all the possible values.
+
+An option can have a `default` field which represents the default value (it can be `null`). If this field is present, the option is not mandatory. All the options without a default value are mandatory.
+
+Here is an example of what your manifest should look like :
+
+.. literalinclude:: examples/manifest.json
 
 Example
 =======
