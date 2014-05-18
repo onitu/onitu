@@ -93,8 +93,8 @@ def start_setup(*args, **kwargs):
             continue
 
         if 'options' in conf:
-            redis.session.hmset(
-                'drivers:{}:options'.format(name), conf['options']
+            redis.session.set(
+                'drivers:{}:options'.format(name), json.dumps(conf['options'])
             )
 
         watcher = arbiter.add_watcher(
