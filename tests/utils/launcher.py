@@ -24,7 +24,10 @@ class Event(object):
 
 
 class Launcher(object):
-    def __init__(self, setup='setup.json', background=True, debug=True):
+    def __init__(self,
+                 setup='setup.json',
+                 background=True,
+                 debug=True):
         self.setup = setup
         self.bg = background
         self.debug = debug
@@ -72,7 +75,7 @@ class Launcher(object):
         if self.process is not None:
             self.process.wait()
 
-    def _process_record(self, record):
+    def process_record(self, record):
         trigger = (record.channel, record.message)
         events = self.event_triggers.get(trigger)
 
@@ -89,24 +92,25 @@ class Launcher(object):
         for event in unset_events:
             self.unset_event(event)
 
-    def __call__(self):
+    def __call__(self, log_uri=None):
         # Find an open port for the logs
         # (that's a race condition, deal with it)
-        tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        tmpsock.bind(('localhost', 0))
-        log_uri = 'tcp://{}:{}'.format(*tmpsock.getsockname())
-        tmpsock.close()
+        if not log_uri:
+            tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            tmpsock.bind(('localhost', 0))
+            log_uri = 'tcp://{}:{}'.format(*tmpsock.getsockname())
+            tmpsock.close()
 
-        level = logbook.DEBUG if self.debug else logbook.INFO
-        setup = logbook.NestedSetup([
-            logbook.NullHandler(),
-            logbook.StderrHandler(
-                level=level, format_string=FORMAT_STRING
-            ),
-            logbook.Processor(self._process_record),
-        ])
-        self.subscriber = ZeroMQSubscriber(log_uri, multi=True)
-        self.subscriber.dispatch_in_background(setup=setup)
+            level = logbook.DEBUG if self.debug else logbook.INFO
+            log_setup = logbook.NestedSetup([
+                logbook.NullHandler(),
+                logbook.StderrHandler(
+                    level=level, format_string=FORMAT_STRING
+                ),
+                logbook.Processor(self.process_record),
+            ])
+            self.subscriber = ZeroMQSubscriber(log_uri, multi=True)
+            self.subscriber.dispatch_in_background(setup=log_setup)
 
         self.process = Popen(('python', '-m', 'onitu',
                               '--setup', self.setup,

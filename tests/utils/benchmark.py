@@ -1,4 +1,5 @@
 from .timer import Timer
+from logbook import Logger
 from codespeed_client import Client
 
 
@@ -50,23 +51,23 @@ class BenchmarkData():
             'desc': self.description,
             'unit': self.unit,
             'results': self._results
-            }
+        }
 
 
 class Benchmark():
     def __init__(self,
+                 name,
                  prefix='test_',
                  num_format='.4f',
-                 verbose=False
+                 verbose=False,
+                 log_uri=None
                  ):
+        self.name = name
         self._prefix = prefix
         self._num_format = num_format
         self._results = {}
-        self._verbose = verbose
-
-    def _log(self, msg):
-        if self._verbose:
-            print('BENCHMARKS: ' + str(msg))
+        self.log = Logger(self.name)
+        self.verbose = verbose
 
     def run(self, *args):
         """All functions whose name starts with prefix.
@@ -75,29 +76,49 @@ class Benchmark():
         Run teardown at the end of the tests.
         """
         try:
-            self._run_function('setup', *args)
+            self._run_function_exn('setup', *args)
             tests = self._collect_tests()
             for t in tests:
                 self._run_test(t)
         except BaseException as e:
-            self._log('Fatal exception. Benchmark shutdown.')
-            self._log(e)
+            self.log.error('Fatal exception. Benchmark shutdown.')
+            self.log.error(e)
             raise e
         finally:
             self._run_function('teardown')
 
+    def _run_function_exn(self, name, *args):
+        self.log.debug('Run function {}'.format(name))
+        return getattr(self, name)(*args)
+
     def _run_function(self, name, *args):
         try:
-            self._log('Run function {}'.format(name))
+            self.log.debug('Run function {}'.format(name))
             return getattr(self, name)(*args)
-        except:
-            pass
+        except BaseException as e:
+            self.log.warn(
+                'The test is skipped because it raised an exception'
+            )
+            self.log.warn(e)
+
+    def _run_env(self, name, *args):
+        try:
+            self.log.debug('Run function {}'.format(name))
+            return getattr(self, name)(*args)
+        except AttributeError as e:
+            self.log.debug('The function {} does not exist'.format(name))
+        except BaseException as e:
+            self.log.warn(
+                'The test is skipped because {} raised an exception'
+                .format(name)
+            )
+            self.log.warn(e)
 
     def _run_test(self, name):
         setup_test = name.replace(self._prefix, 'setup_')
         teardown_test = name.replace(self._prefix, 'teardown_')
         try:
-            self._run_function(setup_test)
+            self._run_env(setup_test)
             with Timer() as t:
                 res = self._run_function(name)
             if res:
@@ -107,10 +128,10 @@ class Benchmark():
                 r.add_result(t.msecs)
             self._results[name] = r
         except BaseException as e:
-            self._log('The test is skipped because it raised an exception')
-            self._log(e)
+            self.log.warn('The test is skipped because it raised an exception')
+            self.log.warn(e)
         finally:
-            self._run_function(teardown_test)
+            self._run_env(teardown_test)
 
     def execute(self, name):
         return self._run_test(name)
