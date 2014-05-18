@@ -11,8 +11,7 @@ The drivers communicate with Onitu via the :class:`.Plug` class, which handles t
 
 In Onitu the file transfers are made by chunks. When a new transfer begin, the :class:`.Plug` asks the others drivers for new chunks, and then call the `upload_chunk` handler.
 
-Each driver should expose a function called `start`, which takes a name as first parameter, and returns nothing. The name is chosen by the user when he configures the driver.
-This function will be called by Onitu during the initialization of the driver, and should not return until the end of life of the driver (*cf* :meth:`.Plug.listen`).
+Each driver must expose a function called `start` and an instance of the :class:`.Plug` in their `__init__.py` file. This `start` function will be called by Onitu during the initialization of the driver, and should not return until the end of life of the driver (*cf* :meth:`.Plug.listen`).
 
 When a driver detects an update in a file, it should update the :class:`.Metadata` of the file, specify a :attr:`.Metadata.revision`, and call :meth:`.Plug.update_file`.
 
@@ -138,4 +137,9 @@ Usually, the drivers are created as a set of functions in a single file, with th
 Here is an example of a simple driver working with the local file system :
 
 .. literalinclude:: examples/driver.py
+  :linenos:
+
+This is what a driver's `__init__.py` file should look like:
+
+.. literalinclude:: examples/init_driver.py
   :linenos:
