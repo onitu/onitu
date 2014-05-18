@@ -96,9 +96,7 @@ class Worker(object):
         self.offset = offset
         self.restart = restart
 
-        self.chunk_size = self.dealer.plug.options.get(
-            'chunk_size', 1 << 20  # 1MB
-        )
+        self.chunk_size = self.dealer.plug.options['chunk_size']
 
     def __call__(self):
         self.metadata = Metadata.get_by_id(self.dealer.plug, self.fid)

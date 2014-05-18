@@ -3,6 +3,8 @@ The Plug is the part of any driver that communicates with the rest of
 Onitu. This part is common between all the drivers.
 """
 
+import json
+
 import redis
 
 from logbook import Logger
@@ -32,9 +34,6 @@ class Plug(object):
     def __init__(self):
         super(Plug, self).__init__()
 
-        self.redis = connect_to_redis()
-        self.session = self.redis.session
-
         self.name = None
         self.logger = None
         self.router = None
@@ -42,18 +41,31 @@ class Plug(object):
         self.options = {}
         self._handlers = {}
 
-    def initialize(self, name):
-        """Initialize the different components of the Plug. The
-        drivers should call it in the beginning of the `start`
-        function.
+    def initialize(self, name, manifest):
+        """Initialize the different components of the Plug.
+
+        You should never have to call this function directly
+        as it's called by the drivers' launcher.
 
         :param name: The name of the current entry, as given in
                      the `start` function.
         :type name: string
         """
+
+        self.redis = connect_to_redis()
+        self.session = self.redis.session
+
         self.name = name
         self.logger = Logger(self.name)
-        self.options = self.session.hgetall('drivers:{}:options'.format(name))
+        self.options = json.loads(
+            self.session.get('drivers:{}:options'.format(name))
+        )
+
+        self.validate_options(manifest)
+
+        self.session.set(
+            'drivers:{}:manifest'.format(name), json.dumps(manifest)
+        )
 
         self.logger.info("Started")
 
@@ -172,3 +184,63 @@ class Plug(object):
 
         metadata.entry = self.name
         return metadata
+
+    def validate_options(self, manifest):
+        """
+        Validate the options and set the default values using informations
+        from the manifest.
+
+        This method is called by :meth:`.initialize`.
+        """
+        options = manifest.get('options', {})
+
+        # add the options common to all drivers
+        options.update({
+            'chunk_size': {
+                'type': 'integer',
+                'default': 1 << 20  # 1 MB
+            }
+        })
+
+        types = {
+            'string': lambda v: isinstance(v, type(u'')),
+            'integer': lambda v: isinstance(v, int),
+            'float': lambda v: isinstance(v, float),
+            'boolean': lambda v: isinstance(v, bool),
+            'enumerate': lambda v: v in options[name].get('values', []),
+        }
+
+        for name, value in self.options.items():
+            print(name, value)
+            if name not in options:
+                raise RuntimeError("Unknown option '{}'".format(name))
+                return False
+
+            excepted_type = options[name].get('type', None).lower()
+
+            if excepted_type not in types:
+                # the manifest is wrong, we print a warning but we don't
+                # abort.
+                # However, maybe we should validate the manifest first
+                self.logger.warning(
+                    "Unknown type '{}' in manifest", excepted_type
+                )
+            elif not types[excepted_type](value):
+                raise RuntimeError(
+                    "Option '{}' should be of type '{}', got '{}'.".format(
+                        name, excepted_type, type(value).__name__
+                    )
+                )
+                return False
+
+        for name, props in options.items():
+            if name not in self.options:
+                if 'default' in props:
+                    self.options[name] = props['default']
+                else:
+                    raise RuntimeError(
+                        "Mandatory option '{}' not present in the "
+                        "configuration.", name
+                    )
+
+        return True

@@ -1,0 +1,18 @@
+{
+  "name": "Your driver's name",
+  "description": "The description of your driver.",
+  "options": {
+    "my_option": {
+      "name": "Option's name",
+      "description": "The description of the option",
+      "type": "string",
+    },
+    "another_option": {
+      "name": "Another option",
+      "description": "The description of the option",
+      "type": "enumerate",
+      "values": ["foo", "bar"],
+      "default": "foo"
+    },
+  }
+}

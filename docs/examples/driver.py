@@ -61,9 +61,7 @@ class Watcher(FSWatcher):
                 plug.update_file(metadata)
 
 
-def start(*args, **kwargs):
-    plug.initialize(*args, **kwargs)
-
+def start():
     try:
         root = plug.options['root']
         os.chdir(root)

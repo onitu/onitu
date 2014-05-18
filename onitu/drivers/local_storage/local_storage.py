@@ -135,9 +135,7 @@ class Watcher(pyinotify.ProcessEvent):
         update_file(metadata, abs_path)
 
 
-def start(*args, **kwargs):
-    plug.initialize(*args, **kwargs)
-
+def start():
     global root
     root = path(plug.options['root'])
 
