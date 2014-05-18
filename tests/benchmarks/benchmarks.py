@@ -1,5 +1,5 @@
 import socket
-from os import unlink
+from os import unlink, devnull
 
 import logbook
 from logbook.queues import ZeroMQSubscriber
@@ -24,10 +24,8 @@ FORMAT_STRING = (
 
 
 # TODO: this function should raise an exception if something is wrong
-def launcher(benchmark, num):
-    if num < 1:
-        benchmark.log.error("You should launch at least 1 driver")
-        raise
+
+def setup_debug(benchmark):
     benchmark.tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     benchmark.tmpsock.bind(('localhost', 0))
     benchmark.log_uri = 'tcp://{}:{}'.format(*benchmark.tmpsock.getsockname())
@@ -35,14 +33,19 @@ def launcher(benchmark, num):
     benchmark.level = logbook.DEBUG if benchmark.verbose else logbook.INFO
     benchmark.log_setup = logbook.NestedSetup([
         logbook.NullHandler(),
-        # logbook.StderrHandler(
-        #     level=benchmark.level, format_string=FORMAT_STRING
-        # ),
+        logbook.StderrHandler(
+            level=benchmark.level, format_string=FORMAT_STRING
+        ),
+        logbook.FileHandler(devnull),
+        logbook.Processor(benchmark.launcher.process_record),
     ])
     benchmark.subscriber = ZeroMQSubscriber(benchmark.log_uri, multi=True)
     benchmark.subscriber.dispatch_in_background(setup=benchmark.log_setup)
-    benchmark.launcher = None
-    benchmark.json_file = 'bench_copy.json'
+    benchmark.launcher(benchmark.log_uri)
+
+
+def setup_config(benchmark, num):
+    benchmark.json_file = '{}.json'.format(benchmark.name.replace(' ', '_'))
     benchmark.reps = []
     for i in range(num):
         name = 'rep{}'.format(i + 1)
@@ -55,11 +58,17 @@ def launcher(benchmark, num):
         rule.sync(rep.name)
     setup.add_rule(rule)
     setup.save(benchmark.json_file)
+
+
+def launcher(benchmark, num):
+    if num < 1:
+        benchmark.log.error("You should launch at least 1 driver")
+        raise
+    benchmark.launcher = None
+    setup_config(benchmark, num)
     loop = CounterLoop(num + 1)
     benchmark.launcher = Launcher(
         setup=benchmark.json_file
-        # log_setup=benchmark.log_setup
-        # log_uri=benchmark.log_uri
     )
     benchmark.launcher.on_referee_started(loop.check)
     for i in range(num):
@@ -67,7 +76,7 @@ def launcher(benchmark, num):
             loop.check,
             driver='rep{}'.format(i + 1)
         )
-    benchmark.launcher()
+    setup_debug(benchmark)
     loop.run(timeout=5)
 
 
@@ -103,7 +112,7 @@ class BenchmarkSimpleCopy(Benchmark):
 
     def test_small(self):
         total = BenchmarkData('test_small', 'Copy 1000 times a 1M file')
-        for i in range(10):
+        for i in range(1000):
             try:
                 t = self.copy_file('small{}'.format(i), SMALL)
                 total.add_result(t)
@@ -112,27 +121,27 @@ class BenchmarkSimpleCopy(Benchmark):
                 self.log.warn(e)
         return total
 
-    # def test_medium(self):
-    #     total = BenchmarkData('test_medium', 'Copy 100 times a 10M file')
-    #     for i in range(100):
-    #         try:
-    #             t = self.copy_file('medium{}'.format(i), MEDIUM)
-    #             total.add_result(t)
-    #         except BaseException as e:
-    #             self.log.warn('Error in test_medium')
-    #             self.log.warn(e)
-    #     return total
+    def test_medium(self):
+        total = BenchmarkData('test_medium', 'Copy 100 times a 10M file')
+        for i in range(100):
+            try:
+                t = self.copy_file('medium{}'.format(i), MEDIUM)
+                total.add_result(t)
+            except BaseException as e:
+                self.log.warn('Error in test_medium')
+                self.log.warn(e)
+        return total
 
-    # def test_big(self):
-    #     total = BenchmarkData('test_big', 'Copy 10 times a 100M file')
-    #     for i in range(10):
-    #         try:
-    #             t = self.copy_file('big{}'.format(i), BIG)
-    #             total.add_result(t)
-    #         except BaseException as e:
-    #             self.log.warn('Error in test_big')
-    #             self.log.warn(e)
-    #     return total
+    def test_big(self):
+        total = BenchmarkData('test_big', 'Copy 10 times a 100M file')
+        for i in range(10):
+            try:
+                t = self.copy_file('big{}'.format(i), BIG)
+                total.add_result(t)
+            except BaseException as e:
+                self.log.warn('Error in test_big')
+                self.log.warn(e)
+        return total
 
 
 class BenchmarkMultipleCopies(Benchmark):
