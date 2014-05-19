@@ -58,6 +58,15 @@ At this stage, the list of the handlers that can be defined is the following :
   :param chunk: The content that should be written
   :type chunk: string
 
+.. function:: set_chunk_size(chunk_size)
+
+  Allows a driver to force a chunk size by overriding the default, or provided, value.
+  The handler takes the plug chunk size as argument, and if that size is invalid for the driver, it can return a new value. 
+  Useful for services that require a minimum size for transfers.
+  
+  :param chunk_size: the size the plug is currently using
+  :type chunk_size: int
+
 .. function:: start_upload(metadata)
 
   Initialize a new upload. This handler is called when a new transfer is started.
