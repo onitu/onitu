@@ -48,3 +48,10 @@ class Databases(object):
 
     def list_dbs(self):
         return list(self._names)
+
+    def close(self, name=None):
+        if name:
+            self.get_db(name).close()
+        else:
+            for db in self._databases.values():
+                db.close()

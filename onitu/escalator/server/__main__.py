@@ -5,9 +5,9 @@ from .worker import Worker
 
 context = zmq.Context()
 
-back_uri = 'tcp://127.0.0.1:4225'
+back_uri = 'inproc://workers'
 
-proxy = zmq.devices.ProcessDevice(
+proxy = zmq.devices.ThreadDevice(
     device_type=zmq.QUEUE, in_type=zmq.DEALER, out_type=zmq.ROUTER
 )
 proxy.bind_out('tcp://*:4224')
@@ -25,8 +25,11 @@ for i in range(nb_workers):
     worker.start()
     workers.append(worker)
 
-try:
-    proxy.join()
-except KeyboardInterrupt:
-    print("Stopping...")
-    pass
+while proxy.launcher.isAlive():
+    try:
+        # If we join the process without a timeout we never
+        # get the chance to handle the exception
+        proxy.join(100)
+    except KeyboardInterrupt:
+        databases.close()
+        break
