@@ -46,7 +46,7 @@ def get_bucket(head=False):
             bucket = S3Conn.get_bucket(plug.options["bucket"])
         else:
             # Just check bucket existence
-            S3Conn.head_bucket(plug.options["bucket"]) 
+            S3Conn.head_bucket(plug.options["bucket"])
     # invalid bucket name. Some non-standard names can work on the S3 web
     # console, but not with boto API (e.g. if it has uppercase chars).
     except boto.exception.BotoClientError as exc:
@@ -67,7 +67,7 @@ configuration. {}".format(str(exc))
 
 def get_file(filename):
     """Gets a file on the bucket (S3 calls them "keys").
-    Raises a ServiceError if file doesn't exist.""" 
+    Raises a ServiceError if file doesn't exist."""
     bucket = get_bucket()
     key = bucket.get_key(filename)  # find the file on S3
     if key is None:  # in most cases, the file should exist
@@ -95,7 +95,7 @@ def start_upload(metadata):
     # global multipart_upload
 
     bucket = get_bucket()
-    key = bucket.get_key(metadata.filename)  # find the key on S3 
+    key = bucket.get_key(metadata.filename)  # find the key on S3
     if not key:  # Create a new empty file if it doesn't exist yet
         key = boto.s3.key.Key(bucket)
         key.key = metadata.filename
@@ -213,9 +213,8 @@ class CheckChanges(threading.Thread):
                 self.check_bucket()
             # SSLError can appear if the bucket read operation times out
             except SSLError as ssle:
-                plug.logger.warning("Couldn't poll S3 bucket '{}': {}".format(
-                                           plug.options["bucket"],
-                                           str(ssle)))
+                plug.logger.warning("Couldn't poll S3 bucket '{}': {}"
+                                    .format(plug.options["bucket"], str(ssle)))
                 pass  # cannot do much about it
             except socket.error as serr:
                 plug.logger.warning("Network problem, trying to reconnect. \
