@@ -20,9 +20,30 @@ TIMESTAMP_FMT = '%a, %d %b %Y %H:%M:%S GMT'
 ALL_KEYS_TIMESTAMP_FMT = '%Y-%m-%dT%H:%M:%S.000Z'
 
 
+def get_conn():
+    """Gets the connection with the Amazon S3 server.
+    Raises an error if conn cannot be established"""
+    global S3Conn
+
+    err = ""
+    try:  # S3 Connection
+        S3Conn = boto.connect_s3(
+            aws_access_key_id=plug.options["aws_access_key"],
+            aws_secret_access_key=plug.options["aws_secret_key"])
+    except boto.exception.S3ResponseError as exc:
+        if exc.status == 403:
+            err = "Invalid credentials. "
+        elif exc.status == 404:
+            err = "The bucket '" + plug.options["bucket"]
+            + "' doesn't exist. "
+        err += "Please check your Amazon S3 account \
+configuration. " + str(exc)
+        raise ServiceError(err)    
+    
+
 def get_bucket():
-    """Helper function to get the Onitu S3 bucket,
-    and log an error if it couldn't fetch it."""
+    """Gets the S3 bucket the Onitu driver is watching.
+    Raises an error if bucket cannot be fetched"""
     global S3Conn
 
     bucket = S3Conn.get_bucket(plug.options["bucket"])
@@ -186,36 +207,30 @@ class CheckChanges(threading.Thread):
 def start():
     global S3Conn
 
-    changes_timer = 0
-    try:  # S3 Connection
-        S3Conn = boto.connect_s3(
-            aws_access_key_id=plug.options["aws_access_key"],
-            aws_secret_access_key=plug.options["aws_secret_key"])
-        # Check that connection was successful and that the given bucket exists
+    get_conn()  # connection to S3
+    try:
+        err = ""
+        # Check that the given bucket exists
         S3Conn.head_bucket(plug.options["bucket"])
-        # check for positive values later ?
-        changes_timer = int(plug.options["changes_timer"])
-    except KeyError as notfound:
-        raise DriverError("You must provide the " + str(notfound) + " option")
-    # int fail
-    except ValueError:
-        raise DriverError("The change timer option must be an integer")
-    # invalid bucket's name (upper-case characters, ...)
+    # invalid bucket name. Some non-standard names can work on the S3 web
+    # console, but not with boto API (e.g. if it has uppercase chars)
     except boto.exception.BotoClientError as exc:
         err = "Invalid bucket name, please check your Amazon S3 account \
 configuration. " + str(exc)
-        raise ServiceError(err)
-    # invalid credentials or invalid bucket
+        raise DriverError(err)
     except boto.exception.S3ResponseError as exc:
-        if exc.status == 403:
-            err = "Invalid credentials. "
-        elif exc.status == 404:
-            err = "The bucket '" + plug.options["bucket"]
-            + "' doesn't exist. "
-        err += "Please check your Amazon S3 account \
-configuration. " + str(exc)
-        raise ServiceError(err)
+        if exc.status == 404:
+            err = "The bucket '{}' doesn't exist. ".format(
+                plug.options["bucket"])
+    finally:
+        if err:
+            err += "Please check your Amazon S3 account \
+configuration. {}".format(str(exc))
+            raise DriverError(err)
+    if plug.options["changes_timer"] < 0:
+        raise DriverError(
+            "The change timer option must be a positive integer")
     # If here, everything went fine
-    check = CheckChanges(changes_timer)
+    check = CheckChanges(plug.options["changes_timer"])
     check.start()
     plug.listen()
