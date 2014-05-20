@@ -1,8 +1,10 @@
 import time
 import threading
-# import StringIO
+from ssl import SSLError
+# import StringIO (Not implemented yet)
 import boto
-from onitu.api import Plug
+
+from onitu.api import Plug, DriverError, ServiceError
 
 plug = Plug()
 
@@ -25,22 +27,19 @@ def get_bucket():
 
     bucket = S3Conn.get_bucket(plug.options["bucket"])
     if not bucket:
-        plug.logger.error(plug.options["bucket"] + ": No such bucket")
+        raise ServiceError(plug.options["bucket"] + ": No such bucket")
     return bucket
 
 
 @plug.handler()
 def get_chunk(metadata, offset, size):
     bucket = get_bucket()
-    chunk = None
-    if bucket:
-        key = bucket.get_key(metadata.filename)
-        if not key:
-            plug.logger.error(
-                "Get chunk: " + metadata.filename + ": No such file")
-        else:
-            range_bytes = 'bytes=' + str(offset) + "-" + str(offset + (size-1))
-            chunk = key.get_contents_as_string(headers={'Range': range_bytes})
+    key = bucket.get_key(metadata.filename)
+    if not key:
+        err = "Get chunk: " + metadata.filename + ": No such file"
+        raise ServiceError(err)    
+    range_bytes = 'bytes=' + str(offset) + "-" + str(offset + (size-1))
+    chunk = key.get_contents_as_string(headers={'Range': range_bytes})
     return chunk
 
 
@@ -51,12 +50,11 @@ def start_upload(metadata):
     # global multipart_upload
 
     bucket = get_bucket()
-    if bucket:
-        key = bucket.get_key(metadata.filename)  # find the key on S3
-        if not key:  # Create a new empty file
-            key = boto.s3.key.Key(bucket)
-            key.key = metadata.filename
-            key.set_contents_from_string("")
+    key = bucket.get_key(metadata.filename)  # find the key on S3 
+    if not key:  # Create a new empty file if it doesn't exist yet
+        key = boto.s3.key.Key(bucket)
+        key.key = metadata.filename
+        key.set_contents_from_string("")
         # Creating a new S3 multipart upload
         # (not implemented yet)
         # multipart_upload = bucket.initiate_multipart_upload(
@@ -87,23 +85,22 @@ def end_upload(metadata):
     # (not implemented yet)
     #    global part_num
     #    global multipart_upload
-
     bucket = get_bucket()
-    if bucket:
-        key = bucket.get_key(metadata.filename)  # find the key on S3
-        if not key:
-            plug.logger.error(
-                "End upload: " + metadata.filename + ": No such file")
-        else:
-            # convert timestamp to timestruct
-            new_revision = time.strptime(key.last_modified, TIMESTAMP_FMT)
-            # convert timestruct to float
-            new_revision = time.mktime(metadata.revision)
-            # convert float to string
-            new_revision = str(new_revision)
-            metadata.write_revision(new_revision)
-            # Not implemented yet
-            # multipart_upload.complete_upload()
+    key = bucket.get_key(metadata.filename)  # find the key on S3
+    if not key: # the file should exist at the end of the upload
+        err = "End upload: " + metadata.filename + ": No such file"
+        raise ServiceError(err)
+    # convert timestamp to timestruct
+    new_revision = time.strptime(key.last_modified, TIMESTAMP_FMT)
+    # convert timestruct to float
+    new_revision = time.mktime(new_revision)
+    # convert float to string
+    new_revision = str(new_revision)
+    metadata.revision = new_revision
+    metadata.write_revision()
+#    metadata.write_revision(new_revision)
+    # Not implemented yet
+    # multipart_upload.complete_upload()
 
 
 @plug.handler()
@@ -111,18 +108,15 @@ def upload_chunk(metadata, offset, chunk):
     # (not implemented yet)
     #    global part_num
     #    global multipart_upload
-
     bucket = get_bucket()
-    if bucket:
-        key = bucket.get_key(metadata.filename)  # find the key on S3
-        if not key:
-            plug.logger.error(
-                "Upload chunk: " + metadata.filename + ": No such file")
-        else:
-            contents = list(key.get_contents_as_string())
-            chunk_size = len(chunk)-1
-            contents[offset:chunk_size] = list(chunk)
-            key.set_contents_from_string(''.join(contents))
+    key = bucket.get_key(metadata.filename)  # find the key on S3
+    if not key:
+        err = "Upload chunk: " + metadata.filename + ": No such file"
+        raise ServiceError(err)
+    contents = list(key.get_contents_as_string())
+    chunk_size = len(chunk)-1
+    contents[offset:chunk_size] = list(chunk)
+    key.set_contents_from_string(''.join(contents))
             # Multipart upload (not implemented yet)
             # Amazon S3 multipart upload only works from a file.
             # StringIO allows to simulate a file pointer.
@@ -136,14 +130,18 @@ def upload_chunk(metadata, offset, chunk):
 
 @plug.handler()
 def abort_upload(metadata):
-    pass
     # Not Implemented yet
     # global multipart_upload
     # if multipart_upload:
     #      multipart_upload.cancel_upload()
+    pass
 
 
 class CheckChanges(threading.Thread):
+    """A class spawned in a thread to poll for changes on the S3 bucket.
+    Amazon S3 hasn't any bucket watching system in its API, so the best
+    we can do is periodically polling the bucket's contents and compare the
+    timestamps."""
 
     def __init__(self, timer):
         threading.Thread.__init__(self)
@@ -171,18 +169,23 @@ class CheckChanges(threading.Thread):
 
     def run(self):
         while not self.stop.isSet():
-            self.check_bucket()
+            try:
+                self.check_bucket()
+            # SSLError can appear if the bucket read operation times out
+            except SSLError as ssle:
+                plug.logger.warning("Couldn't poll S3 bucket '{}': {}".format(
+                                           plug.options["bucket"],
+                                           str(ssle)))
+                pass  # cannot do much about it
             self.stop.wait(self.timer)
 
     def stop(self):
         self.stop.set()
 
 
-def start(*args, **kwargs):
+def start():
     global S3Conn
 
-    plug.initialize(*args, **kwargs)
-    error_msg = ""
     changes_timer = 0
     try:  # S3 Connection
         S3Conn = boto.connect_s3(
@@ -193,28 +196,26 @@ def start(*args, **kwargs):
         # check for positive values later ?
         changes_timer = int(plug.options["changes_timer"])
     except KeyError as notfound:
-        error_msg = "You must provide the " + str(notfound)
-        + " option in your setup.json."
+        raise DriverError("You must provide the " + str(notfound) + " option")
     # int fail
     except ValueError:
-        error_msg = "The changes_timer option must be an integer ("
-        + plug.options['changes_timer'] + " isn't an integer)."
+        raise DriverError("The change timer option must be an integer")
     # invalid bucket's name (upper-case characters, ...)
     except boto.exception.BotoClientError as exc:
-        error_msg = "Invalid bucket name, please check your setup.json or \
-your Amazon S3 account configuration. " + str(exc)
+        err = "Invalid bucket name, please check your Amazon S3 account \
+configuration. " + str(exc)
+        raise ServiceError(err)
     # invalid credentials or invalid bucket
     except boto.exception.S3ResponseError as exc:
         if exc.status == 403:
-            error_msg = "Invalid credentials. "
+            err = "Invalid credentials. "
         elif exc.status == 404:
-            error_msg = "The bucket '" + plug.options["bucket"]
+            err = "The bucket '" + plug.options["bucket"]
             + "' doesn't exist. "
-        error_msg += "Please check your setup.json or your Amazon S3 account \
+        err += "Please check your Amazon S3 account \
 configuration. " + str(exc)
-    if error_msg is "":
-        check = CheckChanges(changes_timer)
-        check.start()
-        plug.listen()
-    else:
-        plug.logger.error(error_msg)
+        raise ServiceError(err)
+    # If here, everything went fine
+    check = CheckChanges(changes_timer)
+    check.start()
+    plug.listen()

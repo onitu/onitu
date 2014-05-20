@@ -1,0 +1,32 @@
+{
+  "name": "Amazon S3",
+  "description": "Driver to synchronize files with an AWS S3 bucket.",
+  "options": {
+    "root": {
+      "name": "Root",
+      "description": "The root of the directories under Onitu's watch",
+      "type": "string"
+    },
+    "bucket": {
+      "name": "S3 Bucket",
+      "description": "The S3 bucket this driver synchronizes with",
+      "type": "string"
+    },
+    "aws_access_key": {
+      "name": "AWS Access Key ID",
+      "description": "The access key needed to access the S3 bucket via the API.",
+      "type": "string"
+    },
+    "aws_secret_key": {
+      "name": "AWS Secret Key",
+      "description": "The secret key needed to access the S3 bucket via the API.",
+      "type": "string"
+    },
+    "changes_timer": {
+      "name": "Changes timer",
+      "description": "The frequency to check changes on the S3 bucket (in seconds).",
+      "type": "integer",
+      "default": 1
+    }
+  }
+}
