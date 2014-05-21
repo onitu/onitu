@@ -1,7 +1,17 @@
+import argparse
+
 import zmq
 
 from .databases import Databases
 from .worker import Worker
+
+
+parser = argparse.ArgumentParser("escalator")
+parser.add_argument(
+    '--bind', default='tcp://*:4224',
+    help="Address to bind escalator server"
+)
+args = parser.parse_args()
 
 context = zmq.Context()
 
@@ -10,9 +20,11 @@ back_uri = 'inproc://workers'
 proxy = zmq.devices.ThreadDevice(
     device_type=zmq.QUEUE, in_type=zmq.DEALER, out_type=zmq.ROUTER
 )
-proxy.bind_out('tcp://*:4224')
+proxy.bind_out(args.bind)
 proxy.bind_in(back_uri)
 proxy.start()
+
+print('Starting escalator server on {}'.format(repr(args.bind)))
 
 databases = Databases('dbs')
 
