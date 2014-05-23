@@ -3,23 +3,19 @@ from threading import Lock
 import zmq
 
 from onitu.escalator import protocol
+from onitu.utils import get_escalator_uri
 from .batch import WriteBatch
 
 
 class Escalator(object):
-    def __init__(self, db_name='default',
-                 server='localhost', port=4224, transport='tcp', addr=None,
-                 create_db=False):
+    def __init__(self, session, create_db=False):
         super(Escalator, self).__init__()
         self.db_uid = None
-        self.context = zmq.Context()
+        self.context = zmq.Context().instance()
         self.socket = self.context.socket(zmq.REQ)
         self.lock = Lock()
-        if addr is None:
-            addr = '{}://{}:{}'.format(transport, server, port)
-        self.socket.connect(addr)
-        if db_name is not None:
-            self.connect(db_name, create_db)
+        self.socket.connect(get_escalator_uri(session))
+        self.connect(session, create_db)
 
     def _request(self, cmd, *args):
         with self.lock:
@@ -88,21 +84,3 @@ class Escalator(object):
 
     def write_batch(self, transaction=False):
         return WriteBatch(self, transaction)
-
-
-if __name__ == '__main__':
-    from multiprocessing.pool import ThreadPool
-
-    k = 10000
-
-    def foo(w):
-        w += 1
-        client = Escalator()
-        for i in range(k):
-            client.put(str(w * k + i), str(i))
-
-        for i in range(k):
-            print(client.get(str(w * k + i)))
-
-    pool = ThreadPool()
-    pool.map(foo, range(5))
