@@ -18,7 +18,7 @@ def to_tmp(path):
 def update_file(metadata, path, mtime=None):
     try:
         metadata.size = path.size
-        metadata.revision = mtime if mtime else path.mtime
+        metadata.extra['revision'] = mtime if mtime else path.mtime
     except (IOError, OSError) as e:
         raise ServiceError(
             "Error updating file '{}': {}".format(metadata.filename, e)
@@ -35,8 +35,7 @@ def check_changes():
         filename = abs_path.relpath(root).normpath()
 
         metadata = plug.get_metadata(filename)
-        revision = metadata.revision
-        revision = float(revision) if revision else .0
+        revision = metadata.extra.get('revision', 0.)
 
         try:
             mtime = abs_path.mtime
@@ -107,8 +106,8 @@ def end_upload(metadata):
             "Error for file '{}': {}".format(filename, e)
         )
 
-    metadata.revision = mtime
-    metadata.write_revision()
+    metadata.extra['revision'] = mtime
+    metadata.write()
 
 
 @plug.handler()
