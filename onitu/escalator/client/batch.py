@@ -11,8 +11,9 @@ class WriteBatch(object):
         self.requests.insert(0, protocol.msg.format_request(protocol.cmd.BATCH,
                                                             self.db.db_uid,
                                                             self.transaction))
-        self.db.socket.send_multipart(self.requests)
-        protocol.msg.extract_response(self.db.socket.recv())
+        with self.db.lock:
+            self.db.socket.send_multipart(self.requests)
+            protocol.msg.extract_response(self.db.socket.recv())
         self.requests = []
 
     def __enter__(self):
