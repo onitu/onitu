@@ -26,7 +26,7 @@ class Router(Thread):
     def run(self):
         self.router = self.context.socket(zmq.ROUTER)
         port = self.router.bind_to_random_port('tcp://*')
-        self.plug.session.hset('ports', self.name, port)
+        self.plug.escalator.put('port:{}'.format(self.name), port)
 
         self.logger.info("Started")
 
@@ -38,7 +38,7 @@ class Router(Thread):
         """Calls the `get_chunk` handler defined by the driver to get
         the chunk and send it to the addressee.
         """
-        metadata = Metadata.get_by_id(self.plug, int(fid.decode()))
+        metadata = Metadata.get_by_id(self.plug, fid.decode())
         offset = int(offset.decode())
         size = int(size.decode())
 

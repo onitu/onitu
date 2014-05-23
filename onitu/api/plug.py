@@ -3,17 +3,13 @@ The Plug is the part of any driver that communicates with the rest of
 Onitu. This part is common between all the drivers.
 """
 
-import json
-
-import redis
-
 from logbook import Logger
 
 from .metadata import Metadata
 from .router import Router
 from .dealer import Dealer
 
-from onitu.utils import connect_to_redis
+from onitu.escalator.client import Escalator
 
 
 class Plug(object):
@@ -41,31 +37,24 @@ class Plug(object):
         self.options = {}
         self._handlers = {}
 
-    def initialize(self, name, manifest):
+    def initialize(self, name, session, manifest):
         """Initialize the different components of the Plug.
 
         You should never have to call this function directly
         as it's called by the drivers' launcher.
-
-        :param name: The name of the current entry, as given in
-                     the `start` function.
-        :type name: string
         """
-
-        self.redis = connect_to_redis()
-        self.session = self.redis.session
-
         self.name = name
+        self.session = session
+        self.escalator = Escalator(self.session)
         self.logger = Logger(self.name)
-        self.options = json.loads(
-            self.session.get('drivers:{}:options'.format(name))
+
+        self.options = self.escalator.get(
+            'entry:{}:options'.format(name), default={}
         )
 
         self.validate_options(manifest)
 
-        self.session.set(
-            'drivers:{}:manifest'.format(name), json.dumps(manifest)
-        )
+        self.escalator.put('drivers:{}:manifest'.format(name), manifest)
 
         self.logger.info("Started")
 
@@ -119,52 +108,23 @@ class Plug(object):
         It takes a :class:`.Metadata` object in parameter that should have been
         updated with the new value of the properties.
         """
-        fid = metadata._fid
-
-        if not fid:
-            # We try to add the file with a Redis transaction. If a file is
-            # created in the meantime, we try again (not very efficient...),
-            # and if it was this file, we stop here.
-            # This solve a race-condition happening when two threads try to
-            # create the same file. cf Issue #9
-            while True:
-                fid = self.session.hget('files', metadata.filename)
-                if fid:
-                    break
-
-                with self.session.pipeline() as pipe:
-                    try:
-                        pipe.watch('files')
-                        new_fid = pipe.incr('last_id')
-                        pipe.multi()
-                        self.session.hset('files', metadata.filename, new_fid)
-                        self.session.hset(
-                            'drivers:{}:files'.format(self.name),
-                            new_fid, ""
-                        )
-                        pipe.execute()
-                    except redis.WatchError:
-                        pass
-
-            metadata._fid = fid
+        fid = metadata.fid
 
         # If the file is being uploaded, we stop it
         self.dealer.stop_transfer(fid)
         # We make sure that the key has been deleted
         # (if this event occurs before the transfer was restarted)
-        self.session.srem('drivers:{}:transfers'.format(self.name), fid)
-
-        metadata.uptodate = [self.name]
+        self.escalator.delete('entry:{}:transfer:{}'.format(self.name, fid))
 
         if self.name not in metadata.owners:
-            metadata.owners.append(self.name)
-
+            metadata.owners += (self.name,)
+        metadata.uptodate = (self.name,)
         metadata.write()
 
         self.logger.debug(
             "Notifying the Referee about '{}'", metadata.filename
         )
-        self.session.rpush('events', "{}:{}".format(self.name, fid))
+        self.escalator.put('referee:event:{}'.format(fid), self.name)
 
     def get_metadata(self, filename):
         """
@@ -203,7 +163,8 @@ class Plug(object):
         })
 
         types = {
-            'string': lambda v: isinstance(v, type(u'')),
+            'string': lambda v: (isinstance(v, type(v)
+                                 or isinstance(v, str))),
             'integer': lambda v: isinstance(v, int),
             'float': lambda v: isinstance(v, float),
             'boolean': lambda v: isinstance(v, bool),
@@ -211,7 +172,6 @@ class Plug(object):
         }
 
         for name, value in self.options.items():
-            print(name, value)
             if name not in options:
                 raise RuntimeError("Unknown option '{}'".format(name))
                 return False
