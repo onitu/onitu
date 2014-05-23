@@ -12,5 +12,5 @@ from .referee import Referee
 
 if __name__ == '__main__':
     with ZeroMQHandler(sys.argv[1], multi=True).applicationbound():
-        referee = Referee()
+        referee = Referee(sys.argv[2])
         referee.listen()

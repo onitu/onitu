@@ -7,8 +7,9 @@ from logbook import error
 from logbook.queues import ZeroMQHandler
 
 driver_name = sys.argv[1]
-name = sys.argv[2]
-log_uri = sys.argv[3]
+session = sys.argv[2]
+name = sys.argv[3]
+log_uri = sys.argv[4]
 
 driver = importlib.import_module('.' + driver_name, package='onitu.drivers')
 
@@ -28,7 +29,7 @@ except Exception as e:
 
 with ZeroMQHandler(log_uri, multi=True).applicationbound():
     try:
-        driver.plug.initialize(name, manifest)
+        driver.plug.initialize(name, session, manifest)
         del manifest
 
         driver.start()
