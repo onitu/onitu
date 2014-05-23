@@ -11,11 +11,12 @@ class Multipart(list):
 
 class Worker(Thread):
 
-    def __init__(self, databases, uri, *args, **kwargs):
+    def __init__(self, databases, uri, logger, *args, **kwargs):
         super(Worker, self).__init__(*args, **kwargs)
 
         self.context = zmq.Context.instance()
         self.uri = uri
+        self.logger = logger
         self.socket = None
 
         self.databases = databases
@@ -69,11 +70,11 @@ class Worker(Thread):
             try:
                 resp = cb(db, *args) if db is not None else cb(*args)
             except TypeError:
-                print("invalid args")
+                self.logger.warning("Invalid arguments: {}", args)
                 resp = protocol.msg.format_response(
                     cmd, status=protocol.status.INVALID_ARGS)
         else:
-            print("bad command")
+            self.logger.warning("Command not found: {}", cmd)
             resp = protocol.msg.format_response(
                 cmd, status=protocol.status.CMD_NOT_FOUND)
         return resp
@@ -87,11 +88,11 @@ class Worker(Thread):
             uid = self.databases.connect(name, create)
             resp = protocol.msg.format_response(uid, status=protocol.status.OK)
         except self.databases.NotExistError as e:
-            print('database does not exist:', e)
+            self.logger.warning("No such database: {}", name)
             resp = protocol.msg.format_response(
                 name, status=protocol.status.DB_NOT_FOUND)
         except Exception as e:
-            print('database error:', e)
+            self.logger.warning("Error opening database '{}': {}", name, e)
             resp = protocol.msg.format_response(
                 name, status=protocol.status.DB_ERROR)
         return resp
