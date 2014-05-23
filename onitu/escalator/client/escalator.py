@@ -41,20 +41,22 @@ class Escalator(object):
     def connect(self, name, create=False):
         self.db_uid = self._request(protocol.cmd.CONNECT, name, create)[0]
 
-    def get(self, key, pack=True):
-        value = self._request(protocol.cmd.GET, key)[0]
-        if pack:
-            value = protocol.msg.unpack_msg(value)
+    def get(self, key, **kwargs):
+        try:
+            value = self._request(protocol.cmd.GET, key)[0]
+
+            if kwargs.get('pack', True):
+                value = protocol.msg.unpack_msg(value)
+        except protocol.status.KeyNotFound:
+            if 'default' in kwargs:
+                value = kwargs['default']
+            else:
+                raise
+
         return value
 
     def exists(self, key):
         return self._request(protocol.cmd.EXISTS, key)[0]
-
-    def get_default(self, key, default=None, pack=True):
-        try:
-            return self.get(key, pack=pack)
-        except protocol.status.KeyNotFound:
-            return default
 
     def put(self, key, value, pack=True):
         if pack:
