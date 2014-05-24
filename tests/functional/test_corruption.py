@@ -1,4 +1,3 @@
-from os import unlink
 import hashlib
 
 from tests.utils.launcher import Launcher
@@ -6,7 +5,7 @@ from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
 from tests.utils.loop import BooleanLoop, CounterLoop
 
-launcher = None
+launcher, setup = None, None
 # We use chunks of size 1 to slow down the transfers. This way, we have
 # more chances to stop a transfer before its completion
 rep1 = LocalStorageDriver('rep1', chunk_size=1)
@@ -15,7 +14,7 @@ json_file = 'test_corruption.json'
 
 
 def setup_module(module):
-    global launcher
+    global launcher, setup
     setup = Setup()
     setup.add(rep1)
     setup.add(rep2)
@@ -36,9 +35,7 @@ def setup_module(module):
 
 def teardown_module(module):
     launcher.kill()
-    unlink(json_file)
-    rep1.close()
-    rep2.close()
+    setup.clean()
 
 
 def corruption(filename, size, newcontent):

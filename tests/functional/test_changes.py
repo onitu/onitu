@@ -5,7 +5,7 @@ from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
 from tests.utils.loop import CounterLoop
 
-launchers = [None, None]
+launchers, setups = [None, None], [None, None]
 reps = [{'rep1': LocalStorageDriver('rep1'),
          'rep2': TargetDriver('rep2')},
         {'rep1': LocalStorageDriver('rep1'),
@@ -21,16 +21,14 @@ def setup_module(module):
         setup.add_rule(Rule().match_path('/').sync(reps[i]['rep1'].name,
                                                    reps[i]['rep2'].name))
         setup.save(json_files[i])
+        setups[i] = setup
         launchers[i] = Launcher(json_files[i])
 
 
 def teardown_module(module):
-    for launcher, json_file in zip(launchers, json_files):
+    for launcher, setup in zip(launchers, setups):
         launcher.kill()
-        unlink(json_file)
-    for r in reps:
-        for rep in r.values():
-            rep.close()
+        setup.clean()
 
 
 def launcher_startup(launcher):

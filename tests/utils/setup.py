@@ -1,6 +1,9 @@
+import os
 import random
 import string
 import json
+
+from plyvel import destroy_db
 
 
 class Rule(object):
@@ -26,9 +29,10 @@ class Rule(object):
 
 
 class Setup(object):
-    def __init__(self, session=True):
+    def __init__(self, session=False):
         self.entries = set()
         self.rules = []
+        self.filename = None
 
         if session:
             # Each time the launcher will be started, it will use the
@@ -47,6 +51,18 @@ class Setup(object):
         self.rules.append(rule)
         return self
 
+    def clean(self, entries=True):
+        if entries:
+            for entry in self.entries:
+                entry.close()
+
+        if self.filename:
+            os.unlink(self.filename)
+
+        if self.name:
+            destroy_db('dbs/{}'.format(self.name))
+
+
     @property
     def dump(self):
         setup = {}
@@ -61,6 +77,7 @@ class Setup(object):
         return json.dumps(self.dump, indent=2)
 
     def save(self, filename):
+        self.filename = filename
         config = json.dumps(self.dump, indent=2)
         print('config = """%s"""' % config)
 
