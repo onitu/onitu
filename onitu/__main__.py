@@ -24,6 +24,8 @@ from logbook import Logger, INFO, DEBUG, NullHandler, NestedSetup
 from logbook.queues import ZeroMQHandler, ZeroMQSubscriber
 from logbook.more import ColorizedStderrHandler
 from tornado import gen
+from plyvel import destroy_db
+
 
 from .escalator.client import Escalator
 from .utils import get_escalator_uri
@@ -167,8 +169,9 @@ if __name__ == '__main__':
 
         setup = get_setup()
         session = setup.get('name')
+        tmp_session = session is None
 
-        if not session:
+        if tmp_session:
             # If the current setup does not have a name, we create a random one
             session = ''.join(
                 random.sample(string.ascii_letters + string.digits, 10)
@@ -211,3 +214,8 @@ if __name__ == '__main__':
 
             if dispatcher:
                 dispatcher.stop()
+
+            if tmp_session:
+                # Maybe this should be handled in Escalator, but
+                # it is not easy since it can manage several dbs
+                destroy_db('dbs/{}'.format(session))
