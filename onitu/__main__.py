@@ -203,6 +203,11 @@ if __name__ == '__main__':
         except (KeyboardInterrupt, SystemExit):
             pass
         finally:
-            arbiter.stop()
+            logger.info("Exiting...")
+
+            # We wait for all the processes
+            # to be killed.
+            loop.run_sync(arbiter.stop)
+
             if dispatcher:
                 dispatcher.stop()
