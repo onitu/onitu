@@ -48,7 +48,7 @@ class Referee(object):
             if events:
                 with self.escalator.write_batch() as batch:
                     for key, driver in events:
-                        fid = key.split(':')[-1]
+                        fid = key.decode().split(':')[-1]
                         self._handle_event(driver, fid)
                         batch.delete(key)
             else:

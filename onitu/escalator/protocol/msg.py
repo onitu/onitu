@@ -1,21 +1,25 @@
 import msgpack
 
+from onitu.utils import PY3
 from . import status as protocol_status
 
 
 def pack_arg(arg):
-    return msgpack.packb(arg)
+    return msgpack.packb(arg, use_bin_type=True)
 
 
 def pack_msg(*args):
-    return msgpack.packb(args)
+    return msgpack.packb(args, use_bin_type=True)
 
 
 def unpack_msg(packed):
-    return msgpack.unpackb(packed, use_list=False)
+    return msgpack.unpackb(packed, use_list=False, encoding='utf-8')
 
 
 def format_request(cmd, uid, *args):
+    if PY3:
+        args = [arg.encode('utf-8') if isinstance(arg, str) else arg
+                for arg in args]
     return pack_msg(cmd, uid, args)
 
 

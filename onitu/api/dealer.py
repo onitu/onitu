@@ -39,7 +39,7 @@ class Dealer(Thread):
             if events:
                 with self.escalator.write_batch() as batch:
                     for key, driver in events:
-                        fid = key.split(':')[-1]
+                        fid = key.decode().split(':')[-1]
                         self.get_file(fid, driver)
                         batch.delete(
                             'entry:{}:event:{}'.format(self.name, fid)
@@ -68,7 +68,7 @@ class Dealer(Thread):
             return
 
         for key, (driver, offset) in transfers:
-            fid = key.split(':')[-1]
+            fid = key.decode().split(':')[-1]
             self.get_file(fid, driver, offset=offset, restart=True)
 
     def get_file(self, fid, *args, **kwargs):

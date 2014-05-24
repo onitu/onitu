@@ -69,8 +69,8 @@ class Worker(Thread):
         if cb:
             try:
                 resp = cb(db, *args) if db is not None else cb(*args)
-            except TypeError:
-                self.logger.warning("Invalid arguments: {}", args)
+            except TypeError as e:
+                self.logger.warning("Invalid arguments: {}", e)
                 resp = protocol.msg.format_response(
                     cmd, status=protocol.status.INVALID_ARGS)
         else:

@@ -53,7 +53,7 @@ def start_setup(*args, **kwargs):
 
     entries = setup['entries']
 
-    escalator.put('entries', entries.keys())
+    escalator.put('entries', list(entries.keys()))
 
     referee = arbiter.add_watcher(
         "Referee",
