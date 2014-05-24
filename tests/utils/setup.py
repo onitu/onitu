@@ -62,7 +62,6 @@ class Setup(object):
         if self.name:
             destroy_db('dbs/{}'.format(self.name))
 
-
     @property
     def dump(self):
         setup = {}
