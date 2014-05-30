@@ -1,17 +1,15 @@
-from os import unlink
-
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
 from tests.utils.loop import BooleanLoop, CounterLoop
 
-launcher = None
+launcher, setup = None, None
 rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2', chunk_size=1)
 json_file = 'test_multipass_copy.json'
 
 
 def setup_module(module):
-    global launcher
+    global launcher, setup
     setup = Setup()
     setup.add(rep1)
     setup.add(rep2)
@@ -32,9 +30,7 @@ def setup_module(module):
 
 def teardown_module(module):
     launcher.kill()
-    unlink(json_file)
-    rep1.close()
-    rep2.close()
+    setup.clean()
 
 
 def test_multipass_copy():

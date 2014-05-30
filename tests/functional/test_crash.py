@@ -1,5 +1,3 @@
-from os import unlink
-
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
@@ -21,7 +19,6 @@ def setup_module(module):
 
 
 def teardown_module(module):
-    unlink(json_file)
     for rep in reps.values():
         rep.close()
 
@@ -73,6 +70,7 @@ def crash(filename, d_from, d_to):
         except:
             pass
         launcher.kill()
+        setup.clean(entries=False)
 
 
 def test_crash_rep1_to_rep2():

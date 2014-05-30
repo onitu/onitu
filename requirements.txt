@@ -1,6 +1,7 @@
 circus
 pyzmq
-redis
 simplejson
 logbook
 path.py
+plyvel
+msgpack-python

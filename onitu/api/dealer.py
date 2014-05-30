@@ -4,8 +4,9 @@ from threading import Thread, Event
 from multiprocessing.pool import ThreadPool
 
 import zmq
-import redis
 from logbook import Logger
+
+from onitu.escalator.client import Escalator
 
 from .metadata import Metadata
 from .exceptions import DriverError, TryAgain, AbortOperation
@@ -21,7 +22,7 @@ class Dealer(Thread):
         super(Dealer, self).__init__()
         self.plug = plug
         self.name = plug.name
-        self.session = plug.session
+        self.escalator = Escalator(self.plug.session)
         self.logger = Logger("{} - Dealer".format(self.name))
         self.context = zmq.Context.instance()
         self.in_progress = {}
@@ -31,17 +32,20 @@ class Dealer(Thread):
         self.logger.info("Started")
 
         while True:
-            try:
-                _, event = self.session.blpop(
-                    'drivers:{}:events'.format(self.name)
-                )
-                driver, fid = event.split(':')
-            except redis.ConnectionError:
-                exit()
+            events = self.escalator.range(
+                prefix='entry:{}:event:'.format(self.name)
+            )
 
-            # Remove the newer events for this file
-            self.session.lrem('drivers:{}:events'.format(self.name), event)
-            self.get_file(fid, driver)
+            if events:
+                with self.escalator.write_batch() as batch:
+                    for key, driver in events:
+                        fid = key.decode().split(':')[-1]
+                        self.get_file(fid, driver)
+                        batch.delete(
+                            'entry:{}:event:{}'.format(self.name, fid)
+                        )
+            else:
+                time.sleep(0.1)
 
     def stop_transfer(self, fid):
         if fid in self.in_progress:
@@ -56,23 +60,15 @@ class Dealer(Thread):
         """Resume transfers after a crash. Called in
         :meth:`.Plug.listen`.
         """
-        transfers = self.session.smembers(
-            'drivers:{}:transfers'.format(self.name)
+        transfers = self.escalator.range(
+            prefix='entry:{}:transfer:'.format(self.name)
         )
-        for fid in transfers:
-            transfer = self.session.hgetall(
-                'drivers:{}:transfers:{}'.format(self.name, fid)
-            )
 
-            if not transfer:
-                self.session.srem(
-                    'drivers:{}:transfers'.format(self.name),
-                    fid
-                )
-                continue
+        if not transfers:
+            return
 
-            driver = transfer['from']
-            offset = int(transfer['offset'])
+        for key, (driver, offset) in transfers:
+            fid = key.decode().split(':')[-1]
             self.get_file(fid, driver, offset=offset, restart=True)
 
     def get_file(self, fid, *args, **kwargs):
@@ -89,7 +85,9 @@ class Worker(object):
         self.stop = Event()
         self.dealer = dealer
         self.logger = dealer.logger
-        self.session = dealer.session
+
+        # Each worker use its own client in order to avoid locking
+        self.escalator = Escalator(self.dealer.plug.session)
 
         self.driver = driver
         self.fid = fid
@@ -103,6 +101,9 @@ class Worker(object):
         driver_chunk_size = self.call('set_chunk_size', self.chunk_size)
         if driver_chunk_size is not None:
             self.chunk_size = driver_chunk_size
+
+        self.transfer_key = ('entry:{}:transfer:{}'
+                             .format(self.dealer.name, self.fid))
 
     def __call__(self):
         self.metadata = Metadata.get_by_id(self.dealer.plug, self.fid)
@@ -126,13 +127,14 @@ class Worker(object):
         self.logger.debug("Waiting for ROUTER port for {}", self.driver)
 
         while True:
-            port = self.session.hget('ports', self.driver)
-            if port:
+            try:
+                port = self.escalator.get('port:{}'.format(self.driver))
                 self.logger.debug("Got ROUTER port for {}", self.driver)
                 dealer.connect('tcp://localhost:{}'.format(port))
                 self.logger.debug("Connected")
                 return dealer
-            time.sleep(0.1)
+            except KeyError:
+                time.sleep(0.1)
 
     def call(self, handler_name, *args, **kwargs):
         """Call a handler if it has been registered by the driver.
@@ -180,14 +182,7 @@ class Worker(object):
                 self.filename, self.driver
             )
         else:
-            self.session.sadd(
-                'drivers:{}:transfers'.format(self.dealer.name),
-                self.fid
-            )
-            self.session.hmset(
-                'drivers:{}:transfers:{}'.format(self.dealer.name, self.fid),
-                {'from': self.driver, 'offset': self.offset}
-            )
+            self.escalator.put(self.transfer_key, (self.driver, self.offset))
 
             self.call('start_upload', self.metadata)
 
@@ -221,10 +216,8 @@ class Worker(object):
 
             self.call('upload_chunk', self.metadata, self.offset, chunk)
 
-            self.offset = self.session.hincrby(
-                'drivers:{}:transfers:{}'.format(self.dealer.name, self.fid),
-                'offset', len(chunk)
-            )
+            self.offset += len(chunk)
+            self.escalator.put(self.transfer_key, (self.driver, self.offset))
 
     def end_transfer(self, success):
         if self.stop.is_set():
@@ -251,16 +244,10 @@ class Worker(object):
                 # much about it
                 pass
 
-        self.session.delete(
-            'drivers:{}:transfers:{}'.format(self.dealer.name, self.fid)
-        )
-        self.session.srem(
-            'drivers:{}:transfers'.format(self.dealer.name),
-            self.fid
-        )
+        self.escalator.delete(self.transfer_key)
 
         if success:
-            self.metadata.uptodate.append(self.dealer.name)
+            self.metadata.uptodate += (self.dealer.name,)
             self.metadata.write()
 
             self.logger.info(

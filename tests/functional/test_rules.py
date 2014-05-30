@@ -1,5 +1,3 @@
-from os import unlink
-
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
@@ -15,7 +13,7 @@ def setup_module(module):
 
 
 def teardown_module(module):
-    unlink(json_file)
+    launcher.kill()
 
 
 def launcher_startup():
@@ -56,8 +54,7 @@ def test_no_rule():
             raise ShouldNotCopy
     finally:
         launcher.kill()
-        rep1.close()
-        rep2.close()
+        setup.clean()
 
 
 def test_path():
@@ -82,8 +79,7 @@ def test_path():
         assert rep1.checksum(filename) == rep2.checksum(filename)
     finally:
         launcher.kill()
-        rep1.close()
-        rep2.close()
+        setup.clean()
 
 
 def test_not_mime():
@@ -110,8 +106,7 @@ def test_not_mime():
             raise ShouldNotCopy
     finally:
         launcher.kill()
-        rep1.close()
-        rep2.close()
+        setup.clean()
 
 
 def test_simple_mime():
@@ -134,8 +129,7 @@ def test_simple_mime():
         assert rep1.checksum(filename) == rep2.checksum(filename)
     finally:
         launcher.kill()
-        rep1.close()
-        rep2.close()
+        setup.clean()
 
 
 def test_multi_mime():
@@ -160,8 +154,7 @@ def test_multi_mime():
             assert rep1.checksum(filename) == rep2.checksum(filename)
     finally:
         launcher.kill()
-        rep1.close()
-        rep2.close()
+        setup.clean()
 
 
 def test_path_mime():
@@ -202,5 +195,4 @@ def test_path_mime():
                 raise ShouldNotCopy
     finally:
         launcher.kill()
-        rep1.close()
-        rep2.close()
+        setup.clean()

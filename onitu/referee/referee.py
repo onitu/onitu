@@ -1,12 +1,11 @@
+import os
 import re
-import json
-import redis
+import time
 import mimetypes
-from os import path
 
 from logbook import Logger
 
-from onitu.utils import connect_to_redis
+from onitu.escalator.client import Escalator
 
 
 class Referee(object):
@@ -29,15 +28,14 @@ class Referee(object):
     - The id of the file
     """
 
-    def __init__(self):
+    def __init__(self, session):
         super(Referee, self).__init__()
 
         self.logger = Logger("Referee")
-        self.redis = connect_to_redis()
-        self.session = self.redis.session
-        self.entries = self.session.smembers('entries')
+        self.escalator = Escalator(session)
 
-        self.rules = json.loads(self.session.get("rules"))
+        self.entries = self.escalator.get('entries')
+        self.rules = self.escalator.get('referee:rules')
 
         self.logger.info("Started")
 
@@ -45,15 +43,16 @@ class Referee(object):
         """Listen to all the events, and handle them
         """
         while True:
-            try:
-                _, event = self.session.blpop('events')
-                driver, fid = event.split(':')
-            except redis.ConnectionError:
-                exit()
+            events = self.escalator.range(prefix='referee:event:')
 
-            # delete all the newer events referring to this file
-            self.session.lrem('events', event)
-            self._handle_event(driver, fid)
+            if events:
+                with self.escalator.write_batch() as batch:
+                    for key, driver in events:
+                        fid = key.decode().split(':')[-1]
+                        self._handle_event(driver, fid)
+                        batch.delete(key)
+            else:
+                time.sleep(0.1)
 
     def rule_match(self, rule, filename):
         if not re.match(rule["match"].get("path", ""), filename):
@@ -73,11 +72,11 @@ class Referee(object):
         For the moment all the entries are notified for each event, but
         this should change when the rules will be introduced.
         """
-        metadata = self.session.hgetall('files:{}'.format(fid))
-        owners = set(metadata['owners'].split(':'))
-        uptodate = set(metadata['uptodate'].split(':'))
+        metadata = self.escalator.get('file:{}'.format(fid))
+        owners = set(metadata['owners'])
+        uptodate = set(metadata['uptodate'])
 
-        filename = path.join("/", metadata['filename'])
+        filename = os.path.join("/", metadata['filename'])
 
         self.logger.info("New event for '{}' from {}", filename, driver)
 
@@ -93,8 +92,8 @@ class Referee(object):
                 should_own.difference_update(rule.get("ban", []))
 
         if should_own != owners:
-            value = ':'.join(should_own)
-            self.session.hset('files:{}'.format(fid), 'owners', value)
+            metadata['owners'] = list(should_own)
+            self.escalator.put('file:fid:'.format(fid), metadata)
 
         assert uptodate
         source = next(iter(uptodate))
@@ -104,10 +103,9 @@ class Referee(object):
                 self.logger.debug("Notifying {} about '{}' from {}.",
                                   name, filename, source)
 
-                self.session.rpush(
-                    'drivers:{}:events'.format(name),
-                    "{}:{}".format(source, fid)
-                    )
+                self.escalator.put(
+                    'entry:{}:event:{}'.format(name, fid), source
+                )
 
         for name in owners.difference(should_own):
             self.logger.debug("The file '{}' on {} is no longer under onitu "

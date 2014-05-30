@@ -24,8 +24,11 @@ from logbook import Logger, INFO, DEBUG, NullHandler, NestedSetup
 from logbook.queues import ZeroMQHandler, ZeroMQSubscriber
 from logbook.more import ColorizedStderrHandler
 from tornado import gen
+from plyvel import destroy_db
 
-from .utils import connect_to_redis
+
+from .escalator.client import Escalator
+from .utils import get_escalator_uri
 
 
 @gen.coroutine
@@ -33,40 +36,16 @@ def start_setup(*args, **kwargs):
     """Parse the setup JSON file, clean the database,
     and start the :class:`.Referee` and the drivers.
     """
-    logger.info("Loading setup...")
+    escalator = Escalator(session, create_db=True)
 
-    redis = connect_to_redis()
+    ports = escalator.range(prefix='port:', include_value=False)
 
-    try:
-        with open(setup_file) as f:
-            setup = json.load(f)
-    except ValueError as e:
-        logger.error("Error parsing '{}' : {}", setup_file, e)
-        loop.stop()
-    except Exception as e:
-        logger.error(
-            "Can't process setup file '{}' : {}", setup_file, e
-        )
-        loop.stop()
+    if ports:
+        with escalator.write_batch() as batch:
+            for key in ports:
+                batch.delete(key)
 
-    session = setup.get('name')
-
-    if not session:
-        # If the current setup does not have a name, we create a random one
-        session = ''.join(
-            random.sample(string.ascii_letters + string.digits, 10)
-        )
-    elif ':' in session:
-        logger.error("Illegal character ':' in name '{}'", session)
-        loop.stop()
-
-    redis.set('session', session)
-    redis.session.start(session)
-    redis.session.delete('ports')
-    redis.session.delete('entries')
-    redis.session.delete('rules')
-
-    redis.session.set('rules', json.dumps(setup.get('rules', [])))
+    escalator.put('referee:rules', setup.get('rules', []))
 
     if 'entries' not in setup:
         logger.warn("No entries specified in '{}'", setup_file)
@@ -74,12 +53,12 @@ def start_setup(*args, **kwargs):
 
     entries = setup['entries']
 
-    redis.session.sadd('entries', *entries.keys())
+    escalator.put('entries', list(entries.keys()))
 
     referee = arbiter.add_watcher(
         "Referee",
         sys.executable,
-        args=['-m', 'onitu.referee', log_uri],
+        args=('-m', 'onitu.referee', log_uri, session),
         copy_env=True,
     )
 
@@ -93,14 +72,15 @@ def start_setup(*args, **kwargs):
             continue
 
         if 'options' in conf:
-            redis.session.set(
-                'drivers:{}:options'.format(name), json.dumps(conf['options'])
+            escalator.put(
+                'entry:{}:options'.format(name), conf['options']
             )
 
         watcher = arbiter.add_watcher(
             name,
             sys.executable,
-            args=['-m', 'onitu.drivers', conf['driver'], name, log_uri],
+            args=('-m', 'onitu.drivers',
+                  conf['driver'], session, name, log_uri),
             copy_env=True,
         )
 
@@ -148,6 +128,19 @@ def get_logs_dispatcher(uri=None, debug=False):
     return uri, subscriber.dispatch_in_background(setup=NestedSetup(handlers))
 
 
+def get_setup():
+    logger.info("Loading setup...")
+    try:
+        with open(setup_file) as f:
+            return json.load(f)
+    except ValueError as e:
+        logger.error("Error parsing '{}' : {}", setup_file, e)
+    except Exception as e:
+        logger.error(
+            "Can't process setup file '{}' : {}", setup_file, e
+        )
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("onitu")
     parser.add_argument(
@@ -174,14 +167,28 @@ if __name__ == '__main__':
     with ZeroMQHandler(log_uri, multi=True):
         logger = Logger("Onitu")
 
+        setup = get_setup()
+        session = setup.get('name')
+        tmp_session = session is None
+
+        if tmp_session:
+            # If the current setup does not have a name, we create a random one
+            session = ''.join(
+                random.sample(string.ascii_letters + string.digits, 10)
+            )
+        elif ':' in session:
+            logger.error("Illegal character ':' in name '{}'", session)
+
         ioloop.install()
         loop = ioloop.IOLoop.instance()
 
         arbiter = circus.get_arbiter(
             [
                 {
-                    'cmd': 'redis-server',
-                    'args': 'redis/redis.conf',
+                    'cmd': sys.executable,
+                    'args': ('-m', 'onitu.escalator.server',
+                             '--bind', get_escalator_uri(session),
+                             '--log-uri', log_uri),
                     'copy_env': True,
                 },
             ],
@@ -199,6 +206,16 @@ if __name__ == '__main__':
         except (KeyboardInterrupt, SystemExit):
             pass
         finally:
-            arbiter.stop()
+            logger.info("Exiting...")
+
+            # We wait for all the processes
+            # to be killed.
+            loop.run_sync(arbiter.stop)
+
             if dispatcher:
                 dispatcher.stop()
+
+            if tmp_session:
+                # Maybe this should be handled in Escalator, but
+                # it is not easy since it can manage several dbs
+                destroy_db('dbs/{}'.format(session))
