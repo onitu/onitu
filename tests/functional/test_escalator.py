@@ -104,7 +104,7 @@ def test_range():
     assert client.range(start=db[20][0], stop=db[60][0],
                         include_start=False, include_stop=True) == db[21:61]
 
-    db_e = [(k, v) for k, v in db if k.startswith('e')]
+    db_e = [(k, v) for k, v in db if k.decode().startswith('e')]
     assert client.range(prefix='e') == db_e
 
     assert client.range(reverse=True) == list(reversed(db))
