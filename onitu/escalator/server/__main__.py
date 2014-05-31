@@ -22,9 +22,10 @@ def main(logger):
     proxy.bind_in(back_uri)
     proxy.start()
 
-    logger.info("Starting on '{}'", args.bind)
+    logger.info("Starting on '{}', working directory is '{}'",
+                args.bind, args.working_dir)
 
-    databases = Databases('dbs')
+    databases = Databases(args.working_dir)
 
     nb_workers = 8
     workers = []
@@ -51,6 +52,10 @@ parser = argparse.ArgumentParser("escalator")
 parser.add_argument(
     '--bind', default='tcp://*:4224',
     help="Address to bind escalator server"
+)
+parser.add_argument(
+    '--working-dir', default='dbs',
+    help="Directory where databases are stored"
 )
 parser.add_argument(
     '--log-uri',
