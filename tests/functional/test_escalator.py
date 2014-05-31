@@ -82,7 +82,7 @@ def test_range():
     global client
 
     db = [(''.join(random.choice(string.ascii_lowercase)
-                   for _ in range(random.randint(5, 10))),
+                   for _ in range(random.randint(5, 10))).encode(),
            random.randint(0, 100)) for _ in range(100)]
     db.sort()
     for key, value in db:
