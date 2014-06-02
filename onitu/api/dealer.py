@@ -9,7 +9,7 @@ from logbook import Logger
 from onitu.escalator.client import Escalator
 
 from .metadata import Metadata
-from .exceptions import DriverError, TryAgain, AbortOperation
+from .exceptions import DriverError, AbortOperation
 
 
 class Dealer(Thread):
@@ -147,31 +147,20 @@ class Worker(object):
         if not handler:
             return None
 
-        wait = 2.5
-
-        while True:
-            try:
-                return handler(*args, **kwargs)
-            except TryAgain as e:
-                self.logger.warn(
-                    "Error during the call of '{}', trying again in {}s: {}",
-                    handler_name, wait, e
-                )
-                time.sleep(wait)
-                wait *= 2
-                continue
-            except DriverError as e:
-                self.logger.error(
-                    "An error occured during the call of '{}': {}",
-                    handler_name, e
-                )
-                raise AbortOperation()
-            except Exception as e:
-                self.logger.error(
-                    "Unexpected error calling '{}': {}",
-                    handler_name, e
-                )
-                raise AbortOperation()
+        try:
+            return handler(*args, **kwargs)
+        except DriverError as e:
+            self.logger.error(
+                "An error occured during the call of '{}': {}",
+                handler_name, e
+            )
+            raise AbortOperation()
+        except Exception as e:
+            self.logger.error(
+                "Unexpected error calling '{}': {}",
+                handler_name, e
+            )
+            raise AbortOperation()
 
     def start_transfer(self):
         if self.restart:

@@ -26,18 +26,6 @@ class DriverError(RuntimeError):
     pass
 
 
-class TryAgain(DriverError):
-    """
-    The Plug should wait and call the handler again.
-
-    If the error is raised again, the Plug will keep trying, doubling
-    the waiting time at each call.
-
-    You should pass a string to the constructor describing the error.
-    """
-    pass
-
-
 class ServiceError(DriverError):
     """
     The error is out of the Driver's reach, the current operation should

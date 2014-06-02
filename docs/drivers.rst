@@ -61,9 +61,9 @@ At this stage, the list of the handlers that can be defined is the following :
 .. function:: set_chunk_size(chunk_size)
 
   Allows a driver to force a chunk size by overriding the default, or provided, value.
-  The handler takes the plug chunk size as argument, and if that size is invalid for the driver, it can return a new value. 
+  The handler takes the plug chunk size as argument, and if that size is invalid for the driver, it can return a new value.
   Useful for services that require a minimum size for transfers.
-  
+
   :param chunk_size: the size the plug is currently using
   :type chunk_size: int
 
@@ -114,9 +114,7 @@ Metadata
 Exceptions
 ==========
 
-If an error happen in a driver, it should raise an appropriate exception. Three exceptions are handled by the :class:`.Plug`, and should be used accordingly to the situation : :class:`.DriverError`, :class:`.ServiceError` and :class:`.TryAgain`. This last one is special, as it tells the Plug that it should retry the call later.
-
-.. autoclass:: onitu.api.exceptions.TryAgain
+If an error happen in a driver, it should raise an appropriate exception. Two exceptions are handled by the :class:`.Plug`, and should be used accordingly to the situation : :class:`.DriverError` and :class:`.ServiceError`.
 
 .. autoclass:: onitu.api.exceptions.DriverError
 
