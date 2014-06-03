@@ -9,7 +9,7 @@ from logbook import Logger
 from onitu.escalator.client import Escalator
 
 from .metadata import Metadata
-from .exceptions import DriverError, AbortOperation
+from .exceptions import AbortOperation
 
 
 class Dealer(Thread):
@@ -85,6 +85,7 @@ class Worker(object):
         self.stop = Event()
         self.dealer = dealer
         self.logger = dealer.logger
+        self.call = dealer.plug.call
 
         # Each worker use its own client in order to avoid locking
         self.escalator = Escalator(self.dealer.plug.session)
@@ -135,32 +136,6 @@ class Worker(object):
                 return dealer
             except KeyError:
                 time.sleep(0.1)
-
-    def call(self, handler_name, *args, **kwargs):
-        """Call a handler if it has been registered by the driver.
-
-        :raise AbortOperation: if the handler thinks the operation
-        should be aborted
-        """
-        handler = self.dealer.plug._handlers.get(handler_name)
-
-        if not handler:
-            return None
-
-        try:
-            return handler(*args, **kwargs)
-        except DriverError as e:
-            self.logger.error(
-                "An error occured during the call of '{}': {}",
-                handler_name, e
-            )
-            raise AbortOperation()
-        except Exception as e:
-            self.logger.error(
-                "Unexpected error calling '{}': {}",
-                handler_name, e
-            )
-            raise AbortOperation()
 
     def start_transfer(self):
         if self.restart:

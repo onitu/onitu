@@ -8,6 +8,7 @@ from logbook import Logger
 from .metadata import Metadata
 from .router import Router
 from .dealer import Dealer
+from .exceptions import DriverError, AbortOperation
 
 from onitu.escalator.client import Escalator
 
@@ -204,3 +205,33 @@ class Plug(object):
                     )
 
         return True
+
+    def call(self, handler_name, *args, **kwargs):
+        """Call a handler registered by the driver.
+
+        The drivers themselves should not have to call this method,
+        it is only intended to be used by the Plug components.
+
+        :return: `None` if the handler is not defined, the return
+        value of the handler otherwise.
+        :raise AbortOperation: if the operation should be aborted
+        """
+        handler = self._handlers.get(handler_name)
+
+        if not handler:
+            return None
+
+        try:
+            return handler(*args, **kwargs)
+        except DriverError as e:
+            self.logger.error(
+                "An error occurred during the call of '{}': {}",
+                handler_name, e
+            )
+            raise AbortOperation()
+        except Exception as e:
+            self.logger.error(
+                "Unexpected error calling '{}': {}",
+                handler_name, e
+            )
+            raise AbortOperation()

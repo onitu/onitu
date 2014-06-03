@@ -18,7 +18,7 @@ class Router(Thread):
 
         self.plug = plug
         self.name = plug.name
-        self.get_chunk = plug._handlers.get('get_chunk')
+        self.call = plug.call
         self.router = None
         self.logger = Logger("{} - Router".format(self.name))
         self.context = zmq.Context.instance()
@@ -46,5 +46,5 @@ class Router(Thread):
             "Getting chunk of size {} from offset {} in '{}'",
             size, offset, metadata.filename
         )
-        chunk = self.get_chunk(metadata, offset, size) or b''
+        chunk = self.call('get_chunk', metadata, offset, size) or b''
         self.router.send_multipart((identity, chunk))
