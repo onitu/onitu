@@ -163,8 +163,8 @@ class Plug(object):
         })
 
         types = {
-            'string': lambda v: (isinstance(v, type(v)
-                                 or isinstance(v, str))),
+            'string': lambda v: (isinstance(v, type(v))
+                                 or isinstance(v, str)),
             'integer': lambda v: isinstance(v, int),
             'float': lambda v: isinstance(v, float),
             'boolean': lambda v: isinstance(v, bool),
