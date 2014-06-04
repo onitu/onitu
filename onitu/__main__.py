@@ -185,6 +185,7 @@ if __name__ == '__main__':
         arbiter = circus.get_arbiter(
             [
                 {
+                    'name': 'Escalator',
                     'cmd': sys.executable,
                     'args': ('-m', 'onitu.escalator.server',
                              '--bind', get_escalator_uri(session),
