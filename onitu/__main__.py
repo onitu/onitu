@@ -120,7 +120,7 @@ def get_logs_dispatcher(uri=None, debug=False):
         # the check and its binding. However, this is probably one of the
         # best solution without patching Logbook.
         tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        tmpsock.bind(('localhost', 0))
+        tmpsock.bind(('127.0.0.1', 0))
         uri = 'tcp://{}:{}'.format(*tmpsock.getsockname())
         tmpsock.close()
 

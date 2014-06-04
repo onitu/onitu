@@ -131,7 +131,7 @@ class Worker(object):
             try:
                 port = self.escalator.get('port:{}'.format(self.driver))
                 self.logger.debug("Got ROUTER port for {}", self.driver)
-                dealer.connect('tcp://localhost:{}'.format(port))
+                dealer.connect('tcp://127.0.0.1:{}'.format(port))
                 self.logger.debug("Connected")
                 return dealer
             except KeyError:
