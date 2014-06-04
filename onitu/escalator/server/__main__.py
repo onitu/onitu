@@ -49,7 +49,7 @@ def main(logger):
 
 parser = argparse.ArgumentParser("escalator")
 parser.add_argument(
-    '--bind', default='tcp://*:4224',
+    '--bind', default='tcp://127.0.0.1:4224',
     help="Address to bind escalator server"
 )
 parser.add_argument(

@@ -25,7 +25,7 @@ class Router(Thread):
 
     def run(self):
         self.router = self.context.socket(zmq.ROUTER)
-        port = self.router.bind_to_random_port('tcp://*')
+        port = self.router.bind_to_random_port('tcp://127.0.0.1')
         self.plug.escalator.put('port:{}'.format(self.name), port)
 
         self.logger.info("Started")
