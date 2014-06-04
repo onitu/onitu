@@ -1,3 +1,5 @@
+import os
+import signal
 import argparse
 
 import zmq
@@ -18,13 +20,11 @@ def main(logger):
     proxy = zmq.devices.ThreadDevice(
         device_type=zmq.QUEUE, in_type=zmq.DEALER, out_type=zmq.ROUTER
     )
-    proxy.bind_out(args.bind)
+    proxy.bind_out(bind_uri)
     proxy.bind_in(back_uri)
     proxy.start()
 
     logger.info("Starting on '{}'", args.bind)
-
-    databases = Databases('dbs')
 
     nb_workers = 8
     workers = []
@@ -43,9 +43,24 @@ def main(logger):
         except KeyboardInterrupt:
             break
 
-    logger.info("Exiting")
+
+def cleanup(*args, **kwargs):
     databases.close()
 
+    if bind_uri.startswith("ipc://"):
+        # With ZMQ < 4.1 (which isn't released yet), we can't
+        # close the device in a clean way.
+        # This will be possible with ZMQ 4.1 by using
+        # zmq_proxy_steerable.
+        # In the meantime, we must delete the Unix socket by hand.
+        sock_file = bind_uri[6:]
+
+        try:
+            os.unlink(sock_file)
+        except OSError:
+            pass
+
+    exit()
 
 parser = argparse.ArgumentParser("escalator")
 parser.add_argument(
@@ -59,6 +74,12 @@ parser.add_argument(
 
 args = parser.parse_args()
 
+bind_uri = args.bind
+databases = Databases('dbs')
+
+for s in (signal.SIGINT, signal.SIGTERM, signal.SIGQUIT):
+    signal.signal(s, cleanup)
+
 if args.log_uri:
     handler = ZeroMQHandler(args.log_uri, multi=True)
 else:
@@ -66,3 +87,4 @@ else:
 
 with handler.applicationbound():
     main(logger)
+    cleanup()
