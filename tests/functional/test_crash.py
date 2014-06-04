@@ -7,8 +7,8 @@ launcher = None
 # We use chunks of size 1 to slow down the transfers. This way, we have
 # more chances to stop a transfer before its completion
 reps = {
-    'rep1': LocalStorageDriver('rep1', chunk_size=1),
-    'rep2': TargetDriver('rep2', chunk_size=1)
+    'rep1': LocalStorageDriver('rep1', speed_bump=True),
+    'rep2': TargetDriver('rep2', speed_bump=True)
 }
 json_file = 'test_crash.json'
 

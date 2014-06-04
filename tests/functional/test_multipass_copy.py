@@ -4,7 +4,7 @@ from tests.utils.driver import LocalStorageDriver, TargetDriver
 from tests.utils.loop import BooleanLoop, CounterLoop
 
 launcher, setup = None, None
-rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2', chunk_size=1)
+rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2', speed_bump=True)
 json_file = 'test_multipass_copy.json'
 
 

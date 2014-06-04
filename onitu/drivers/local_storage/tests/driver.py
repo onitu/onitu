@@ -9,6 +9,8 @@ from tests.utils.tempdirs import dirs
 
 
 class Driver(TestDriver):
+    SPEED_BUMP = 1
+
     def __init__(self, *args, **options):
         if 'root' not in options:
             options['root'] = dirs.create()
