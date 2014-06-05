@@ -4,6 +4,7 @@ parts of Onitu.
 """
 import sys
 import uuid
+import signal
 import tempfile
 
 PY2 = sys.version_info[0] == 2
@@ -12,6 +13,18 @@ PY3 = sys.version_info[0] == 3
 TMPDIR = tempfile.gettempdir()
 
 NAMESPACE_ONITU = uuid.UUID('bcd336f2-d023-4856-bc92-e79dd24b64d7')
+
+
+def at_exit(callback, *args, **kwargs):
+    """
+    Register a callback which will be called when a deadly signal comes
+
+    This funtion must be called from the main thread.
+    """
+    signals = (signal.SIGINT, signal.SIGTERM, signal.SIGQUIT)
+
+    for s in signals:
+        signal.signal(s, lambda *_, **__: callback(*args, **kwargs))
 
 
 def get_fid(filename):

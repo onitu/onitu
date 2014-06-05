@@ -9,7 +9,6 @@ This module starts Onitu. It does the following:
 """
 
 import sys
-import signal
 import socket
 import argparse
 import string
@@ -28,7 +27,7 @@ from plyvel import destroy_db
 
 
 from .escalator.client import Escalator
-from .utils import get_escalator_uri
+from .utils import get_escalator_uri, at_exit
 
 
 @gen.coroutine
@@ -197,8 +196,7 @@ if __name__ == '__main__':
             loop=loop
         )
 
-        for s in (signal.SIGINT, signal.SIGTERM, signal.SIGQUIT):
-            signal.signal(s, lambda *args, **kwargs: loop.stop())
+        at_exit(loop.stop)
 
         try:
             future = arbiter.start()

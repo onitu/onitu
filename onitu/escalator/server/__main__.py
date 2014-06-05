@@ -1,5 +1,4 @@
 import os
-import signal
 import argparse
 
 import zmq
@@ -7,6 +6,8 @@ import zmq
 from logbook import Logger
 from logbook import StderrHandler
 from logbook.queues import ZeroMQHandler
+
+from onitu.utils import at_exit
 
 from .databases import Databases
 from .worker import Worker
@@ -44,7 +45,7 @@ def main(logger):
             break
 
 
-def cleanup(*args, **kwargs):
+def cleanup():
     databases.close()
 
     if bind_uri.startswith("ipc://"):
@@ -77,8 +78,7 @@ args = parser.parse_args()
 bind_uri = args.bind
 databases = Databases('dbs')
 
-for s in (signal.SIGINT, signal.SIGTERM, signal.SIGQUIT):
-    signal.signal(s, cleanup)
+at_exit(cleanup)
 
 if args.log_uri:
     handler = ZeroMQHandler(args.log_uri, multi=True)
