@@ -7,6 +7,7 @@ import zmq
 from logbook import Logger
 
 from onitu.escalator.client import Escalator
+from onitu.utils import get_events_uri
 
 from .metadata import Metadata
 from .exceptions import AbortOperation
@@ -24,28 +25,31 @@ class Dealer(Thread):
         self.name = plug.name
         self.escalator = Escalator(self.plug.session)
         self.logger = Logger("{} - Dealer".format(self.name))
-        self.context = zmq.Context.instance()
+        self.context = plug.context
         self.in_progress = {}
         self.pool = ThreadPool()
+        self.events_uri = get_events_uri(self.plug.session, self.name)
+        self.listener = None
 
     def run(self):
         self.logger.info("Started")
+
+        self.listener = self.context.socket(zmq.PULL)
+        self.listener.bind(self.events_uri)
 
         while True:
             events = self.escalator.range(
                 prefix='entry:{}:event:'.format(self.name)
             )
 
-            if events:
-                with self.escalator.write_batch() as batch:
-                    for key, driver in events:
-                        fid = key.decode().split(':')[-1]
-                        self.get_file(fid, driver)
-                        batch.delete(
-                            'entry:{}:event:{}'.format(self.name, fid)
-                        )
-            else:
-                time.sleep(0.1)
+            for key, driver in events:
+                fid = key.decode().split(':')[-1]
+                self.get_file(fid, driver)
+                self.escalator.delete(
+                    'entry:{}:event:{}'.format(self.name, fid)
+                )
+
+            self.listener.recv()
 
     def stop_transfer(self, fid):
         if fid in self.in_progress:

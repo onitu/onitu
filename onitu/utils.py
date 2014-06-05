@@ -9,6 +9,8 @@ import tempfile
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
 
+TMPDIR = tempfile.gettempdir()
+
 NAMESPACE_ONITU = uuid.UUID('bcd336f2-d023-4856-bc92-e79dd24b64d7')
 
 
@@ -33,5 +35,12 @@ def get_escalator_uri(session):
     Return the URI on which Escalator should be listening for
     the given session.
     """
-    tempdir = tempfile.gettempdir()
-    return 'ipc://{}/onitu-escalator-{}.sock'.format(tempdir, session)
+    return 'ipc://{}/onitu-{}-escalator.sock'.format(TMPDIR, session)
+
+
+def get_events_uri(session, name):
+    """
+    Return the URI on which a driver or the Referee should be listening
+    to in order to get new events.
+    """
+    return 'ipc://{}/onitu-{}-events-{}.sock'.format(TMPDIR, session, name)

@@ -21,7 +21,7 @@ class Router(Thread):
         self.call = plug.call
         self.router = None
         self.logger = Logger("{} - Router".format(self.name))
-        self.context = zmq.Context.instance()
+        self.context = plug.context
 
     def run(self):
         self.router = self.context.socket(zmq.ROUTER)

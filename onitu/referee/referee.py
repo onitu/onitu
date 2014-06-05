@@ -1,11 +1,14 @@
 import os
 import re
-import time
 import mimetypes
+import functools
+
+import zmq
 
 from logbook import Logger
 
 from onitu.escalator.client import Escalator
+from onitu.utils import get_events_uri
 
 
 class Referee(object):
@@ -32,27 +35,31 @@ class Referee(object):
         super(Referee, self).__init__()
 
         self.logger = Logger("Referee")
+        self.context = zmq.Context.instance()
         self.escalator = Escalator(session)
+        self.get_events_uri = functools.partial(get_events_uri, session)
+        self.listener = None
 
         self.entries = self.escalator.get('entries')
         self.rules = self.escalator.get('referee:rules')
 
-        self.logger.info("Started")
-
     def listen(self):
         """Listen to all the events, and handle them
         """
+        self.logger.info("Started")
+
+        self.listener = self.context.socket(zmq.PULL)
+        self.listener.bind(self.get_events_uri('referee'))
+
         while True:
             events = self.escalator.range(prefix='referee:event:')
 
-            if events:
-                with self.escalator.write_batch() as batch:
-                    for key, driver in events:
-                        fid = key.decode().split(':')[-1]
-                        self._handle_event(driver, fid)
-                        batch.delete(key)
-            else:
-                time.sleep(0.1)
+            for key, driver in events:
+                fid = key.decode().split(':')[-1]
+                self._handle_event(driver, fid)
+                self.escalator.delete(key)
+
+            self.listener.recv()
 
     def rule_match(self, rule, filename):
         if not re.match(rule["match"].get("path", ""), filename):
@@ -106,6 +113,10 @@ class Referee(object):
                 self.escalator.put(
                     'entry:{}:event:{}'.format(name, fid), source
                 )
+
+                publisher = self.context.socket(zmq.PUSH)
+                publisher.connect(self.get_events_uri(name))
+                publisher.send(b'')
 
         for name in owners.difference(should_own):
             self.logger.debug("The file '{}' on {} is no longer under onitu "

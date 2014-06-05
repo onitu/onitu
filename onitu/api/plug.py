@@ -3,6 +3,8 @@ The Plug is the part of any driver that communicates with the rest of
 Onitu. This part is common between all the drivers.
 """
 
+import zmq
+
 from logbook import Logger
 
 from .metadata import Metadata
@@ -11,6 +13,7 @@ from .dealer import Dealer
 from .exceptions import DriverError, AbortOperation
 
 from onitu.escalator.client import Escalator
+from onitu.utils import get_events_uri
 
 
 class Plug(object):
@@ -38,6 +41,8 @@ class Plug(object):
         self.options = {}
         self._handlers = {}
 
+        self.context = zmq.Context.instance()
+
     def initialize(self, name, session, manifest):
         """Initialize the different components of the Plug.
 
@@ -48,6 +53,8 @@ class Plug(object):
         self.session = session
         self.escalator = Escalator(self.session)
         self.logger = Logger(self.name)
+        self.publisher = self.context.socket(zmq.PUSH)
+        self.publisher.connect(get_events_uri(session, 'referee'))
 
         self.options = self.escalator.get(
             'entry:{}:options'.format(name), default={}
@@ -126,6 +133,7 @@ class Plug(object):
             "Notifying the Referee about '{}'", metadata.filename
         )
         self.escalator.put('referee:event:{}'.format(fid), self.name)
+        self.publisher.send(b'')
 
     def get_metadata(self, filename):
         """
