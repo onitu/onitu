@@ -5,7 +5,8 @@
     "root": {
       "name": "Root",
       "description": "The root of the directories under Onitu's watch",
-      "type": "string"
+      "type": "string",
+      "default": ""
     },
     "bucket": {
       "name": "S3 Bucket",
