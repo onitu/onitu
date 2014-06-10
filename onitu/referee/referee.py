@@ -105,18 +105,25 @@ class Referee(object):
         assert uptodate
         source = next(iter(uptodate))
 
+        publisher = self.context.socket(zmq.PUSH)
+        publisher.linger = 1000
         for name in should_own:
             if name not in uptodate:
-                self.logger.debug("Notifying {} about '{}' from {}.",
-                                  name, filename, source)
-
                 self.escalator.put(
                     'entry:{}:event:{}'.format(name, fid), source
                 )
 
-                publisher = self.context.socket(zmq.PUSH)
                 publisher.connect(self.get_events_uri(name))
-                publisher.send(b'')
+        try:
+            publisher.send(b'')
+        except zmq.ZMQError as e:
+            publisher.close(linger=0)
+            if e.errno == zmq.ETERM:
+                pass
+            else:
+                raise
+        else:
+            publisher.close()
 
         for name in owners.difference(should_own):
             self.logger.debug("The file '{}' on {} is no longer under onitu "
