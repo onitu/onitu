@@ -143,6 +143,7 @@ def start():
 
     manager = pyinotify.WatchManager()
     notifier = pyinotify.ThreadedNotifier(manager, Watcher())
+    notifier.daemon = True
     notifier.start()
 
     mask = pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE

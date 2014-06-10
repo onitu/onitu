@@ -3,6 +3,8 @@ from threading import Thread
 import zmq
 from logbook import Logger
 
+from onitu.escalator.client import EscalatorClosed
+
 from .metadata import Metadata
 
 
@@ -24,14 +26,29 @@ class Router(Thread):
         self.context = plug.context
 
     def run(self):
-        self.router = self.context.socket(zmq.ROUTER)
-        port = self.router.bind_to_random_port('tcp://127.0.0.1')
-        self.plug.escalator.put('port:{}'.format(self.name), port)
+        try:
+            self.router = self.context.socket(zmq.ROUTER)
+            port = self.router.bind_to_random_port('tcp://127.0.0.1')
+            self.plug.escalator.put('port:{}'.format(self.name), port)
 
-        self.logger.info("Started")
+            self.logger.info("Started")
 
+            self.listen()
+        except EscalatorClosed:
+            pass
+        except Exception as e:
+            self.logger.error("Unexpected error: {}", e)
+        finally:
+            self.router.close(linger=0)
+
+    def listen(self):
         while True:
-            msg = self.router.recv_multipart()
+            try:
+                msg = self.router.recv_multipart()
+            except zmq.ZMQError as e:
+                if e.errno == zmq.ETERM:
+                    break
+
             self._respond_to(*msg)
 
     def _respond_to(self, identity, fid, offset, size):

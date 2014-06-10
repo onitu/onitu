@@ -41,6 +41,7 @@ class Plug(object):
         self.dealer = None
         self.publisher = None
         self.publisher_lock = threading.Lock()
+        self.escalator = None
         self.options = {}
         self._handlers = {}
 
@@ -90,7 +91,11 @@ class Plug(object):
         self.dealer.start()
 
         if wait:
-            self.dealer.join()
+            while self.dealer.is_alive():
+                self.dealer.join(100)
+
+            while self.router.is_alive():
+                self.router.join(100)
 
     def handler(self, task=None):
         """Decorator used register a handler for a particular task.
@@ -248,3 +253,13 @@ class Plug(object):
                 handler_name, e
             )
             raise AbortOperation()
+
+    def close(self):
+        if self.publisher:
+            with self.publisher_lock:
+                self.publisher.close(linger=0)
+
+        if self.escalator:
+            self.escalator.close()
+
+        self.context.term()

@@ -23,20 +23,27 @@ class Dealer(Thread):
         super(Dealer, self).__init__()
         self.plug = plug
         self.name = plug.name
-        self.escalator = Escalator(self.plug.session)
+        self.escalator = plug.escalator
         self.logger = Logger("{} - Dealer".format(self.name))
         self.context = plug.context
         self.in_progress = {}
         self.pool = ThreadPool()
         self.events_uri = get_events_uri(self.plug.session, self.name)
-        self.listener = None
 
     def run(self):
-        self.logger.info("Started")
+        try:
+            listener = self.context.socket(zmq.PULL)
+            listener.bind(self.events_uri)
 
-        self.listener = self.context.socket(zmq.PULL)
-        self.listener.bind(self.events_uri)
+            self.logger.info("Started")
 
+            self.listen(listener)
+        except Exception as e:
+            self.logger.error("Unexpected error: {}", e)
+        finally:
+            listener.close()
+
+    def listen(self, listener):
         while True:
             events = self.escalator.range(
                 prefix='entry:{}:event:'.format(self.name)
@@ -49,7 +56,11 @@ class Dealer(Thread):
                     'entry:{}:event:{}'.format(self.name, fid)
                 )
 
-            self.listener.recv()
+            try:
+                listener.recv()
+            except zmq.ZMQError as e:
+                if e.errno == zmq.ETERM:
+                    break
 
     def stop_transfer(self, fid):
         if fid in self.in_progress:
@@ -90,9 +101,11 @@ class Worker(object):
         self.dealer = dealer
         self.logger = dealer.logger
         self.call = dealer.plug.call
+        self.context = zmq.Context()
 
         # Each worker use its own client in order to avoid locking
-        self.escalator = Escalator(self.dealer.plug.session)
+        self.escalator = Escalator(self.dealer.plug.session,
+                                   context=self.context)
 
         self.driver = driver
         self.fid = fid
@@ -125,9 +138,12 @@ class Worker(object):
             success = True
 
         self.end_transfer(success)
+        self.escalator.close()
+        self.context.destroy()
+        self.dealer.in_progress.pop(self.fid)
 
     def get_dealer(self):
-        dealer = self.dealer.context.socket(zmq.DEALER)
+        dealer = self.context.socket(zmq.DEALER)
 
         self.logger.debug("Waiting for ROUTER port for {}", self.driver)
 

@@ -3,8 +3,12 @@ import sys
 import json
 import importlib
 
+from threading import Thread
+
 from logbook import error
 from logbook.queues import ZeroMQHandler
+
+from onitu.utils import at_exit
 
 driver_name = sys.argv[1]
 session = sys.argv[2]
@@ -12,6 +16,8 @@ name = sys.argv[3]
 log_uri = sys.argv[4]
 
 driver = importlib.import_module('.' + driver_name, package='onitu.drivers')
+
+at_exit(driver.plug.close)
 
 path = os.path.dirname(__file__)
 
@@ -32,6 +38,12 @@ with ZeroMQHandler(log_uri, multi=True).applicationbound():
         driver.plug.initialize(name, session, manifest)
         del manifest
 
-        driver.start()
+        thread = Thread(target=driver.start)
+        thread.start()
+
+        while thread.is_alive():
+            thread.join(100)
     except Exception as e:
         error("Error in '{}': {}", name, e)
+
+    driver.plug.logger.info("Exited")
