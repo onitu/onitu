@@ -60,6 +60,12 @@ class KeyNotFound(KeyError):
 KEY_NOT_FOUND = new_status('KEY_NOT_FOUND', KeyNotFound)
 
 
+class EscalatorClosed(RuntimeError):
+    def __init__(self):
+        Exception.__init__(self, 'The client was closed')
+ESCALATOR_CLOSED = new_status('ESCALATOR_CLOSED', EscalatorClosed)
+
+
 class Error(Exception):
     def __init__(self):
         Exception.__init__(self, 'An error occurred')

@@ -4,36 +4,57 @@ import zmq
 
 from onitu.escalator import protocol
 from onitu.utils import get_escalator_uri
+
 from .batch import WriteBatch
 
 
 class Escalator(object):
-    def __init__(self, session, create_db=False):
+    def __init__(self, session, create_db=False, context=None):
         super(Escalator, self).__init__()
         self.db_uid = None
-        self.context = zmq.Context().instance()
+        self.context = context or zmq.Context().instance()
         self.socket = self.context.socket(zmq.REQ)
+        self.socket.linger = 0  # don't wait for data to be sent when closing
         self.lock = Lock()
         self.socket.connect(get_escalator_uri(session))
         self.connect(session, create_db)
 
     def _request(self, cmd, *args):
         with self.lock:
-            self.socket.send(protocol.msg.format_request(cmd,
-                                                         self.db_uid,
-                                                         *args))
-            return protocol.msg.extract_response(self.socket.recv())
+            try:
+                self.socket.send(protocol.msg.format_request(cmd,
+                                                             self.db_uid,
+                                                             *args))
+                return protocol.msg.extract_response(self.socket.recv())
+            except zmq.ZMQError as e:
+                if e.errno == zmq.ETERM:
+                    self.socket.close()
+                    raise protocol.status.EscalatorClosed()
+                else:
+                    raise
 
     def _request_multi(self, cmd, *args):
         with self.lock:
-            self.socket.send(protocol.msg.format_request(cmd,
-                                                         self.db_uid,
-                                                         *args))
-            protocol.msg.extract_response(self.socket.recv())
-            l = []
-            while self.socket.get(zmq.RCVMORE):
-                l.append(protocol.msg.unpack_msg(self.socket.recv()))
-            return l
+            try:
+                self.socket.send(protocol.msg.format_request(cmd,
+                                                             self.db_uid,
+                                                             *args))
+                protocol.msg.extract_response(self.socket.recv())
+                l = []
+                while self.socket.get(zmq.RCVMORE):
+                    l.append(protocol.msg.unpack_msg(self.socket.recv()))
+                return l
+            except zmq.ZMQError as e:
+                if e.errno == zmq.ETERM:
+                    self.socket.close()
+                    raise protocol.status.EscalatorClosed()
+
+    def close(self, blocking=False):
+        if self.lock.acquire(blocking):
+            try:
+                self.socket.close()
+            finally:
+                self.lock.release()
 
     def create(self, name):
         self._request(protocol.cmd.CREATE, name)

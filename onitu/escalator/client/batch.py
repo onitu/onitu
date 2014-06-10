@@ -1,3 +1,5 @@
+import zmq
+
 from onitu.escalator import protocol
 
 
@@ -12,8 +14,15 @@ class WriteBatch(object):
                                                             self.db.db_uid,
                                                             self.transaction))
         with self.db.lock:
-            self.db.socket.send_multipart(self.requests)
-            protocol.msg.extract_response(self.db.socket.recv())
+            try:
+                self.db.socket.send_multipart(self.requests)
+                protocol.msg.extract_response(self.db.socket.recv())
+            except zmq.ZMQError as e:
+                if e.errno == zmq.ETERM:
+                    self.db.socket.close()
+                    raise protocol.status.EscalatorClosed()
+                else:
+                    raise
         self.requests = []
 
     def __enter__(self):

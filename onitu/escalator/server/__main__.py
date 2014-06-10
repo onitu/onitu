@@ -36,7 +36,7 @@ def main(logger):
         worker.start()
         workers.append(worker)
 
-    while proxy.launcher.isAlive():
+    while proxy.launcher.is_alive():
         try:
             # If we join the process without a timeout we never
             # get the chance to handle the exception
@@ -60,6 +60,8 @@ def cleanup():
             os.unlink(sock_file)
         except OSError:
             pass
+
+    logger.info("Exited")
 
     exit()
 
