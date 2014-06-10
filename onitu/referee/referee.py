@@ -7,7 +7,7 @@ import zmq
 
 from logbook import Logger
 
-from onitu.escalator.client import Escalator
+from onitu.escalator.client import Escalator, EscalatorClosed
 from onitu.utils import get_events_uri
 
 
@@ -38,7 +38,6 @@ class Referee(object):
         self.context = zmq.Context.instance()
         self.escalator = Escalator(session)
         self.get_events_uri = functools.partial(get_events_uri, session)
-        self.listener = None
 
         self.entries = self.escalator.get('entries')
         self.rules = self.escalator.get('referee:rules')
@@ -48,18 +47,32 @@ class Referee(object):
         """
         self.logger.info("Started")
 
-        self.listener = self.context.socket(zmq.PULL)
-        self.listener.bind(self.get_events_uri('referee'))
+        try:
+            listener = self.context.socket(zmq.PULL)
+            listener.bind(self.get_events_uri('referee'))
 
-        while True:
-            events = self.escalator.range(prefix='referee:event:')
+            while True:
+                events = self.escalator.range(prefix='referee:event:')
 
-            for key, driver in events:
-                fid = key.decode().split(':')[-1]
-                self._handle_event(driver, fid)
-                self.escalator.delete(key)
+                for key, driver in events:
+                    fid = key.decode().split(':')[-1]
+                    self._handle_event(driver, fid)
+                    self.escalator.delete(key)
 
-            self.listener.recv()
+                listener.recv()
+        except zmq.ZMQError as e:
+            if e.errno == zmq.ETERM:
+                pass
+            else:
+                raise
+        except EscalatorClosed:
+            pass
+        finally:
+            listener.close()
+
+    def close(self):
+        self.escalator.close()
+        self.context.term()
 
     def rule_match(self, rule, filename):
         if not re.match(rule["match"].get("path", ""), filename):
