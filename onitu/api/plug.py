@@ -2,6 +2,7 @@
 The Plug is the part of any driver that communicates with the rest of
 Onitu. This part is common between all the drivers.
 """
+import threading
 
 import zmq
 
@@ -38,6 +39,8 @@ class Plug(object):
         self.logger = None
         self.router = None
         self.dealer = None
+        self.publisher = None
+        self.publisher_lock = threading.Lock()
         self.options = {}
         self._handlers = {}
 
@@ -133,7 +136,9 @@ class Plug(object):
             "Notifying the Referee about '{}'", metadata.filename
         )
         self.escalator.put('referee:event:{}'.format(fid), self.name)
-        self.publisher.send(b'')
+
+        with self.publisher_lock:
+            self.publisher.send(b'')
 
     def get_metadata(self, filename):
         """
