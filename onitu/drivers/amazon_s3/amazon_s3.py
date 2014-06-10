@@ -1,8 +1,12 @@
 import time
 import socket
 import threading
+import sys
 from ssl import SSLError
-import StringIO
+if sys.version_info.major == 2:
+    import StringIO
+elif sys.version_info.major == 3:
+    from io import StringIO
 
 import boto
 
@@ -27,8 +31,8 @@ def get_conn():
     global S3Conn
 
     S3Conn = boto.connect_s3(
-        aws_access_key_id=plug.options["aws_access_key"],
-        aws_secret_access_key=plug.options["aws_secret_key"])
+        aws_access_key_id=plug.options['aws_access_key'],
+        aws_secret_access_key=plug.options['aws_secret_key'])
 
 
 def get_bucket(head=False):
@@ -42,10 +46,10 @@ def get_bucket(head=False):
     try:
         if not head:
             # Get bucket's contents
-            bucket = S3Conn.get_bucket(plug.options["bucket"])
+            bucket = S3Conn.get_bucket(plug.options['bucket'])
         else:
             # Just check bucket existence
-            S3Conn.head_bucket(plug.options["bucket"])
+            S3Conn.head_bucket(plug.options['bucket'])
     # invalid bucket name. Some non-standard names can work on the S3 web
     # console, but not with boto API (e.g. if it has uppercase chars).
     except boto.exception.BotoClientError as exc:
@@ -56,12 +60,12 @@ def get_bucket(head=False):
             err = "Invalid credentials. "
         if exc.status == 404:
             err = "The bucket '{}' doesn't exist. ".format(
-                plug.options["bucket"])
+                plug.options['bucket'])
     finally:
         if err:
-            err += "Please check your Amazon S3 account \
-configuration. {}".format(str(exc))
-            raise DriverError(err)
+            raise DriverError(err + "Please check your Amazon S3 account "
+                              "configuration. {}".format(exc)
+                              )
     return bucket
 
 
@@ -110,7 +114,7 @@ def get_multipart_upload(metadata):
     metadata_mp_id = None
     # Retrieve the stored multipart upload ID
     try:
-        metadata_mp_id = metadata.extra["mp_id"]
+        metadata_mp_id = metadata.extra['mp_id']
     except KeyError:  # No multipart upload ID
         # Raise now is faster (doesn't go through all the MP uploads)
         raise DriverError("Unable to retrieve multipart upload ID")
@@ -136,13 +140,14 @@ def set_chunk_size(chunk_size):
 
 @plug.handler()
 def get_chunk(metadata, offset, size):
-    key = get_file(root_prefixed_filename(metadata.filename))
+    filename = root_prefixed_filename(metadata.filename)
+    key = get_file(filename)
     # Using the REST API "Range" header.
-    range_bytes = "bytes={}-{}".format(str(offset), str(offset + (size-1)))
+    range_bytes = "bytes={}-{}".format(offset, offset + (size-1))
     try:
         chunk = key.get_contents_as_string(headers={"Range": range_bytes})
     except SSLError as ssle:  # read timeout
-        raise DriverError(str(ssle))
+        raise ServiceError("Unable to get {}: {}".format(filename, ssle))
     return chunk
 
 
@@ -170,11 +175,11 @@ def start_upload(metadata):
     # Creating a new S3 multipart upload
     multipart_upload = bucket.initiate_multipart_upload(
         filename,
-        headers={'Content-Type': 'application/octet-stream'})
+        headers={'Content-Type': "application/octet-stream"})
     # Write the new multipart ID in metadata
     metadata.extra['mp_id'] = multipart_upload.id
     if metadata.extra.get('timestamp') is None:
-        metadata.extra['timestamp'] = '0.0'
+        metadata.extra['timestamp'] = 0.0
     metadata.write()
 
 
@@ -263,12 +268,12 @@ class CheckChanges(threading.Thread):
             # if the bucket read operation times out
             except SSLError as ssle:
                 plug.logger.warning("Couldn't poll S3 bucket '{}': {}"
-                                    .format(plug.options["bucket"], str(ssle)))
+                                    .format(plug.options['bucket'], ssle))
                 pass  # cannot do much about it
             # Happens when connection is reset by peer
             except socket.error as serr:
-                plug.logger.warning("Network problem, trying to reconnect. \
-{}".format(str(serr)))
+                plug.logger.warning("Network problem, trying to reconnect. "
+                                    "{}".format(serr))
                 get_conn()
             self.stop.wait(self.timer)
 
@@ -277,7 +282,7 @@ class CheckChanges(threading.Thread):
 
 
 def start():
-    if plug.options["changes_timer"] < 0:
+    if plug.options['changes_timer'] < 0:
         raise DriverError(
             "The change timer option must be a positive integer")
     get_conn()  # connection to S3
@@ -292,9 +297,10 @@ def start():
     else:
         if root.size != 0:
             raise DriverError(
-                'The given root "{}" isn\'t a directory on the "{}" bucket. It\
- has to be an empty file.'.format(
-                    plug.options['root'], plug.options['bucket']))
-    check = CheckChanges(plug.options["changes_timer"])
+                "The given root '{}' isn't a directory on the '{}' bucket. It "
+                "has to be an empty file.".format(
+                    plug.options['root'], plug.options['bucket'])
+                )
+    check = CheckChanges(plug.options['changes_timer'])
     check.start()
     plug.listen()
