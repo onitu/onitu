@@ -23,6 +23,10 @@ ALL_KEYS_TIMESTAMP_FMT = '%Y-%m-%dT%H:%M:%S.000Z'
 # "Each part must be at least 5 MB in size, except the last part."
 # http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html
 S3_MINIMUM_CHUNK_SIZE = 5 << 20
+# The number of multipart upload objects we keep in cache
+MAX_CACHE_SIZE = 100
+# Key: Multipart Upload ID <-> Value: MultipartUpload object
+cache = {}
 
 
 def get_conn():
@@ -106,10 +110,29 @@ def get_file_timestamp(filename):
     return timestamp
 
 
+def add_to_cache(multipart_upload):
+    """Caches a multipart upload. Checks that the cache isn't growing
+    past MAX_CACHE_SIZE."""
+    global cache
+
+    if len(cache) < MAX_CACHE_SIZE:
+        cache[multipart_upload.id] = multipart_upload
+
+
+def remove_from_cache(multipart_upload):
+    """Removes the given MultipartUpload from the cache, if in it."""
+    global cache
+
+    if multipart_upload.id in cache:
+        del cache[multipart_upload.id]
+
+
 def get_multipart_upload(metadata):
     """Returns the multipart upload we have the ID of in metadata.
     As Amazon allows several multipart uploads at the same time
     for the same file, the ID is the only unique, reliable descriptor."""
+    global cache
+
     multipart_upload = None
     metadata_mp_id = None
     # Retrieve the stored multipart upload ID
@@ -118,11 +141,15 @@ def get_multipart_upload(metadata):
     except KeyError:  # No multipart upload ID
         # Raise now is faster (doesn't go through all the MP uploads)
         raise DriverError("Unable to retrieve multipart upload ID")
-    bucket = get_bucket()
-    # Go through all the multipart uploads to find the one of this transfer
-    for mp in bucket.list_multipart_uploads():
-        if mp.id == metadata_mp_id:
-            multipart_upload = mp
+    if metadata_mp_id not in cache:
+        bucket = get_bucket()
+        # Go through all the multipart uploads to find the one of this transfer
+        for mp in bucket.list_multipart_uploads():
+            if mp.id == metadata_mp_id:
+                multipart_upload = mp
+                add_to_cache(mp)
+    else:
+        multipart_upload = cache[metadata_mp_id]
     # At this point it shouldn't be None in any case
     if multipart_upload is None:
         raise DriverError("Cannot find upload for file '{}'"
@@ -181,6 +208,8 @@ def start_upload(metadata):
     if metadata.extra.get('timestamp') is None:
         metadata.extra['timestamp'] = 0.0
     metadata.write()
+    # Store the Multipart upload id in cache
+    add_to_cache(multipart_upload)
 
 
 @plug.handler()
@@ -203,12 +232,16 @@ def end_upload(metadata):
             key = b.get_key(filename) or b.new_key(filename)
             key.set_contents_from_string('')
         else:
-            raise DriverError("S3 Error: {}".format(exc))
+            # Delete the mp id from cache
+            remove_from_cache(multipart_upload)
+            raise DriverError("Error: {}".format(exc))
     # From here we're sure that's OK for Amazon
     new_timestamp = get_file_timestamp(metadata.filename)
     del metadata.extra['mp_id']  # erases the upload ID
     metadata.extra['timestamp'] = new_timestamp
     metadata.write()
+    # Delete the mp id from cache
+    remove_from_cache(multipart_upload)
 
 
 @plug.handler()
@@ -220,6 +253,8 @@ def abort_upload(metadata):
     # From here we're sure that's OK for Amazon
     del metadata.extra['mp_id']  # erases the upload ID
     metadata.write()
+    # Delete the mp id from cache
+    remove_from_cache(multipart_upload)
 
 
 class CheckChanges(threading.Thread):
