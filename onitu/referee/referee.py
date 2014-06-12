@@ -113,7 +113,7 @@ class Referee(object):
 
         if should_own != owners:
             metadata['owners'] = list(should_own)
-            self.escalator.put('file:fid:'.format(fid), metadata)
+            self.escalator.put('file:{}'.format(fid), metadata)
 
         assert uptodate
         source = next(iter(uptodate))
