@@ -1,10 +1,10 @@
 import os
-
 import threading
+
 import paramiko
 
 from stat import S_ISDIR
-from onitu.api import Plug
+from onitu.api import Plug, ServiceError
 
 plug = Plug()
 root = None
@@ -15,63 +15,102 @@ events_to_ignore = set()
 
 def create_dirs(sftp, path):
     dirs = path.split('/')
-    base = sftp.getcwd()
 
+    tmp_path = "./"
     for d in dirs:
+        tmp_path += d + "/"
         try:
-            sftp.chdir(d)
+            sftp.stat(tmp_path)
         except IOError:
-            sftp.mkdir(d, 0777)
-            sftp.chdir(d)
-
-    sftp.chdir(base)
+            try:
+                sftp.mkdir(tmp_path)
+            except IOError as e:
+                raise ServiceError(
+                    "Error creating dir '{}': {}".format(tmp_path, e)
+                )
 
 
 @plug.handler()
-def get_chunk(filepath, offset, size):
-    f = sftp.open(str(filepath), 'r')
-    data = f.readv([(offset, size)])
+def get_chunk(metadata, offset, size):
+    try:
+        f = sftp.open(metadata.filename, 'r')
+        data = f.readv([(offset, size)])
 
-    for d in data:
-        return d
+        for d in data:
+            return d
+
+    except (IOError) as e:
+        raise ServiceError(
+            "Error getting file '{}': {}".format(metadata.filename, e)
+        )
 
 
 @plug.handler()
 def start_upload(metadata):
-    #create_dirs(sftp, str(os.path.dirname(metadata.filename)))
+
     events_to_ignore.add(metadata.filename)
-    sftp.open(metadata.filename, 'w+').close()
+    create_dirs(sftp, str(os.path.dirname(metadata.filename)))
+
+    try:
+        sftp.open(metadata.filename, 'w+').close()
+    except IOError as e:
+        raise ServiceError(
+            "Error creating file '{}': {}".format(metadata.filename, e)
+        )
 
 
 @plug.handler()
 def end_upload(metadata):
-    stats = sftp.stat(metadata.filename)
-
-    metadata.revision = stats.st_mtime
-    metadata.write_revision()
+    try:
+        stats = sftp.stat(metadata.filename)
+        metadata.revision = stats.st_mtime
+        metadata.write_revision()
+    except (IOError, OSError) as e:
+        raise ServiceError(
+            "Error while updating metadata on file '{}': {}".format(
+                metadata.filename, e)
+        )
 
     if metadata.filename in events_to_ignore:
         events_to_ignore.remove(metadata.filename)
 
 
 @plug.handler()
-def upload_chunk(filename, offset, data):
-    events_to_ignore.add(filename)
+def upload_chunk(metadata, offset, data):
 
-    f = sftp.open(filename, 'a')
-    f.seek(offset)
-    f.write(data)
-    f.flush()
-    f.close()
+    try:
+        f = sftp.open(metadata.filename, 'a')
+        f.seek(offset)
+        f.write(data)
+        f.close()
+    except (IOError, OSError) as e:
+        raise ServiceError(
+            "Error writting file '{}': {}".format(metadata.filename, e)
+        )
 
 
 def update_file(metadata, stat_res):
-    if metadata.filename in events_to_ignore:
-        return
 
-    metadata.size = stat_res.st_size
-    metadata.revision = stat_res.st_mtime
-    plug.update_file(metadata)
+    try:
+        metadata.size = stat_res.st_size
+        metadata.revision = stat_res.st_mtime
+    except (IOError, OSError) as e:
+        raise ServiceError(
+            "Error updating file '{}': {}".format(metadata.filename, e)
+        )
+    else:
+        plug.update_file(metadata)
+
+
+@plug.handler()
+def abort_upload(metadata):
+    # Temporary solution to avoid problems
+    try:
+        sftp.remove(metadata.filename)
+    except (IOError, OSError) as e:
+        raise ServiceError(
+            "Error deleting file '{}': {}".format(metadata.filename, e)
+        )
 
 
 class CheckChanges(threading.Thread):
@@ -83,12 +122,18 @@ class CheckChanges(threading.Thread):
         self.sftp = sftp
 
     def check_folder(self, path=''):
-        filelist = sftp.listdir(path)
+        try:
+            filelist = sftp.listdir(path)
+        except IOError as e:
+            raise ServiceError(
+                "Error listing file in '{}': {}".format(path, e)
+            )
 
         for f in filelist:
             filepath = os.path.join(path, f)
             try:
                 stat_res = sftp.stat(str(filepath))
+
             except IOError as e:
                 plug.logger.warn("Cant find file `{}` : {}",
                                  filepath, e)
@@ -113,30 +158,28 @@ class CheckChanges(threading.Thread):
         self.stop.set()
 
 
-def start(*args, **kwargs):
-    plug.start(*args, **kwargs)
-
+def start():
     global root
     root = plug.options['root']
 
     hostname = plug.options['hostname']
     username = plug.options['username']
     password = plug.options['password']
-    pkey_passphrase = plug.options['pkey_passphrase']
     port = int(plug.options['port'])
-    timer = int(plug.options['changes_timer'])
-    pkey_path = plug.options.get('pkey_path', '~/.ssh/id_rsa')
-    pkey_file = os.path.expanduser(pkey_path)
+    timer = int(plug.options['check_modif_timer'])
+    private_key_passphrase = plug.options['private_key_passphrase']
+    private_key_path = plug.options.get('private_key_path', '~/.ssh/id_rsa')
+    private_key_file = os.path.expanduser(private_key_path)
 
-    my_pkey = paramiko.RSAKey.from_private_key_file(pkey_file,
-                                                    password=pkey_passphrase)
+    private_key = paramiko.RSAKey.from_private_key_file(
+        private_key_file, password=private_key_passphrase)
 
     transport = paramiko.Transport((hostname, port))
     try:
         if password != '':
             transport.connect(username=username, password=password)
         else:
-            transport.connect(username=username, pkey=my_pkey)
+            transport.connect(username=username, pkey=private_key)
     except paramiko.AuthenticationException as e:
         plug.logger.error("SSH driver connection failed : {}", e)
         transport.close()
@@ -144,11 +187,11 @@ def start(*args, **kwargs):
 
     global sftp
     sftp = paramiko.SFTPClient.from_transport(transport)
-    
+
     try:
         sftp.chdir(root)
     except IOError as e:
-        plug.logger.error("CHDIR failed : {}", e)
+        plug.logger.error("{}: {}", root, e)
 
     check_changes = CheckChanges(timer, sftp)
     check_changes.start()

@@ -1,0 +1,48 @@
+{
+  "name": "SSH",
+  "description": "Store files on a remote machine using SSH.",
+  "options": {
+    "root": {
+      "name": "Root",
+      "description": "The root of the directories under Onitu's watch",
+      "type": "string"
+    },
+    "hostname": {
+      "name": "Hostname",
+      "description": "The hostname for the SSH connection",
+      "type": "string"
+    },
+    "username": {
+      "name": "Username",
+      "description": "The username for the SSH connection",
+      "type": "string"
+    },
+    "password": {
+      "name": "Password",
+      "description": "The password for the SSH connection",
+      "type": "string"
+    },
+    "port": {
+      "name": "Port number",
+      "description": "The port number for the SSH connection",
+      "type": "integer"
+    },
+    "check_modif_timer": {
+      "name": "Timer for modification check",
+      "description": "Time in seconds between two checks for files modifications",
+      "type": "integer"
+    },
+    "private_key_path": {
+      "name": "Private key path",
+      "description": "The path to your private key file (optionnal)",
+      "type": "string",
+      "default": "~/.ssh/id_rsa"
+    },
+    "private_key_passphrase": {
+      "name": "Private key passphrase",
+      "description": "The passphrase for your private key (optionnal if no private_key_path setted)",
+      "type": "string",
+      "default": ""
+    }
+  }
+}
