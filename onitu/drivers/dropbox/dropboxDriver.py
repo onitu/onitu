@@ -22,7 +22,6 @@ class DropboxDriver :
     """
     cursor = None
     
-    #----------------------------------------------------------------------
     def __init__(self, path='/'):
         """Constructor"""
         self.base_path = os.path.dirname(os.path.abspath(__file__))
@@ -47,7 +46,6 @@ class DropboxDriver :
         self.session.set_token(token_key, token_secret)
         self.client = dropbox.client.DropboxClient(self.session)
             
-    #----------------------------------------------------------------------
     def first_connect(self):
         """
         Connect, authenticate with dropbox and store client tokens
@@ -69,33 +67,14 @@ class DropboxDriver :
    
         return access_token.key, access_token.secret
  
-    #----------------------------------------------------------------------
-    def download_file(self, filename, outDir=None):
+    def download_chunk(self, metadata, offset, size):
         """
-        Download either the file passed to the class or the file passed
-        to the method
+        Request to get a chunk of a file
         """
- 
-        fname = filename
-        f, metadata = self.client.get_file_and_metadata("/" + fname)
- 
-        if metadata['bytes'] > self.chunked_file_size :
-            return self.download_big_file(fname)
 
-        if outDir:
-            dst = os.path.join(outDir, fname)
-        else:
-            dst = fname
-
- 
-        with open(fname, "wb") as fh:
-            fh.write(f.read())
- 
-        return dst, metadata
- 
-    def download_chunk(self, filename, offset, size):
         if not filename.startswith("/files/dropbox/") :
-            filename = "/files/dropbox/"+filename
+            filename = "/files/dropbox/"+metadata.filename
+
         url, params, headers = self.client.request(filename, {}, method='GET', content_server=True)
         headers['Range'] = 'bytes=' + str(offset)+"-"+str(offset+size)
         f = self.client.rest_client.request("GET", url, headers=headers, raw_response=True)
@@ -118,7 +97,6 @@ class DropboxDriver :
         """
         return self.client.account_info()
     
-    #----------------------------------------------------------------------
     def list_folder(self, folder=None):
         """
         Return a dictionary of information about a folder
@@ -129,7 +107,27 @@ class DropboxDriver :
             folder_metadata = self.client.metadata("/")
         return folder_metadata
 
-    #----------------------------------------------------------------------
+    def delete_file(self, filename):
+        try:
+            self.client.file_delete(filename)
+            return True
+        except:
+            return False
+
+    def create_dir(self, dirname):
+        try:
+            self.client.file_create_folder(dirname)
+            return True
+        except:
+            return False
+
+    def update_metadata(self, metadata):
+        file_metadata = self.client.metadata(metadata.filename)
+        if (file_metadata["revision"]):
+            metadata.revision = file_metadata["revision"]
+            metadata.size = file_metadata["bytes"]
+            plug.update_file(metadata)
+
     def change_watcher(self):
         delta = self.client.delta(self.cursor)
         # print delta
@@ -143,7 +141,7 @@ class DropboxDriver :
         if delta['has_more']:
             self.change_watcher()
         else:
-            threading.Timer(600.0, self.change_watcher).start()
+            threading.Timer(plug.options["changes_timer"], self.change_watcher).start()
  
 @plug.handler()
 def get_chunk(metadata, offset, size):
@@ -156,7 +154,9 @@ def upload_chunk(metadata, offset, chunk):
     return drop.upload_chunk(metadata, offset, chunk)
 
 @plug.handler()
-def start_upload(metadata):
+def end_upload(metadata):
+    drop = DropboxDriver()
+    drop.update_metadata(metadata)
     print drop
     
 def start(*args, **kwargs):
