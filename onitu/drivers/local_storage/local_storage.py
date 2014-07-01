@@ -15,7 +15,7 @@ def to_tmp(path):
     return path.parent.joinpath('.' + path.name + TMP_EXT)
 
 
-def update_file(metadata, path, mtime=None):
+def update(metadata, path, mtime=None):
     try:
         metadata.size = path.size
         metadata.extra['revision'] = mtime if mtime else path.mtime
@@ -25,6 +25,13 @@ def update_file(metadata, path, mtime=None):
         )
     else:
         plug.update_file(metadata)
+
+
+def delete(metadata, _):
+    if plug.name not in metadata.owners:
+        return
+
+    plug.delete_file(metadata)
 
 
 def check_changes():
@@ -46,7 +53,7 @@ def check_changes():
             mtime = 0.
 
         if mtime > revision:
-            update_file(metadata, abs_path, mtime)
+            update(metadata, abs_path, mtime)
 
 
 @plug.handler()
@@ -122,8 +129,26 @@ def abort_upload(metadata):
         )
 
 
+@plug.handler()
+def delete_file(metadata):
+    filename = root.joinpath(metadata.filename)
+
+    try:
+        filename.unlink()
+    except (IOError, OSError) as e:
+        raise ServiceError(
+            "Error deleting file '{}': {}".format(filename, e)
+        )
+
+
 class Watcher(pyinotify.ProcessEvent):
     def process_IN_CLOSE_WRITE(self, event):
+        self.process_event(event, update)
+
+    def process_IN_DELETE(self, event):
+        self.process_event(event, delete)
+
+    def process_event(self, event, callback):
         abs_path = path(event.pathname)
 
         if abs_path.ext == TMP_EXT:
@@ -131,7 +156,7 @@ class Watcher(pyinotify.ProcessEvent):
 
         filename = root.relpathto(abs_path)
         metadata = plug.get_metadata(filename)
-        update_file(metadata, abs_path)
+        callback(metadata, abs_path)
 
 
 def start():
@@ -146,7 +171,7 @@ def start():
     notifier.daemon = True
     notifier.start()
 
-    mask = pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE
+    mask = pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE | pyinotify.IN_DELETE
     manager.add_watch(root, mask, rec=True, auto_add=True)
 
     check_changes()

@@ -10,6 +10,8 @@ from logbook import Logger
 from onitu.escalator.client import Escalator, EscalatorClosed
 from onitu.utils import get_events_uri
 
+from .cmd import UP, DEL
+
 
 class Referee(object):
     """Referee class, receive all events and deal with them.
@@ -42,6 +44,11 @@ class Referee(object):
         self.entries = self.escalator.get('entries')
         self.rules = self.escalator.get('referee:rules')
 
+        self.handlers = {
+            UP: self._handle_update,
+            DEL: self._handle_deletion,
+        }
+
     def listen(self):
         """Listen to all the events, and handle them
         """
@@ -54,9 +61,10 @@ class Referee(object):
             while True:
                 events = self.escalator.range(prefix='referee:event:')
 
-                for key, driver in events:
-                    fid = key.decode().split(':')[-1]
-                    self._handle_event(driver, fid)
+                for key, (cmd, driver) in events:
+                    if cmd in self.handlers:
+                        fid = key.decode().split(':')[-1]
+                        self.handlers[cmd](driver, fid)
                     self.escalator.delete(key)
 
                 listener.recv()
@@ -85,7 +93,34 @@ class Referee(object):
 
         return True
 
-    def _handle_event(self, driver, fid):
+    def _handle_deletion(self, driver, fid):
+        """
+        Notify the owners when a file is deleted
+        """
+        metadata = self.escalator.get('file:{}'.format(fid), default=None)
+
+        if not metadata:
+            return
+
+        owners = set(metadata['owners'])
+        filename = metadata['filename']
+
+        self.logger.info("Deletion of '{}' from {}", filename, driver)
+
+        if driver in owners:
+            owners.remove(driver)
+            self.escalator.delete('file:{}:entry:{}'.format(fid, driver))
+
+            metadata['owners'] = tuple(owners)
+            self.escalator.put('file:{}'.format(fid), metadata)
+
+        if not owners:
+            self.escalator.delete('file:{}'.format(fid))
+            return
+
+        self.notify(owners, DEL, fid)
+
+    def _handle_update(self, driver, fid):
         """Choose who are the entries that are concerned by the event
         and send a notification to them.
 
@@ -98,7 +133,7 @@ class Referee(object):
 
         filename = os.path.join("/", metadata['filename'])
 
-        self.logger.info("New event for '{}' from {}", filename, driver)
+        self.logger.info("Update for '{}' from {}", filename, driver)
 
         if driver not in owners:
             self.logger.debug("The file '{}' was not suposed to be on {}, "
@@ -118,15 +153,22 @@ class Referee(object):
         assert uptodate
         source = next(iter(uptodate))
 
+        self.notify(should_own - uptodate, UP, fid, source)
+
+        for name in owners.difference(should_own):
+            self.logger.debug("The file '{}' on {} is no longer under onitu "
+                              "control. should be deleted.", filename, name)
+
+    def notify(self, drivers, cmd, fid, *args):
         publisher = self.context.socket(zmq.PUSH)
         publisher.linger = 1000
-        for name in should_own:
-            if name not in uptodate:
-                self.escalator.put(
-                    'entry:{}:event:{}'.format(name, fid), source
-                )
 
-                publisher.connect(self.get_events_uri(name))
+        for name in drivers:
+            self.escalator.put(
+                'entry:{}:event:{}'.format(name, fid), (cmd, args)
+            )
+
+            publisher.connect(self.get_events_uri(name))
         try:
             publisher.send(b'')
         except zmq.ZMQError as e:
@@ -137,7 +179,3 @@ class Referee(object):
                 raise
         else:
             publisher.close()
-
-        for name in owners.difference(should_own):
-            self.logger.debug("The file '{}' on {} is no longer under onitu "
-                              "control. should be deleted.", filename, name)

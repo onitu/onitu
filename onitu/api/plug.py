@@ -15,6 +15,7 @@ from .exceptions import DriverError, AbortOperation
 
 from onitu.escalator.client import Escalator
 from onitu.utils import get_events_uri
+from onitu.referee import UP, DEL
 
 
 class Plug(object):
@@ -140,7 +141,15 @@ class Plug(object):
         self.logger.debug(
             "Notifying the Referee about '{}'", metadata.filename
         )
-        self.escalator.put('referee:event:{}'.format(fid), self.name)
+        self.escalator.put('referee:event:{}'.format(fid), (UP, self.name))
+
+        with self.publisher_lock:
+            self.publisher.send(b'')
+
+    def delete_file(self, metadata):
+        self.escalator.put(
+            'referee:event:{}'.format(metadata.fid), (DEL, self.name)
+        )
 
         with self.publisher_lock:
             self.publisher.send(b'')
