@@ -140,6 +140,16 @@ def delete_file(metadata):
             "Error deleting file '{}': {}".format(filename, e)
         )
 
+    # We try to remove all the empty parent directories,
+    # stopping at the root
+    parent = filename.parent
+    while parent != root:
+        try:
+            parent.rmdir()
+        except OSError:
+            break
+        parent = parent.parent
+
 
 class Watcher(pyinotify.ProcessEvent):
     def process_IN_CLOSE_WRITE(self, event):
