@@ -181,7 +181,7 @@ class DeletionWorker(Worker):
         super(DeletionWorker, self).__init__(dealer, fid)
 
     def do(self):
-        self.logger.info("Deleting '{}'", self.filename)
+        self.logger.debug("Deleting '{}'", self.filename)
 
         self.metadata.owners = [e for e in self.metadata.owners
                                 if e != self.dealer.name]
@@ -201,7 +201,7 @@ class DeletionWorker(Worker):
         except AbortOperation:
             pass
 
-        self.logger.debug("'{}' deleted", self.filename)
+        self.logger.info("'{}' deleted", self.filename)
 
 
 WORKERS = {
