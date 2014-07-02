@@ -35,6 +35,9 @@ class Driver(TestDriver):
     def generate(self, filename, size):
         return files.generate(self.root / filename, size)
 
+    def exists(self, filename):
+        return os.path.exists(self.root / filename)
+
     def unlink(self, filename):
         return os.unlink(self.root / filename)
 

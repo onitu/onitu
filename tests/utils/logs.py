@@ -34,4 +34,16 @@ logs = {
             "Restarting transfer of '{filename}' from {d_from}"
         ),
     ),
+    'file_deleted': (
+        (
+            "Referee",
+            "Deletion of '{filename}' from {driver}"
+        ),
+    ),
+    'deletion_completed': (
+        (
+            "{driver} - Dealer",
+            "'{filename}' deleted"
+        ),
+    )
 }

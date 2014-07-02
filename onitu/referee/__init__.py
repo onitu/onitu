@@ -7,5 +7,6 @@ change in a near future.
 """
 
 from .referee import Referee
+from .cmd import UP, DEL
 
-__all__ = [Referee]
+__all__ = [Referee, UP, DEL]
