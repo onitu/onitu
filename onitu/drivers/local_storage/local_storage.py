@@ -211,7 +211,9 @@ if IS_WINDOWS:
             for action, file_ in results:
                 abs_path = root / file_
 
-                if abs_path.isdir() or abs_path.ext == TMP_EXT:
+                if (abs_path.isdir() or abs_path.ext == TMP_EXT or
+                    not (win32api.GetFileAttributes(abs_path)
+                         & win32con.FILE_ATTRIBUTE_NORMAL)):
                     return
 
                 with file_lock:
