@@ -13,8 +13,18 @@
       "options": {
         "root": "example/driver_b"
       }
-    }
-  },
+    },
+    "s3": {
+      "driver": "amazon_s3",
+      "options": {
+        "root": "/onitu",
+	"bucket": "onitu-test-2",
+	"aws_access_key": "AKIAJIH2W7B6XD3X6OHQ",
+	"aws_secret_key": "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",
+	"changes_timer" : 10
+       }
+     }
+   },
 
   "rules": [
     {
@@ -24,6 +34,14 @@
     {
       "match": {"path": "/backedup/", "mime": ["application/pdf"]},
       "sync": ["B"]
+    },
+    {
+      "match": {"path": "/s3/"},
+      "sync": ["s3"]
+    },
+    {
+      "match": {"path": "/onitu/a/"},
+      "sync": ["A"]
     }
   ]
 

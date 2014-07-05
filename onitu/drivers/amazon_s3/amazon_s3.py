@@ -73,10 +73,21 @@ def get_bucket(head=False):
     return bucket
 
 
+def get_root():
+    """Returns Onitu's root for S3. Removes the leading slash if any."""
+    global plug
+
+    root = plug.options['root']
+    if root.startswith('/'):  # S3 doesn't like leading slashes
+        root = root[1:]
+    return root
+
+
 def root_prefixed_filename(filename):
     """Prefixes the given filename with Onitu's root."""
-    if not filename.startswith(plug.options['root']):
-        rp_filename = plug.options['root']
+    root = get_root()
+    if not filename.startswith(root):
+        rp_filename = root
         if not rp_filename.endswith('/'):
             rp_filename += '/'
             rp_filename += filename
@@ -271,7 +282,8 @@ class CheckChanges(threading.Thread):
     def check_bucket(self):
         bucket = get_bucket()
         if bucket:
-            keys = bucket.list(prefix=plug.options['root'])
+            root = get_root()
+            keys = bucket.list(prefix=root)
             # Getting the multipart uploads list once for all files
             # is WAY faster than re-getting it for each file
             multipart_uploads = bucket.get_all_multipart_uploads()
@@ -322,20 +334,22 @@ def start():
             "The change timer option must be a positive integer")
     get_conn()  # connection to S3
     b = get_bucket()  # Checks that the given bucket exists
-    root = b.get_key(plug.options['root'])
+    root = get_root()
+    root_key = b.get_key(get_root())
     # If no root: create it
-    if root is None:
+    if root_key is None:
         # Amazon S3 doesn't make the difference between a directory
         # and an empty file
-        root = b.new_key(plug.options['root'])
-        root.set_contents_from_string('')
+        root_key = b.new_key(root)
+        root_key.set_contents_from_string('')
     else:
-        if root.size != 0:
+        if root_key.size != 0:
             raise DriverError(
                 "The given root '{}' isn't a directory on the '{}' bucket. It "
                 "has to be an empty file.".format(
                     plug.options['root'], plug.options['bucket'])
                 )
     check = CheckChanges(plug.options['changes_timer'])
+    check.daemon = True
     check.start()
     plug.listen()
