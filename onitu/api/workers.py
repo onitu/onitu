@@ -4,7 +4,6 @@ from threading import Event
 
 import zmq
 
-from onitu.escalator.client import Escalator
 from onitu.referee import UP, DEL
 
 from .metadata import Metadata
@@ -24,8 +23,7 @@ class Worker(object):
         self.context = zmq.Context()
 
         # Each worker use its own client in order to avoid locking
-        self.escalator = Escalator(self.dealer.plug.session,
-                                   context=self.context)
+        self.escalator = self.dealer.escalator.clone(context=self.context)
 
     def __call__(self):
         self.metadata = Metadata.get_by_id(self.dealer.plug, self.fid)
