@@ -25,7 +25,11 @@ def at_exit(callback, *args, **kwargs):
 
     This funtion must be called from the main thread.
     """
-    signals = (signal.SIGINT, signal.SIGTERM, signal.SIGQUIT)
+    if IS_WINDOWS:
+        signals = (signal.SIGILL, signal.SIGABRT, signal.SIGINT,
+                   signal.SIGTERM)
+    else:
+        signals = (signal.SIGINT, signal.SIGTERM, signal.SIGQUIT)
 
     for s in signals:
         signal.signal(s, lambda *_, **__: callback(*args, **kwargs))
