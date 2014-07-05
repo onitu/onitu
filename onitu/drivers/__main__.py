@@ -11,9 +11,10 @@ from logbook.queues import ZeroMQHandler
 from onitu.utils import at_exit
 
 driver_name = sys.argv[1]
-session = sys.argv[2]
-name = sys.argv[3]
-log_uri = sys.argv[4]
+escalator_uri = sys.argv[2]
+session = sys.argv[3]
+name = sys.argv[4]
+log_uri = sys.argv[5]
 
 driver = importlib.import_module('.' + driver_name, package='onitu.drivers')
 
@@ -35,7 +36,7 @@ except Exception as e:
 
 with ZeroMQHandler(log_uri, multi=True).applicationbound():
     try:
-        driver.plug.initialize(name, session, manifest)
+        driver.plug.initialize(name, escalator_uri, session, manifest)
         del manifest
 
         thread = Thread(target=driver.start)

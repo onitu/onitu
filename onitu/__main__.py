@@ -9,7 +9,6 @@ This module starts Onitu. It does the following:
 """
 
 import sys
-import socket
 import argparse
 import string
 import random
@@ -27,7 +26,7 @@ from plyvel import destroy_db
 
 
 from .escalator.client import Escalator
-from .utils import get_escalator_uri, at_exit
+from .utils import at_exit, get_open_port
 
 
 @gen.coroutine
@@ -35,7 +34,7 @@ def start_setup(*args, **kwargs):
     """Parse the setup JSON file, clean the database,
     and start the :class:`.Referee` and the drivers.
     """
-    escalator = Escalator(session, create_db=True)
+    escalator = Escalator(escalator_uri, session, create_db=True)
 
     ports = escalator.range(prefix='port:', include_value=False)
 
@@ -57,7 +56,7 @@ def start_setup(*args, **kwargs):
     referee = arbiter.add_watcher(
         "Referee",
         sys.executable,
-        args=('-m', 'onitu.referee', log_uri, session),
+        args=('-m', 'onitu.referee', log_uri, escalator_uri, session),
         copy_env=True,
     )
 
@@ -79,7 +78,7 @@ def start_setup(*args, **kwargs):
             name,
             sys.executable,
             args=('-m', 'onitu.drivers',
-                  conf['driver'], session, name, log_uri),
+                  conf['driver'], escalator_uri, session, name, log_uri),
             copy_env=True,
         )
 
@@ -114,14 +113,7 @@ def get_logs_dispatcher(uri=None, debug=False):
     handlers.append(ColorizedStderrHandler(level=INFO))
 
     if not uri:
-        # Find an open port.
-        # This is a race condition as the port could be used between
-        # the check and its binding. However, this is probably one of the
-        # best solution without patching Logbook.
-        tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        tmpsock.bind(('127.0.0.1', 0))
-        uri = 'tcp://{}:{}'.format(*tmpsock.getsockname())
-        tmpsock.close()
+        uri = get_open_port()
 
     subscriber = ZeroMQSubscriber(uri, multi=True)
     return uri, subscriber.dispatch_in_background(setup=NestedSetup(handlers))
@@ -178,6 +170,8 @@ if __name__ == '__main__':
         elif ':' in session:
             logger.error("Illegal character ':' in name '{}'", session)
 
+        escalator_uri = get_open_port()
+
         ioloop.install()
         loop = ioloop.IOLoop.instance()
 
@@ -187,7 +181,7 @@ if __name__ == '__main__':
                     'name': 'Escalator',
                     'cmd': sys.executable,
                     'args': ('-m', 'onitu.escalator.server',
-                             '--bind', get_escalator_uri(session),
+                             '--bind', escalator_uri,
                              '--log-uri', log_uri),
                     'copy_env': True,
                 },

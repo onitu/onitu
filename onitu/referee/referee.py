@@ -33,13 +33,14 @@ class Referee(object):
     - The id of the file
     """
 
-    def __init__(self, session):
+    def __init__(self, escalator_uri, session):
         super(Referee, self).__init__()
 
         self.logger = Logger("Referee")
         self.context = zmq.Context.instance()
-        self.escalator = Escalator(session)
-        self.get_events_uri = functools.partial(get_events_uri, session)
+        self.escalator = Escalator(escalator_uri, session)
+        self.get_events_uri = functools.partial(
+            get_events_uri, session, self.escalator)
 
         self.entries = self.escalator.get('entries')
         self.rules = self.escalator.get('referee:rules')

@@ -1,4 +1,3 @@
-import os
 import argparse
 
 import zmq
@@ -47,19 +46,6 @@ def main(logger):
 
 def cleanup():
     databases.close()
-
-    if bind_uri.startswith("ipc://"):
-        # With ZMQ < 4.1 (which isn't released yet), we can't
-        # close the device in a clean way.
-        # This will be possible with ZMQ 4.1 by using
-        # zmq_proxy_steerable.
-        # In the meantime, we must delete the Unix socket by hand.
-        sock_file = bind_uri[6:]
-
-        try:
-            os.unlink(sock_file)
-        except OSError:
-            pass
 
     logger.info("Exited")
 
