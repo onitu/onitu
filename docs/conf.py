@@ -42,7 +42,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Onitu'
-copyright = u'2013, Yannick Péroux, Alexandre Baron, Antoine Rozo, Wannes Rombouts, Louis Roche, Maxime Constantinian, Morgan Faget, Mathis Dupuy'
+copyright = u'2013, Yannick Péroux, Alexandre Baron, Antoine Rozo, Wannes Rombouts, Louis Roché, Maxime Constantinian, Morgan Faget, Mathis Dupuy, Frank Lenormand, Timothee Maurin'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -185,7 +185,7 @@ latex_elements = {
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
   ('index', 'Onitu.tex', u'Onitu Documentation',
-   u'Yannick PÉROUX, Alexandre Baron, Antoine Rozo, Wannes Rombouts, Louis Roche, Maxime Constantinian, Morgan Faget, Mathis Dupuy', 'manual'),
+   u'Yannick PÉROUX, Alexandre Baron, Antoine Rozo, Wannes Rombouts, Louis Roché, Maxime Constantinian, Morgan Faget, Mathis Dupuy, Frank Lenormand, Timothee Maurin', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -215,7 +215,7 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     ('index', 'onitu', u'Onitu Documentation',
-     [u'Yannick PÉROUX, Alexandre Baron, Antoine Rozo, Wannes Rombouts, Louis Roche, Maxime Constantinian, Morgan Faget, Mathis Dupuy'], 1)
+     [u'Yannick PÉROUX, Alexandre Baron, Antoine Rozo, Wannes Rombouts, Louis Roché, Maxime Constantinian, Morgan Faget, Mathis Dupuy, Frank Lenormand, Timothee Maurin'], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -229,7 +229,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
   ('index', 'Onitu', u'Onitu Documentation',
-   u'Yannick PÉROUX, Alexandre Baron, Antoine Rozo, Wannes Rombouts, Louis Roche, Maxime Constantinian, Morgan Faget, Mathis Dupuy', 'Onitu', 'One line description of project.',
+   u'Yannick PÉROUX, Alexandre Baron, Antoine Rozo, Wannes Rombouts, Louis Roché, Maxime Constantinian, Morgan Faget, Mathis Dupuy, Frank Lenormand, Timothee Maurin', 'Onitu', 'One line description of project.',
    'Miscellaneous'),
 ]
 
