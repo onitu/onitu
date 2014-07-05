@@ -1,6 +1,5 @@
 import os
 
-import sh
 from path import path
 
 from tests.utils.testdriver import TestDriver
@@ -26,7 +25,15 @@ class Driver(TestDriver):
         dirs.delete(self.root)
 
     def mkdir(self, subdirs):
-        return sh.mkdir('-p', self.root / subdirs)
+        (self.root / subdirs).makedirs_p()
+
+        # Give some time to inotify in order
+        # to avoid a known bug where new files
+        # if a recently created directory are
+        # ignored
+        # cf http://stackoverflow.com/a/17586891/180751
+        import time
+        time.sleep(0.1)
 
     def write(self, filename, content):
         with open(self.root / filename, 'w+') as f:
