@@ -125,6 +125,10 @@ def end_upload(metadata):
             filename.unlink_p()
         tmp_file.move(filename)
         mtime = filename.mtime
+
+        if IS_WINDOWS:
+            win32api.SetFileAttributes(
+                filename, win32con.FILE_ATTRIBUTE_NORMAL)
     except (IOError, OSError) as e:
         raise ServiceError(
             "Error for file '{}': {}".format(filename, e)
