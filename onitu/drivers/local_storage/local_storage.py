@@ -1,9 +1,18 @@
 import os
 
-import pyinotify
 from path import path
 
 from onitu.api import Plug, DriverError, ServiceError
+from onitu.utils import IS_WINDOWS
+
+if IS_WINDOWS:
+    import threading
+
+    import win32api
+    import win32file
+    import win32con
+else:
+    import pyinotify
 
 TMP_EXT = '.onitu-tmp'
 
@@ -11,14 +20,14 @@ plug = Plug()
 root = None
 
 
-def to_tmp(path):
-    return path.parent.joinpath('.' + path.name + TMP_EXT)
+def to_tmp(filename):
+    return filename.parent / ('.' + filename.name + TMP_EXT)
 
 
-def update(metadata, path, mtime=None):
+def update(metadata, abs_path, mtime=None):
     try:
-        metadata.size = path.size
-        metadata.extra['revision'] = mtime if mtime else path.mtime
+        metadata.size = abs_path.size
+        metadata.extra['revision'] = mtime if mtime else abs_path.mtime
     except (IOError, OSError) as e:
         raise ServiceError(
             "Error updating file '{}': {}".format(metadata.filename, e)
@@ -58,7 +67,7 @@ def check_changes():
 
 @plug.handler()
 def get_chunk(metadata, offset, size):
-    filename = root.joinpath(metadata.filename)
+    filename = root / metadata.filename
 
     try:
         with open(filename, 'rb') as f:
@@ -72,7 +81,7 @@ def get_chunk(metadata, offset, size):
 
 @plug.handler()
 def start_upload(metadata):
-    filename = root.joinpath(metadata.filename)
+    filename = root / metadata.filename
     tmp_file = to_tmp(filename)
 
     try:
@@ -80,6 +89,10 @@ def start_upload(metadata):
             tmp_file.dirname().makedirs_p()
 
         tmp_file.open('wb').close()
+
+        if IS_WINDOWS:
+            win32api.SetFileAttributes(
+                tmp_file, win32con.FILE_ATTRIBUTE_HIDDEN)
     except IOError as e:
         raise ServiceError(
             "Error creating file '{}': {}".format(tmp_file, e)
@@ -88,7 +101,7 @@ def start_upload(metadata):
 
 @plug.handler()
 def upload_chunk(metadata, offset, chunk):
-    tmp_file = to_tmp(root.joinpath(metadata.filename))
+    tmp_file = to_tmp(root / metadata.filename)
 
     try:
         with open(tmp_file, 'r+b') as f:
@@ -102,10 +115,14 @@ def upload_chunk(metadata, offset, chunk):
 
 @plug.handler()
 def end_upload(metadata):
-    filename = root.joinpath(metadata.filename)
+    filename = root / metadata.filename
     tmp_file = to_tmp(filename)
 
     try:
+        if IS_WINDOWS:
+            # On Windows we can't move a file
+            # if dst exists
+            filename.unlink_p()
         tmp_file.move(filename)
         mtime = filename.mtime
     except (IOError, OSError) as e:
@@ -119,7 +136,7 @@ def end_upload(metadata):
 
 @plug.handler()
 def abort_upload(metadata):
-    filename = root.joinpath(metadata.filename)
+    filename = root / metadata.filename
     tmp_file = to_tmp(filename)
     try:
         tmp_file.unlink()
@@ -131,7 +148,7 @@ def abort_upload(metadata):
 
 @plug.handler()
 def delete_file(metadata):
-    filename = root.joinpath(metadata.filename)
+    filename = root / metadata.filename
 
     try:
         filename.unlink()
@@ -151,22 +168,87 @@ def delete_file(metadata):
         parent = parent.parent
 
 
-class Watcher(pyinotify.ProcessEvent):
-    def process_IN_CLOSE_WRITE(self, event):
-        self.process_event(event, update)
+if IS_WINDOWS:
+    FILE_LIST_DIRECTORY = 0x0001
 
-    def process_IN_DELETE(self, event):
-        self.process_event(event, delete)
+    def win32watcherThread(root, file_lock):
+        dirHandle = win32file.CreateFile(
+            root,
+            FILE_LIST_DIRECTORY,
+            win32con.FILE_SHARE_READ | win32con.FILE_SHARE_WRITE,
+            None,
+            win32con.OPEN_EXISTING,
+            win32con.FILE_FLAG_BACKUP_SEMANTICS,
+            None
+        )
 
-    def process_event(self, event, callback):
-        abs_path = path(event.pathname)
+        actions_names = {
+            1: 'create',
+            2: 'delete',
+            3: 'write',
+            4: 'delete',
+            5: 'write'
+        }
 
-        if abs_path.ext == TMP_EXT:
-            return
+        while True:
+            results = win32file.ReadDirectoryChangesW(
+                dirHandle,
+                1024,
+                True,
+                win32con.FILE_NOTIFY_CHANGE_FILE_NAME |
+                win32con.FILE_NOTIFY_CHANGE_DIR_NAME |
+                win32con.FILE_NOTIFY_CHANGE_ATTRIBUTES |
+                win32con.FILE_NOTIFY_CHANGE_SIZE |
+                win32con.FILE_NOTIFY_CHANGE_LAST_WRITE |
+                win32con.FILE_NOTIFY_CHANGE_SECURITY,
+                None
+            )
 
-        filename = root.relpathto(abs_path)
-        metadata = plug.get_metadata(filename)
-        callback(metadata, abs_path)
+            for action, file_ in results:
+                abs_path = root / file_
+
+                if abs_path.isdir() or abs_path.ext == TMP_EXT:
+                    return
+
+                with file_lock:
+                    if actions_names.get(action) == 'write':
+                        filename = root.relpathto(abs_path)
+                        metadata = plug.get_metadata(filename)
+                        update(metadata, abs_path)
+
+    def watch_changes():
+        file_lock = threading.Lock()
+        notifier = threading.Thread(target=win32watcherThread,
+                                    args=(root.abspath(), file_lock))
+        notifier.setDaemon(True)
+        notifier.start()
+else:
+    class Watcher(pyinotify.ProcessEvent):
+        def process_IN_CLOSE_WRITE(self, event):
+            self.process_event(event, update)
+
+        def process_IN_DELETE(self, event):
+            self.process_event(event, delete)
+
+        def process_event(self, event, callback):
+            abs_path = path(event.pathname)
+
+            if abs_path.ext == TMP_EXT:
+                return
+
+            filename = root.relpathto(abs_path)
+            metadata = plug.get_metadata(filename)
+            callback(metadata, abs_path)
+
+    def watch_changes():
+        manager = pyinotify.WatchManager()
+        notifier = pyinotify.ThreadedNotifier(manager, Watcher())
+        notifier.daemon = True
+        notifier.start()
+
+        mask = (pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE |
+                pyinotify.IN_DELETE)
+        manager.add_watch(root, mask, rec=True, auto_add=True)
 
 
 def start():
@@ -176,14 +258,6 @@ def start():
     if not root.access(os.W_OK | os.R_OK):
         raise DriverError("The root '{}' is not accessible".format(root))
 
-    manager = pyinotify.WatchManager()
-    notifier = pyinotify.ThreadedNotifier(manager, Watcher())
-    notifier.daemon = True
-    notifier.start()
-
-    mask = pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE | pyinotify.IN_DELETE
-    manager.add_watch(root, mask, rec=True, auto_add=True)
-
+    watch_changes()
     check_changes()
     plug.listen()
-    notifier.stop()
