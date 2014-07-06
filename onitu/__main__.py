@@ -91,11 +91,10 @@ def start_setup(*args, **kwargs):
     api = arbiter.add_watcher(
         "Rest API",
         sys.executable,
-        args=['-m', 'onitu.api'],
+        args=['-m', 'onitu.api', log_uri, escalator_uri, session],
         copy_env=True,
     )
     loop.add_callback(start_watcher, api)
-    logger.debug("Rest API loaded")
 
 
 @gen.coroutine

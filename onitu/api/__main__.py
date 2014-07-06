@@ -1,15 +1,16 @@
+import sys
+
 from bottle import Bottle, run, response, abort
 
-from ..utils import connect_to_redis
-from ..plug.metadata import Metadata
+from onitu.escalator.client import Escalator
+from onitu.plug.metadata import Metadata
 
 host = 'localhost'
 port = 3862
 
 app = Bottle()
 
-redis = connect_to_redis()
-session = redis.session
+escalator = Escalator(sys.argv[0], sys.argv[1])
 
 
 @app.hook('after_request')
@@ -24,7 +25,7 @@ def enable_cors():
 
 
 def metadatas(fid):
-    raw = session.hgetall('files:{}'.format(fid))
+    raw = escalator.get('file:{}'.format(fid), default=None)
     if not raw:
         return None
     m = {'fid': fid}
@@ -34,16 +35,16 @@ def metadatas(fid):
 
 
 def entry(name):
-    driver = session.get('drivers:{}:driver'.format(name))
+    driver = escalator.get('entry:{}:driver'.format(name))
     if not driver:
         return None
-    options = session.hgetall('drivers:{}:options'.format(name))
+    options = escalator.get('entry:{}:options'.format(name))
     return {'name': name, 'driver': driver, 'options': options}
 
 
 @app.route('/api/v1.0/files', method='GET')
 def get_files():
-    files = [metadatas(fid) for fid in session.hgetall('files').values()]
+    files = [metadatas(fid) for fid in escalator.get('files')]
     return {'files': files}
 
 
@@ -57,7 +58,7 @@ def get_file(fid):
 
 @app.route('/api/v1.0/entries', method='GET')
 def get_entries():
-    entries = [entry(name) for name in session.smembers('entries')]
+    entries = [entry(name) for name in escalator.get('entries')]
     return {'entries': entries}
 
 
