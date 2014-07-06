@@ -1,0 +1,34 @@
+
+# This partial configuration file shows the main layout.
+# Two folders are defined and two services are configured.
+# One cares about both folders, the other one only about the first.
+
+name: "Configuration Layout"
+
+folders:
+  folder1:
+    # Folder options
+  folder2:
+    # Folder options
+
+services:
+
+  serviceA:
+    driver: "some_driver"
+    # Service options
+
+    folders:
+      folder1:
+        # Service/Folder options
+      folder2:
+        # Service/Folder options
+
+  serviceB:
+    driver: "some_other_driver"
+    # Service options
+
+    folders:
+      folder1:
+        # Service/Folder options
+
+#EOF

@@ -1,0 +1,28 @@
+
+# Sends completed torrents from server to a NAS.
+# Service options will be omitted if not relevant.
+
+name: "Example Configuration"
+
+folders:
+  torrent:
+
+services:
+
+  localhost_fs:
+    driver: "local_storage"
+    # Service options.
+    folders:
+      torrent:
+        mode: "r"
+        # Service/Folder options.
+
+  nas:
+    driver: "ssh"
+    # Service options.
+    folders:
+      torrent:
+        mode: "w"
+        # Service/Folder options.
+
+#EOF

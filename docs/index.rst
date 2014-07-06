@@ -14,6 +14,7 @@ Content table
   :maxdepth: 2
 
   intro
+  configuration
   drivers
   components
   contribute
