@@ -5,13 +5,7 @@ API 1.0
 Overview
 ========
 
-- cf http://developer.github.com/v3/
-- HTTP 1.1
-- UTF8
-- application/json
-- supported headers
-- response codes
-- port ?
+The port used by the API is **3862**. All data is sent and received as JSON, and using the UTF-8 charset.
 
 Routes
 ======
@@ -163,16 +157,3 @@ Entries
         "root": "example/A"
       }
     }
-
-
-.. http:post:: /entries
-
-  Add a new entry.
-
-.. http:put:: /entries/(name)
-
-  Edit an existing entry.
-
-.. http:delete:: /entries/(name)
-
-  Delete an entry.
