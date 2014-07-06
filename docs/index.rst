@@ -17,6 +17,7 @@ Content table
   configuration
   drivers
   components
+  api
   contribute
   changelog
 

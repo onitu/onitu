@@ -85,8 +85,8 @@ class Plug(object):
 
         This method starts two threads :
 
-        - .. autoclass:: onitu.api.router.Router
-        - .. autoclass:: onitu.api.dealer.Dealer
+        .. autoclass:: onitu.plug.router.Router
+        .. autoclass:: onitu.plug.dealer.Dealer
         """
         self.router.start()
         self.dealer.resume_transfers()

@@ -69,6 +69,8 @@ def start_setup(*args, **kwargs):
             logger.error("Illegal character ':' in entry {}", name)
             continue
 
+        escalator.put('entry:{}:driver'.format(name), conf['driver'])
+
         if 'options' in conf:
             escalator.put(
                 'entry:{}:options'.format(name), conf['options']
@@ -85,6 +87,14 @@ def start_setup(*args, **kwargs):
         loop.add_callback(start_watcher, watcher)
 
     logger.debug("Entries loaded")
+
+    api = arbiter.add_watcher(
+        "Rest API",
+        sys.executable,
+        args=['-m', 'onitu.api', log_uri, escalator_uri, session],
+        copy_env=True,
+    )
+    loop.add_callback(start_watcher, api)
 
 
 @gen.coroutine

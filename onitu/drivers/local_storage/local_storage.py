@@ -2,7 +2,7 @@ import os
 
 from path import path
 
-from onitu.api import Plug, DriverError, ServiceError
+from onitu.plug import Plug, DriverError, ServiceError
 from onitu.utils import IS_WINDOWS
 
 if IS_WINDOWS:
