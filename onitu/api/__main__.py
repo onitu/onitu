@@ -76,4 +76,4 @@ def get_entry(name):
 if __name__ == '__main__':
     with ZeroMQHandler(sys.argv[1], multi=True).applicationbound():
         logger.info("Starting on {}:{}".format(host, port))
-        run(app, host=host, port=port)
+        run(app, host=host, port=port, quiet=True)
