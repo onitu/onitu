@@ -1,5 +1,7 @@
 import sys
 
+from logbook import Logger
+from logbook.queues import ZeroMQHandler
 from bottle import Bottle, run, response, abort
 
 from onitu.escalator.client import Escalator
@@ -10,7 +12,8 @@ port = 3862
 
 app = Bottle()
 
-escalator = Escalator(sys.argv[0], sys.argv[1])
+escalator = Escalator(sys.argv[2], sys.argv[3])
+logger = Logger("REST API")
 
 
 @app.hook('after_request')
@@ -71,4 +74,6 @@ def get_entry(name):
 
 
 if __name__ == '__main__':
-    run(app, host=host, port=port)
+    with ZeroMQHandler(sys.argv[1], multi=True).applicationbound():
+        logger.info("Starting on {}:{}".format(host, port))
+        run(app, host=host, port=port)
