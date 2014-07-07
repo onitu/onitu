@@ -3,13 +3,15 @@ import socket
 import threading
 import sys
 from ssl import SSLError
+# Python 2/3 compatibility
 if sys.version_info.major == 2:
-    import StringIO
+    from StringIO import StringIO as IOStream
 elif sys.version_info.major == 3:
-    from io import StringIO
+    # In Py3k, chunks are passed as raw bytes. Hence we can't use StringIO
+    from io import BytesIO as IOStream
 
 import requests
-import tinys3
+from . import tinys3
 
 from onitu.plug import Plug, DriverError, ServiceError
 
@@ -83,11 +85,15 @@ def get_file(filename):
     global S3Conn
 
     filename = root_prefixed_filename(filename)
-    file = S3Conn.get(filename)
-    # try catch:
-    # - key doesn't exist :
-    # err = "{}: No such file".format(filename)
-    # raise ServiceError(err)
+    try:
+        file = S3Conn.get(filename)
+    except requests.HTTPError as httpe:
+        err = "Cannot retrieve file '{}' on bucket '{}'".format(
+            filename, plug.options['bucket'])
+        if httpe.response.status_code == 404:
+            err += ": The file doesn't exist"
+        err += " - {}".format(httpe)
+        raise ServiceError(err)
     return file
 
 
@@ -185,11 +191,8 @@ def get_chunk(metadata, offset, size):
             err += ": the file doesn't exist on the bucket anymore."
         err += " - {}".format(httpe)
         raise ServiceError(err)
-    plug.logger.debug("Chunk download complete")
     chunk = key.content
-    # TODO should we keep ?
-    # except SSLError as ssle:  # read timeout
-    #   raise ServiceError("Unable to get {}: {}".format(filename, ssle))
+    plug.logger.debug("Chunk download complete {}".format(type(chunk)))
     return chunk
 
 
@@ -201,8 +204,9 @@ def upload_chunk(metadata, offset, chunk):
             len(chunk),
             offset, part_num))
     # upload_part_from_file expects a file pointer object.
-    # With StringIO we can simulate a file pointer.
-    upload_fp = StringIO.StringIO(chunk)
+    # we can simulate a file pointer with StringIO or BytesIO.
+    # IOStream = StringIO in Python 2, BytesIO in Python 3.
+    upload_fp = IOStream(chunk)
     multipart_upload.upload_part_from_file(upload_fp, part_num)
     plug.logger.debug("Chunk upload complete")
     upload_fp.close()
