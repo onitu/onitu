@@ -8,7 +8,8 @@ if sys.version_info.major == 2:
 elif sys.version_info.major == 3:
     from io import StringIO
 
-import boto
+import requests
+import tinys3
 
 from onitu.api import Plug, DriverError, ServiceError
 
@@ -33,44 +34,25 @@ def get_conn():
     """Gets the connection with the Amazon S3 server.
     Raises an error if conn cannot be established"""
     global S3Conn
-
-    S3Conn = boto.connect_s3(
-        aws_access_key_id=plug.options['aws_access_key'],
-        aws_secret_access_key=plug.options['aws_secret_key'])
-
-
-def get_bucket(head=False):
-    """Gets the S3 bucket the Onitu driver is watching.
-    Raises an error if bucket cannot be fetched.
-    If head = True, will just check for bucket existence (faster)."""
-    global S3Conn
-
-    bucket = None
-    err = ""
+    
+    # TODO: try catch:
+    # - if invalid bucket name
+    # - if invalid credentials
+    S3Conn = tinys3.Connection(plug.options['aws_access_key'],
+                               plug.options['aws_secret_key'],
+                               default_bucket=plug.options['bucket'], tls=True)
+    # Check that the given bucket exists by doing a HEAD request
     try:
-        if not head:
-            # Get bucket's contents
-            bucket = S3Conn.get_bucket(plug.options['bucket'])
-        else:
-            # Just check bucket existence
-            S3Conn.head_bucket(plug.options['bucket'])
-    # invalid bucket name. Some non-standard names can work on the S3 web
-    # console, but not with boto API (e.g. if it has uppercase chars).
-    except boto.exception.BotoClientError as exc:
-        err = "Invalid bucket name. "
-    # Request problem
-    except boto.exception.S3ResponseError as exc:
-        if exc.status == 403:
-            err = "Invalid credentials. "
-        if exc.status == 404:
-            err = "The bucket '{}' doesn't exist. ".format(
-                plug.options['bucket'])
-    finally:
-        if err:
-            raise DriverError(err + "Please check your Amazon S3 account "
-                              "configuration. {}".format(exc)
-                              )
-    return bucket
+        S3Conn.head_bucket()
+    except requests.HTTPError as httpe:
+        err = "Cannot reach Onitu bucket {}".format(plug.options['bucket'])
+        if httpe.response.status_code == 404:
+            err += ": The bucket doesn't exist."
+        if httpe.response.status_code == 403:
+            err += ": Invalid credentials."
+        err += " Please check your Amazon S3 configuration. - {}".format(httpe)
+        raise DriverError(err)
+    return S3Conn
 
 
 def get_root():
@@ -100,22 +82,26 @@ def get_file(filename):
     """Gets a file on the bucket (S3 calls them "keys").
     Prefixes the given filename with Onitu's root.
     Raises a ServiceError if file doesn't exist."""
-    bucket = get_bucket()
+    global S3Conn
+    
     filename = root_prefixed_filename(filename)
-    key = bucket.get_key(filename)  # find the file on S3
-    if key is None:  # in most cases, the file should exist
-        err = "{}: No such file".format(filename)
-        raise ServiceError(err)
-    return key
+    file = S3Conn.get(filename)
+    # try catch:
+    # - key doesn't exist :
+    # err = "{}: No such file".format(filename)
+    # raise ServiceError(err)
+    return file
 
 
 def get_file_timestamp(filename):
     """Returns the float timestamp based on the
     date format timestamp stored by Amazon.
     Prefixes the given filename with Onitu's root."""
-    key = get_file(filename)
+    global S3Conn
+
+    key = S3Conn.get_key(filename)
     # convert timestamp to timestruct...
-    timestamp = time.strptime(key.last_modified, TIMESTAMP_FMT)
+    timestamp = time.strptime(key.lastmodified, ALL_KEYS_TIMESTAMP_FMT)
     # ...timestruct to float
     timestamp = time.mktime(timestamp)
     return timestamp
@@ -127,21 +113,22 @@ def add_to_cache(multipart_upload):
     global cache
 
     if len(cache) < MAX_CACHE_SIZE:
-        cache[multipart_upload.id] = multipart_upload
+        cache[multipart_upload.uploadId] = multipart_upload
 
 
 def remove_from_cache(multipart_upload):
     """Removes the given MultipartUpload from the cache, if in it."""
     global cache
 
-    if multipart_upload.id in cache:
-        del cache[multipart_upload.id]
+    if multipart_upload.uploadId in cache:
+        del cache[multipart_upload.uploadId]
 
 
 def get_multipart_upload(metadata):
     """Returns the multipart upload we have the ID of in metadata.
     As Amazon allows several multipart uploads at the same time
     for the same file, the ID is the only unique, reliable descriptor."""
+    global S3Conn
     global cache
 
     multipart_upload = None
@@ -153,12 +140,12 @@ def get_multipart_upload(metadata):
         # Raise now is faster (doesn't go through all the MP uploads)
         raise DriverError("Unable to retrieve multipart upload ID")
     if metadata_mp_id not in cache:
-        bucket = get_bucket()
+        for mp in S3Conn.list_multipart_uploads():
         # Go through all the multipart uploads to find the one of this transfer
-        for mp in bucket.list_multipart_uploads():
-            if mp.id == metadata_mp_id:
+            if mp.uploadId == metadata_mp_id:
                 multipart_upload = mp
                 add_to_cache(mp)
+                break
     else:
         multipart_upload = cache[metadata_mp_id]
     # At this point it shouldn't be None in any case
@@ -178,53 +165,52 @@ def set_chunk_size(chunk_size):
 
 @plug.handler()
 def get_chunk(metadata, offset, size):
+    global S3Conn
+
     filename = root_prefixed_filename(metadata.filename)
-    key = get_file(filename)
     # Using the REST API "Range" header.
-    range_bytes = "bytes={}-{}".format(offset, offset + (size-1))
-    try:
-        chunk = key.get_contents_as_string(headers={"Range": range_bytes})
-    except SSLError as ssle:  # read timeout
-        raise ServiceError("Unable to get {}: {}".format(filename, ssle))
+    headers = {'Range': "bytes={}-{}".format(offset, offset + (size-1))}
+    print 'GET CHUNK of size {} from offset {} TO {}'.format(size, offset, offset + (size-1))
+    key = S3Conn.get(filename, headers=headers)
+    chunk = key.text.encode('utf-8')
+    # TODO should we keep ?
+    # except SSLError as ssle:  # read timeout
+    #   raise ServiceError("Unable to get {}: {}".format(filename, ssle))
     return chunk
 
 
 @plug.handler()
 def upload_chunk(metadata, offset, chunk):
     multipart_upload = get_multipart_upload(metadata)
-    part_num = len(multipart_upload.get_all_parts()) + 1
-    # Boto only allows to upload a part from a file.
-    # With StringIO we can simulate a file pointer.
+    part_num = multipart_upload.number_of_parts() + 1
+    # upload_part_from_file expects a file pointer object.
+    # With StringIO0 we can simulate a file pointer.
     upload_fp = StringIO.StringIO(chunk)
-    multipart_upload.upload_part_from_file(fp=upload_fp,
-                                           part_num=part_num)
+    multipart_upload.upload_part_from_file(upload_fp, part_num)
     upload_fp.close()
 
 
 @plug.handler()
 def start_upload(metadata):
-    bucket = get_bucket()
-    filename = root_prefixed_filename(metadata.filename)
-    key = bucket.get_key(filename)
-    if not key:  # Create a new empty file if it doesn't exist yet
-        key = boto.s3.key.Key(bucket)
-        key.key = filename
-        key.set_contents_from_string("")
-    # Creating a new S3 multipart upload
-    multipart_upload = bucket.initiate_multipart_upload(
-        filename,
-        headers={'Content-Type': "application/octet-stream"})
+    global S3Conn
+
+    filename = root_prefixed_filename(metadata.filename)    
+    # Create a new multipart upload for this file
+    new_mp = S3Conn.initiate_multipart_upload(filename)
     # Write the new multipart ID in metadata
-    metadata.extra['mp_id'] = multipart_upload.id
+    metadata.extra['mp_id'] = new_mp.uploadId
+    # New file ? Create a default timestamp
     if metadata.extra.get('timestamp') is None:
         metadata.extra['timestamp'] = 0.0
     metadata.write()
     # Store the Multipart upload id in cache
-    add_to_cache(multipart_upload)
+    add_to_cache(new_mp)
 
 
 @plug.handler()
 def end_upload(metadata):
+    global S3Conn
+
     multipart_upload = get_multipart_upload(metadata)
     filename = root_prefixed_filename(metadata.filename)
     # Finish the upload on remote server before getting rid of the
@@ -232,22 +218,20 @@ def end_upload(metadata):
     try:
         multipart_upload.complete_upload()
     # If the file is left empty (i.e. for tests),
-    # boto raises this exception
-    except boto.exception.S3ResponseError as exc:
+    # an exception is raised
+    except requests.HTTPError as exc:
         if metadata.size == 0:
             # don't pollute S3 server with a void MP upload
             multipart_upload.cancel_upload()
-            # Explicitly set the file contents to "nothing"
-            b = get_bucket()
-            # The file may not exist yet
-            key = b.get_key(filename) or b.new_key(filename)
-            key.set_contents_from_string('')
+            # Explicitly set this file contents to "nothing"
+            fp = StringIO("")
+            S3Conn.upload(filename, fp)
         else:
             # Delete the mp id from cache
             remove_from_cache(multipart_upload)
             raise DriverError("Error: {}".format(exc))
     # From here we're sure that's OK for Amazon
-    new_timestamp = get_file_timestamp(metadata.filename)
+    new_timestamp = get_file_timestamp(filename)
     del metadata.extra['mp_id']  # erases the upload ID
     metadata.extra['timestamp'] = new_timestamp
     metadata.write()
@@ -280,38 +264,50 @@ class CheckChanges(threading.Thread):
         self.timer = timer
 
     def check_bucket(self):
-        bucket = get_bucket()
-        if bucket:
-            root = get_root()
-            keys = bucket.list(prefix=root)
-            # Getting the multipart uploads list once for all files
-            # is WAY faster than re-getting it for each file
-            multipart_uploads = bucket.get_all_multipart_uploads()
-            for key in keys:
-                # During an upload, files can appear on the S3 file system
-                # before the transfer has been completed (but they shouldn't).
-                # If there's currently an upload going on this file,
-                # don't notify it.
-                is_being_uploaded = False
-                for mp in multipart_uploads:
-                    if mp.key_name == key.name:
-                        is_being_uploaded = True
-                        break
-                if is_being_uploaded:
-                    continue  # Skip this file
-                metadata = plug.get_metadata(key.name)
-                onitu_ts = metadata.extra.get('timestamp', 0.0)
-                remote_ts = time.mktime(
-                    time.strptime(key.last_modified, ALL_KEYS_TIMESTAMP_FMT))
-                if onitu_ts < remote_ts:  # Remote timestamp is more recent
-                    metadata.size = key.size
-                    metadata.extra['timestamp'] = remote_ts
-                    plug.update_file(metadata)
+        global S3Conn
+        global plug
+
+        # We're only interested in keys and uploads under Onitu's root
+        root = get_root()
+        p = {'prefix': root}
+        # Getting multipart uploads once for all files
+        # is WAY faster than re-getting them for each file
+        multipart_uploads = S3Conn.get_all_multipart_uploads(extra_params=p)
+        keys = S3Conn.list_keys(extra_params=p)
+        for key in keys:
+            # During an upload, files can appear on the S3 file system
+            # before the transfer has been completed (but they shouldn't).
+            # If there's currently an upload going on this file,
+            # don't notify it.
+            is_being_uploaded = False
+            for mp in multipart_uploads:
+                if mp.key == key.key:
+                    is_being_uploaded = True
+                    break
+            if is_being_uploaded:
+                continue  # Skip this file
+            metadata = plug.get_metadata(key.key)
+            onitu_ts = metadata.extra.get('timestamp', 0.0)
+            remote_ts = time.mktime(
+                time.strptime(key.lastmodified, ALL_KEYS_TIMESTAMP_FMT))
+            if onitu_ts < remote_ts:  # Remote timestamp is more recent
+                metadata.size = key.size
+                metadata.extra['timestamp'] = remote_ts
+                plug.update_file(metadata)
 
     def run(self):
+        global plug
+
         while not self.stop.isSet():
             try:
                 self.check_bucket()
+            except requests.HTTPError as httpe:
+                err = "Error while polling Onitu's S3 bucket"
+                if httpe.response.status_code == 404:
+                    err += ": The given bucket {} doesn't exist".format(
+                        plug.options['bucket'])
+                err += " - {}".format(httpe)
+                plug.logger.error(err)
             # if the bucket read operation times out
             except SSLError as ssle:
                 plug.logger.warning("Couldn't poll S3 bucket '{}': {}"
@@ -329,23 +325,30 @@ class CheckChanges(threading.Thread):
 
 
 def start():
+    global S3Conn
+
     if plug.options['changes_timer'] < 0:
         raise DriverError(
             "The change timer option must be a positive integer")
     get_conn()  # connection to S3
-    b = get_bucket()  # Checks that the given bucket exists
     root = get_root()
-    root_key = b.get_key(get_root())
-    # If no root: create it
-    if root_key is None:
-        # Amazon S3 doesn't make the difference between a directory
-        # and an empty file
-        root_key = b.new_key(root)
-        root_key.set_contents_from_string('')
-    else:
-        if root_key.size != 0:
+    # Check that the given root isn't a regular file
+    try:
+        root_key = S3Conn.get(root)
+    except requests.HTTPError as httpe:
+        if httpe.response.status_code == 404:
+            # it's alright, root doesn't exist, no problem
+            pass
+        else:  # another error
+            raise DriverError("Cannot fetch Onitu's root ({}) on"
+                              "bucket {}: {}".format(
+                    plug.options['root'], plug.options['bucket'], httpe))
+    else:  # no error - root already exists
+        # Amazon S3 has no concept of directories. These are just 0-size files.
+        # So if the given root hasn't a size of 0, it is a regular file.
+        if len(root_key.text) != 0:
             raise DriverError(
-                "The given root '{}' isn't a directory on the '{}' bucket. It "
+                "Onitu's root ({}) is a regular file on the '{}' bucket. It "
                 "has to be an empty file.".format(
                     plug.options['root'], plug.options['bucket'])
                 )
