@@ -34,7 +34,7 @@ def get_conn():
     """Gets the connection with the Amazon S3 server.
     Raises an error if conn cannot be established"""
     global S3Conn
-    
+
     # TODO: try catch:
     # - if invalid bucket name
     # - if invalid credentials
@@ -83,7 +83,7 @@ def get_file(filename):
     Prefixes the given filename with Onitu's root.
     Raises a ServiceError if file doesn't exist."""
     global S3Conn
-    
+
     filename = root_prefixed_filename(filename)
     file = S3Conn.get(filename)
     # try catch:
@@ -133,6 +133,7 @@ def get_multipart_upload(metadata):
 
     multipart_upload = None
     metadata_mp_id = None
+    filename = root_prefixed_filename(metadata.filename)
     # Retrieve the stored multipart upload ID
     try:
         metadata_mp_id = metadata.extra['mp_id']
@@ -140,8 +141,11 @@ def get_multipart_upload(metadata):
         # Raise now is faster (doesn't go through all the MP uploads)
         raise DriverError("Unable to retrieve multipart upload ID")
     if metadata_mp_id not in cache:
-        for mp in S3Conn.list_multipart_uploads():
-        # Go through all the multipart uploads to find the one of this transfer
+        # Try to only request multipart uploads of this file
+        params = {'prefix': filename}
+        for mp in S3Conn.list_multipart_uploads(extra_params=params):
+            # Go through all the multipart uploads
+            # to find the one of this transfer
             if mp.uploadId == metadata_mp_id:
                 multipart_upload = mp
                 add_to_cache(mp)
@@ -151,7 +155,7 @@ def get_multipart_upload(metadata):
     # At this point it shouldn't be None in any case
     if multipart_upload is None:
         raise DriverError("Cannot find upload for file '{}'"
-                          .format(root_prefixed_filename(metadata.filename)))
+                          .format(filename))
     return multipart_upload
 
 
@@ -201,7 +205,7 @@ def upload_chunk(metadata, offset, chunk):
 def start_upload(metadata):
     global S3Conn
 
-    filename = root_prefixed_filename(metadata.filename)    
+    filename = root_prefixed_filename(metadata.filename)
     # Create a new multipart upload for this file
     new_mp = S3Conn.initiate_multipart_upload(filename)
     # Write the new multipart ID in metadata
@@ -348,8 +352,9 @@ def start():
             pass
         else:  # another error
             raise DriverError("Cannot fetch Onitu's root ({}) on"
-                              "bucket {}: {}".format(
-                    plug.options['root'], plug.options['bucket'], httpe))
+                              "bucket {}: {}".format(plug.options['root'],
+                                                     plug.options['bucket'],
+                                                     httpe))
     else:  # no error - root already exists
         # Amazon S3 has no concept of directories. These are just 0-size files.
         # So if the given root hasn't a size of 0, it is a regular file.
