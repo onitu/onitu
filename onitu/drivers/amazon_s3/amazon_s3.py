@@ -11,7 +11,7 @@ elif sys.version_info.major == 3:
 import requests
 import tinys3
 
-from onitu.api import Plug, DriverError, ServiceError
+from onitu.plug import Plug, DriverError, ServiceError
 
 plug = Plug()
 
@@ -170,8 +170,15 @@ def get_chunk(metadata, offset, size):
     filename = root_prefixed_filename(metadata.filename)
     # Using the REST API "Range" header.
     headers = {'Range': "bytes={}-{}".format(offset, offset + (size-1))}
-    print 'GET CHUNK of size {} from offset {} TO {}'.format(size, offset, offset + (size-1))
-    key = S3Conn.get(filename, headers=headers)
+    try:
+        key = S3Conn.get(filename, headers=headers)
+    except requests.HTTPError as httpe:
+        err = "Cannot retrieve chunk from {} on bucket {}".format(
+            filename, plug.options['bucket'])
+        if httpe.response.status_code == 404:
+            err += ": the file doesn't exist on the bucket anymore."
+        err += " - {}".format(httpe)
+        raise ServiceError(err)
     chunk = key.text.encode('utf-8')
     # TODO should we keep ?
     # except SSLError as ssle:  # read timeout
