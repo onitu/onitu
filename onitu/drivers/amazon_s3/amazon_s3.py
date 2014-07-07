@@ -17,10 +17,8 @@ plug = Plug()
 
 # Amazon S3 related global variables
 S3Conn = None
-# e.g. 'Sat, 03 May 2014 04:36:11 GMT'
-TIMESTAMP_FMT = '%a, %d %b %Y %H:%M:%S GMT'
-# to deal with format changes
-ALL_KEYS_TIMESTAMP_FMT = '%Y-%m-%dT%H:%M:%S.000Z'
+# to deal with timestamp changes
+TIMESTAMP_FMT = '%Y-%m-%dT%H:%M:%S.000Z'
 # "Each part must be at least 5 MB in size, except the last part."
 # http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html
 S3_MINIMUM_CHUNK_SIZE = 5 << 20
@@ -101,7 +99,7 @@ def get_file_timestamp(filename):
 
     key = S3Conn.get_key(filename)
     # convert timestamp to timestruct...
-    timestamp = time.strptime(key.lastmodified, ALL_KEYS_TIMESTAMP_FMT)
+    timestamp = time.strptime(key.lastmodified, TIMESTAMP_FMT)
     # ...timestruct to float
     timestamp = time.mktime(timestamp)
     return timestamp
@@ -170,8 +168,12 @@ def set_chunk_size(chunk_size):
 @plug.handler()
 def get_chunk(metadata, offset, size):
     global S3Conn
+    global plug
 
     filename = root_prefixed_filename(metadata.filename)
+    plug.logger.debug("Downloading {} bytes from the {} key"
+                      "on bucket {}".format(size, filename,
+                                            plug.options['bucket']))
     # Using the REST API "Range" header.
     headers = {'Range': "bytes={}-{}".format(offset, offset + (size-1))}
     try:
@@ -183,7 +185,8 @@ def get_chunk(metadata, offset, size):
             err += ": the file doesn't exist on the bucket anymore."
         err += " - {}".format(httpe)
         raise ServiceError(err)
-    chunk = key.text.encode('utf-8')
+    plug.logger.debug("Chunk download complete")
+    chunk = key.content
     # TODO should we keep ?
     # except SSLError as ssle:  # read timeout
     #   raise ServiceError("Unable to get {}: {}".format(filename, ssle))
@@ -194,10 +197,14 @@ def get_chunk(metadata, offset, size):
 def upload_chunk(metadata, offset, chunk):
     multipart_upload = get_multipart_upload(metadata)
     part_num = multipart_upload.number_of_parts() + 1
+    plug.logger.debug("Uploading {} bytes at offset {} in part {}".format(
+            len(chunk),
+            offset, part_num))
     # upload_part_from_file expects a file pointer object.
-    # With StringIO0 we can simulate a file pointer.
+    # With StringIO we can simulate a file pointer.
     upload_fp = StringIO.StringIO(chunk)
     multipart_upload.upload_part_from_file(upload_fp, part_num)
+    plug.logger.debug("Chunk upload complete")
     upload_fp.close()
 
 
@@ -277,7 +284,9 @@ class CheckChanges(threading.Thread):
     def check_bucket(self):
         global S3Conn
         global plug
-
+        
+        plug.logger.debug("Checking bucket {} for changes".format(
+                plug.options['bucket']))
         # We're only interested in keys and uploads under Onitu's root
         root = get_root()
         p = {'prefix': root}
@@ -300,9 +309,11 @@ class CheckChanges(threading.Thread):
             metadata = plug.get_metadata(key.key)
             onitu_ts = metadata.extra.get('timestamp', 0.0)
             remote_ts = time.mktime(
-                time.strptime(key.lastmodified, ALL_KEYS_TIMESTAMP_FMT))
+                time.strptime(key.lastmodified, TIMESTAMP_FMT))
             if onitu_ts < remote_ts:  # Remote timestamp is more recent
-                metadata.size = key.size
+                plug.logger.debug("Updating metadata of file {}".format(
+                        metadata.filename))
+                metadata.size = int(key.size)
                 metadata.extra['timestamp'] = remote_ts
                 plug.update_file(metadata)
 
@@ -318,6 +329,10 @@ class CheckChanges(threading.Thread):
                     err += ": The given bucket {} doesn't exist".format(
                         plug.options['bucket'])
                 err += " - {}".format(httpe)
+                plug.logger.error(err)
+            except requests.ConnectionError as conne:
+                err = "Failed to connect to Onitu's S3 bucket for polling"
+                err += " - {}".format(conne)
                 plug.logger.error(err)
             # if the bucket read operation times out
             except SSLError as ssle:
