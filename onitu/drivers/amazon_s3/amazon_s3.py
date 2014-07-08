@@ -178,8 +178,8 @@ def get_chunk(metadata, offset, size):
 
     filename = root_prefixed_filename(metadata.filename)
     plug.logger.debug("Downloading {} bytes from the {} key"
-                      "on bucket {}".format(size, filename,
-                                            plug.options['bucket']))
+                      " on bucket {}".format(size, filename,
+                                             plug.options['bucket']))
     # Using the REST API "Range" header.
     headers = {'Range': "bytes={}-{}".format(offset, offset + (size-1))}
     try:
@@ -188,11 +188,13 @@ def get_chunk(metadata, offset, size):
         err = "Cannot retrieve chunk from {} on bucket {}".format(
             filename, plug.options['bucket'])
         if httpe.response.status_code == 404:
-            err += ": the file doesn't exist on the bucket anymore."
+            err += ": the file doesn't exist anymore."
         err += " - {}".format(httpe)
         raise ServiceError(err)
     chunk = key.content
-    plug.logger.debug("Chunk download complete {}".format(type(chunk)))
+    plug.logger.debug("Download of {} bytes from the {} key on bucket {}"
+                      " is complete".format(size, filename,
+                                            plug.options['bucket']))
     return chunk
 
 
@@ -200,14 +202,22 @@ def get_chunk(metadata, offset, size):
 def upload_chunk(metadata, offset, chunk):
     multipart_upload = get_multipart_upload(metadata)
     part_num = multipart_upload.number_of_parts() + 1
-    plug.logger.debug("Uploading {} bytes at offset {} in part {}".format(
-            len(chunk),
-            offset, part_num))
+    plug.logger.debug("Start upload chunk of {}".format(multipart_upload.key))
+    plug.logger.debug("Uploading {} bytes at offset {}"
+                      " in part {}".format(len(chunk),
+                                           offset, part_num))
     # upload_part_from_file expects a file pointer object.
     # we can simulate a file pointer with StringIO or BytesIO.
     # IOStream = StringIO in Python 2, BytesIO in Python 3.
     upload_fp = IOStream(chunk)
-    multipart_upload.upload_part_from_file(upload_fp, part_num)
+    try:
+        multipart_upload.upload_part_from_file(upload_fp, part_num)
+    except requests.HTTPError as httpe:
+        plug.logger.debug("Chunk uploaded: {}".format(chunk))
+        plug.logger.debug(httpe.response.text)
+        err = "Cannot upload part {} of {} multipart upload - {}"
+        err = err.format(part_num, multipart_upload.key, httpe)
+        raise ServiceError(err)
     plug.logger.debug("Chunk upload complete")
     upload_fp.close()
 
@@ -215,6 +225,7 @@ def upload_chunk(metadata, offset, chunk):
 @plug.handler()
 def start_upload(metadata):
     global S3Conn
+    global plug
 
     filename = root_prefixed_filename(metadata.filename)
     # Create a new multipart upload for this file
@@ -223,6 +234,8 @@ def start_upload(metadata):
     metadata.extra['mp_id'] = new_mp.uploadId
     # New file ? Create a default timestamp
     if metadata.extra.get('timestamp') is None:
+        plug.logger.debug("Creating a new timestamp"
+                          " for {}".format(metadata.filename))
         metadata.extra['timestamp'] = 0.0
     metadata.write()
     # Store the Multipart upload id in cache
@@ -246,7 +259,7 @@ def end_upload(metadata):
             # don't pollute S3 server with a void MP upload
             multipart_upload.cancel_upload()
             # Explicitly set this file contents to "nothing"
-            fp = StringIO("")
+            fp = IOStream(b"")
             S3Conn.upload(filename, fp)
         else:
             # Delete the mp id from cache
@@ -274,6 +287,19 @@ def abort_upload(metadata):
     remove_from_cache(multipart_upload)
 
 
+@plug.handler()
+def delete_file(metadata):
+    try:
+        filename = root_prefixed_filename(metadata.filename)
+        S3Conn.delete(filename)
+    except requests.HTTPError as httpe:
+        raise ServiceError(
+            "Error deleting file {} on bucket {}: {}".format(
+                filename, plug.options['bucket'], httpe
+                )
+            )
+
+
 class CheckChanges(threading.Thread):
     """A class spawned in a thread to poll for changes on the S3 bucket.
     Amazon S3 hasn't any bucket watching system in its API, so the best
@@ -288,9 +314,9 @@ class CheckChanges(threading.Thread):
     def check_bucket(self):
         global S3Conn
         global plug
-        
-        plug.logger.debug("Checking bucket {} for changes".format(
-                plug.options['bucket']))
+
+        plug.logger.debug("Checking bucket"
+                          " {} for changes".format(plug.options['bucket']))
         # We're only interested in keys and uploads under Onitu's root
         root = get_root()
         p = {'prefix': root}
@@ -315,8 +341,8 @@ class CheckChanges(threading.Thread):
             remote_ts = time.mktime(
                 time.strptime(key.lastmodified, TIMESTAMP_FMT))
             if onitu_ts < remote_ts:  # Remote timestamp is more recent
-                plug.logger.debug("Updating metadata of file {}".format(
-                        metadata.filename))
+                plug.logger.debug("Updating metadata"
+                                  " of file {}".format(metadata.filename))
                 metadata.size = int(key.size)
                 metadata.extra['timestamp'] = remote_ts
                 plug.update_file(metadata)
@@ -362,27 +388,28 @@ def start():
             "The change timer option must be a positive integer")
     get_conn()  # connection to S3
     root = get_root()
-    # Check that the given root isn't a regular file
-    try:
-        root_key = S3Conn.get(root)
-    except requests.HTTPError as httpe:
-        if httpe.response.status_code == 404:
-            # it's alright, root doesn't exist, no problem
-            pass
-        else:  # another error
-            raise DriverError("Cannot fetch Onitu's root ({}) on"
-                              "bucket {}: {}".format(plug.options['root'],
-                                                     plug.options['bucket'],
-                                                     httpe))
-    else:  # no error - root already exists
-        # Amazon S3 has no concept of directories. These are just 0-size files.
-        # So if the given root hasn't a size of 0, it is a regular file.
-        if len(root_key.text) != 0:
-            raise DriverError(
-                "Onitu's root ({}) is a regular file on the '{}' bucket. It "
-                "has to be an empty file.".format(
-                    plug.options['root'], plug.options['bucket'])
-                )
+    if root != '':
+        # Check that the given root isn't a regular file
+        try:
+            root_key = S3Conn.get(root)
+        except requests.HTTPError as httpe:
+            if httpe.response.status_code == 404:
+                # it's alright, root doesn't exist, no problem
+                pass
+            else:  # another error
+                raise DriverError("Cannot fetch Onitu's root ({}) on"
+                                  " bucket {}: {}".format(plug.options['root'],
+                                                          plug.options['bucket'],
+                                                          httpe))
+        else:  # no error - root already exists
+            # Amazon S3 has no concept of directories. These are just 0-size files.
+            # So if the given root hasn't a size of 0, it is a regular file.
+            if len(root_key.content) != 0:
+                raise DriverError(
+                    "Onitu's root ({}) is a regular file on the '{}' bucket. It "
+                    "has to be an empty file.".format(
+                        plug.options['root'], plug.options['bucket'])
+                    )
     check = CheckChanges(plug.options['changes_timer'])
     check.daemon = True
     check.start()
