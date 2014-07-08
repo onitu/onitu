@@ -1,61 +1,62 @@
 import hashlib
 import os
-# import string
-# import random
+import sys
+# Python 2/3 compatibility
+if sys.version_info.major == 2:
+    from StringIO import StringIO as IOStream
+elif sys.version_info.major == 3:
+    # In Py3k, chunks are passed as raw bytes. Hence we can't use StringIO
+    from io import BytesIO as IOStream
 
-import boto
+import requests
+
+from onitu.drivers.amazon_s3 import tinys3
 
 from tests.utils.testdriver import TestDriver
-from tests.utils.tempdirs import dirs
 
 
 class Driver(TestDriver):
     def __init__(self, *args, **options):
         if "root" not in options:
-            tmpdir = dirs.create()
             options['root'] = ''
-        # options['root'] = tmpdir # ''.join(random.sample(
-        #    string.ascii_letters + string.digits, 10))
         if "aws_access_key" not in options:
-            options["aws_access_key"] = os.environ["ONITU_AWS_ACCESS_KEY"]
+            options['aws_access_key'] = os.environ['ONITU_AWS_ACCESS_KEY']
         if "aws_secret_key" not in options:
-            options["aws_secret_key"] = os.environ["ONITU_AWS_SECRET_KEY"]
+            options['aws_secret_key'] = os.environ['ONITU_AWS_SECRET_KEY']
         if "bucket" not in options:
-            options["bucket"] = 'onitu-test-2'
-        self.conn = boto.connect_s3(
-            aws_access_key_id=options["aws_access_key"],
-            aws_secret_access_key=options["aws_secret_key"])
+            options['bucket'] = 'onitu-test-2'
+        self.conn = tinys3.Connection(options['aws_access_key'],
+                                      options['aws_secret_key'],
+                                      default_bucket=options['bucket'],
+                                      tls=True)
         super(Driver, self).__init__('amazon_s3',
                                      *args,
                                      **options)
-        self.create_file(tmpdir)
 
     def prefix_with_root(self, filename):
-        real_filename = self.options['root']
-        if not self.options['root'].endswith('/'):
-            real_filename += '/'
-        real_filename += filename
+        root = self.root()
+        real_filename = root + filename
         return real_filename
 
     def create_file(self, filename, content=""):
-        bucket = self.conn.get_bucket(self.options["bucket"])
-        key = boto.s3.key.Key(bucket)
-        key.key = filename
-        key.set_contents_from_string(content)
+        self.write(filename, content)
 
-    @property
     def root(self):
-        return self.options['root']
+        root = self.options['root']
+        # S3 doesn't like leading slashes
+        if root.startswith('/'):
+            root = root[1:]
+        if not root.endswith('/'):
+            root += '/'
+        return root
 
     def close(self):
-        bucket = self.conn.get_bucket(self.options["bucket"])
-        todel = self.options['root']
-        if not todel.endswith('/'):
-            todel += '/'
-        for key in bucket.list(prefix=todel):
-            bucket.delete_key(key)
-        if self.options['root'] != '':
-            bucket.delete_key(self.options['root'])
+        root = self.root()
+        for key in self.conn.list_keys(extra_params={'prefix': root}):
+            self.conn.delete(key.key)
+        # Don't delete the whole bucket !
+        if root != '/':
+            self.conn.delete(root)
 
     def mkdir(self, subdirs):
         subdirs = self.prefix_with_root(subdirs)
@@ -64,25 +65,29 @@ class Driver(TestDriver):
     def write(self, filename, content, includes_root=False):
         if not includes_root:
             filename = self.prefix_with_root(filename)
-        bucket = self.conn.get_bucket(self.options["bucket"])
-        key = bucket.get_key(filename)
-        if key is None:
-            self.create_file(filename, content)
-        else:
-            key.set_contents_from_string(content)
+        if sys.version_info.major == 3 and not isinstance(content, bytes):
+            content = content.encode()
+        s = IOStream(content)
+        self.conn.upload(filename, s)
+        s.close()
 
     def generate(self, filename, size):
-        filename = self.prefix_with_root(filename)
-        self.write(filename, os.urandom(size), includes_root=True)
+        self.write(filename, os.urandom(size))
 
     def unlink(self, filename):
         filename = self.prefix_with_root(filename)
-        bucket = self.conn.get_bucket(self.options["bucket"])
-        bucket.delete_key(filename)
+        if filename != '':
+            self.conn.delete(filename)
+
+    def exists(self, filename):
+        filename = self.prefix_with_root(filename)
+        try:
+            self.conn.head_object(filename)
+        except requests.HTTPError:
+            return False
+        return True
 
     def checksum(self, filename):
-        bucket = self.conn.get_bucket(self.options["bucket"])
         filename = self.prefix_with_root(filename)
-        key = bucket.get_key(filename)
-        contents = key.get_contents_as_string()
-        return hashlib.md5(contents).hexdigest()
+        file = self.conn.get(filename)
+        return hashlib.md5(file.content).hexdigest()

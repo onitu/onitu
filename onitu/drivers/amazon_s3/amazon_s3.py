@@ -398,16 +398,17 @@ def start():
                 pass
             else:  # another error
                 raise DriverError("Cannot fetch Onitu's root ({}) on"
-                                  " bucket {}: {}".format(plug.options['root'],
-                                                          plug.options['bucket'],
-                                                          httpe))
+                                  " bucket "
+                                  "{}: {}".format(plug.options['root'],
+                                                  plug.options['bucket'],
+                                                  httpe))
         else:  # no error - root already exists
-            # Amazon S3 has no concept of directories. These are just 0-size files.
-            # So if the given root hasn't a size of 0, it is a regular file.
+            # Amazon S3 has no concept of directories, they're just 0-size
+            # files. So if root hasn't a size of 0, it is a regular file.
             if len(root_key.content) != 0:
                 raise DriverError(
-                    "Onitu's root ({}) is a regular file on the '{}' bucket. It "
-                    "has to be an empty file.".format(
+                    "Onitu's root ({}) is a regular file on the '{}' bucket. "
+                    "It has to be an empty file.".format(
                         plug.options['root'], plug.options['bucket'])
                     )
     check = CheckChanges(plug.options['changes_timer'])

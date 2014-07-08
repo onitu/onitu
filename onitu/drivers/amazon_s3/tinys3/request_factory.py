@@ -114,7 +114,7 @@ class HeadRequest(S3Request):
 
     def run(self):
         url = self.bucket_url(self.key, self.bucket)
-        r = self.adapter().head(url, auth=self.auth,headers=self.headers)
+        r = self.adapter().head(url, auth=self.auth, headers=self.headers)
         r.raise_for_status()
         return r
 
