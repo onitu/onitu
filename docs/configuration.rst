@@ -31,6 +31,10 @@ mode
      "rw"
   :what:
      This value indicates if the folder should only be read-from, written-to or if it should be syncronised both ways. You probably want to specify this at the service level and not at the folder level.
+     :r (read):
+	If not specified new files or changes made in this folder will not be taken into account. You must specify this if you want Onitu to be able to read content from this folder.
+     :w (write):
+	If not specified new files or changes will not be written to this folder. You must specify this if you want Onitu to make changes to this folder when syncronising.
 
 type
   :values:
