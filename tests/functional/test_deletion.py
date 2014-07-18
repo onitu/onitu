@@ -69,4 +69,4 @@ def test_deletion_from_rep2():
     )
     rep2.unlink('to_delete')
     loop.run(timeout=5)
-    assert not rep2.exists('to_delete')
+    assert not rep1.exists('to_delete')
