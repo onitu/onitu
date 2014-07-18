@@ -10,7 +10,7 @@ from logbook import Logger
 from onitu.escalator.client import Escalator, EscalatorClosed
 from onitu.utils import get_events_uri
 
-from .cmd import UP, DEL
+from .cmd import UP, DEL, MOV
 
 
 class Referee(object):
@@ -48,6 +48,7 @@ class Referee(object):
         self.handlers = {
             UP: self._handle_update,
             DEL: self._handle_deletion,
+            MOV: self._handle_move,
         }
 
     def listen(self):
@@ -62,10 +63,11 @@ class Referee(object):
             while True:
                 events = self.escalator.range(prefix='referee:event:')
 
-                for key, (cmd, driver) in events:
+                for key, args in events:
+                    cmd = args[0]
                     if cmd in self.handlers:
                         fid = key.decode().split(':')[-1]
-                        self.handlers[cmd](driver, fid)
+                        self.handlers[cmd](fid, *args[1:])
                     self.escalator.delete(key)
 
                 listener.recv()
@@ -94,7 +96,7 @@ class Referee(object):
 
         return True
 
-    def _handle_deletion(self, driver, fid):
+    def _handle_deletion(self, fid, driver):
         """
         Notify the owners when a file is deleted
         """
@@ -121,7 +123,39 @@ class Referee(object):
 
         self.notify(owners, DEL, fid)
 
-    def _handle_update(self, driver, fid):
+    def _handle_move(self, old_fid, driver, new_fid):
+        """
+        Notify the owners when a file is moved
+        """
+        metadata = self.escalator.get('file:{}'.format(old_fid), default=None)
+
+        if not metadata:
+            return
+
+        owners = set(metadata['owners'])
+        filename = metadata['filename']
+
+        new_metadata = self.escalator.get('file:{}'.format(new_fid))
+        new_filename = new_metadata['filename']
+
+        self.logger.info(
+            "Moving of '{}' to '{}' from {}", filename, new_filename, driver
+        )
+
+        if driver in owners:
+            owners.remove(driver)
+            self.escalator.delete('file:{}:entry:{}'.format(old_fid, driver))
+
+            metadata['owners'] = tuple(owners)
+            self.escalator.put('file:{}'.format(old_fid), metadata)
+
+        if not owners:
+            self.escalator.delete('file:{}'.format(old_fid))
+            return
+
+        self.notify(owners, MOV, old_fid, new_fid)
+
+    def _handle_update(self, fid, driver):
         """Choose who are the entries that are concerned by the event
         and send a notification to them.
 
