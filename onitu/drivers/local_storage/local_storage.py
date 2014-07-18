@@ -43,6 +43,30 @@ def delete(metadata, _):
     plug.delete_file(metadata)
 
 
+def move(old_metadata, old_path, new_path):
+    if plug.name not in old_metadata.owners:
+        return
+
+    new_filename = root.relpathto(new_path)
+    plug.move_file(old_metadata, new_filename)
+
+
+def delete_empty_dirs(filename):
+    """
+    Remove all the empty parent directories, stopping at the root
+    """
+
+    parent = filename.parent
+
+    while parent != root:
+        try:
+            parent.rmdir()
+        except OSError:
+            break
+
+        parent = parent.parent
+
+
 def check_changes():
     for abs_path in root.walkfiles():
         if abs_path.ext == TMP_EXT:
@@ -161,15 +185,26 @@ def delete_file(metadata):
             "Error deleting file '{}': {}".format(filename, e)
         )
 
-    # We try to remove all the empty parent directories,
-    # stopping at the root
-    parent = filename.parent
-    while parent != root:
-        try:
-            parent.rmdir()
-        except OSError:
-            break
-        parent = parent.parent
+    delete_empty_dirs(filename)
+
+
+@plug.handler()
+def move_file(old_metadata, new_metadata):
+    old_filename = root / old_metadata.filename
+    new_filename = root / new_metadata.filename
+
+    parent = new_filename.dirname()
+    if not parent.exists():
+        parent.makedirs_p()
+
+    try:
+        old_filename.rename(new_filename)
+    except (IOError, OSError) as e:
+        raise ServiceError(
+            "Error moving file '{}': {}".format(old_filename, e)
+        )
+
+    delete_empty_dirs(old_filename)
 
 
 if IS_WINDOWS:
@@ -231,20 +266,23 @@ if IS_WINDOWS:
 else:
     class Watcher(pyinotify.ProcessEvent):
         def process_IN_CLOSE_WRITE(self, event):
-            self.process_event(event, update)
+            self.process_event(event.pathname, update)
 
         def process_IN_DELETE(self, event):
-            self.process_event(event, delete)
+            self.process_event(event.pathname, delete)
 
-        def process_event(self, event, callback):
-            abs_path = path(event.pathname)
+        def process_IN_MOVED_TO(self, event):
+            self.process_event(event.src_pathname, move, event.pathname)
+
+        def process_event(self, abs_path, callback, *args):
+            abs_path = path(abs_path)
 
             if abs_path.ext == TMP_EXT:
                 return
 
             filename = root.relpathto(abs_path)
             metadata = plug.get_metadata(filename)
-            callback(metadata, abs_path)
+            callback(metadata, abs_path, *args)
 
     def watch_changes():
         manager = pyinotify.WatchManager()
@@ -253,7 +291,8 @@ else:
         notifier.start()
 
         mask = (pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE |
-                pyinotify.IN_DELETE)
+                pyinotify.IN_DELETE | pyinotify.IN_MOVED_TO |
+                pyinotify.IN_MOVED_FROM)
         manager.add_watch(root, mask, rec=True, auto_add=True)
 
 

@@ -48,5 +48,8 @@ class Driver(TestDriver):
     def unlink(self, filename):
         return os.unlink(self.root / filename)
 
+    def rename(self, source, target):
+        return os.rename(self.root / source, self.root / target)
+
     def checksum(self, filename):
         return files.checksum(self.root / filename)
