@@ -4,7 +4,7 @@ from threading import Event
 
 import zmq
 
-from onitu.referee import UP, DEL
+from onitu.referee import UP, DEL, MOV
 
 from .metadata import Metadata
 from .exceptions import AbortOperation
@@ -181,6 +181,16 @@ class DeletionWorker(Worker):
     def do(self):
         self.logger.debug("Deleting '{}'", self.filename)
 
+        self.update_metadata()
+
+        try:
+            self.call('delete_file', self.metadata)
+        except AbortOperation:
+            pass
+
+        self.logger.info("'{}' deleted", self.filename)
+
+    def update_metadata(self):
         self.metadata.owners = [e for e in self.metadata.owners
                                 if e != self.dealer.name]
         self.metadata.write()
@@ -194,15 +204,45 @@ class DeletionWorker(Worker):
         if not self.metadata.owners:
             self.escalator.delete('file:{}'.format(self.fid))
 
+
+class MoveWorker(DeletionWorker):
+    def __init__(self, dealer, fid, new_fid):
+        super(MoveWorker, self).__init__(dealer, fid)
+
+        self.new_fid = new_fid
+
+    def do(self):
+        new_metadata = Metadata.get_by_id(self.dealer.plug, self.new_fid)
+        new_filename = new_metadata.filename
+
+        self.logger.debug("Moving '{}' to '{}'", self.filename, new_filename)
+
         try:
-            self.call('delete_file', self.metadata)
+            if 'move_file' in self.dealer.plug._handlers:
+                self.call('move_file', self.metadata, new_metadata)
+                self.update_metadata()
+            else:
+                # If the driver don't have a handler for moving a file,
+                # we try to simulate it with a move and a deletion.
+                # We use the same entry for getting and uploading the
+                # file, eventhouht it can be an issue as we need twice
+                # the size of the file available.
+                # If another entry has the file, maybe the Referee could
+                # select a potential sender.
+                transfer = TransferWorker(
+                    self.dealer, self.new_fid, self.dealer.name
+                )
+                transfer()
+                self.call('delete_file', self.metadata)
+
         except AbortOperation:
             pass
 
-        self.logger.info("'{}' deleted", self.filename)
+        self.logger.info("'{}' moved to '{}'", self.filename, new_filename)
 
 
 WORKERS = {
     UP: TransferWorker,
     DEL: DeletionWorker,
+    MOV: MoveWorker,
 }
