@@ -272,7 +272,12 @@ else:
             self.process_event(event.pathname, delete)
 
         def process_IN_MOVED_TO(self, event):
-            self.process_event(event.src_pathname, move, event.pathname)
+            if event.dir:
+                for new in path(event.pathname).walkfiles():
+                    old = new.replace(event.pathname, event.src_pathname)
+                    self.process_event(old, move, new)
+            else:
+                self.process_event(event.src_pathname, move, event.pathname)
 
         def process_event(self, abs_path, callback, *args):
             abs_path = path(abs_path)

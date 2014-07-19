@@ -1,5 +1,3 @@
-import pytest
-
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
@@ -95,7 +93,6 @@ def test_move_in_subdirs():
     assert rep2.exists('test/to/other/dir/bar')
 
 
-@pytest.mark.xfail
 def test_move_dir_from_rep1():
     rep1.mkdir('dir')
     copy_file('dir/foo', 100)
