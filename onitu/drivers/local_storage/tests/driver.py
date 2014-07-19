@@ -1,4 +1,5 @@
 import os
+import shutil
 
 from path import path
 
@@ -35,6 +36,9 @@ class Driver(TestDriver):
         import time
         time.sleep(0.1)
 
+    def rmdir(self, path):
+        shutil.rmtree(self.root / path)
+
     def write(self, filename, content):
         with open(self.root / filename, 'w+') as f:
             f.write(content)
@@ -47,6 +51,9 @@ class Driver(TestDriver):
 
     def unlink(self, filename):
         return os.unlink(self.root / filename)
+
+    def rename(self, source, target):
+        return os.rename(self.root / source, self.root / target)
 
     def checksum(self, filename):
         return files.checksum(self.root / filename)

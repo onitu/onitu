@@ -45,5 +45,17 @@ logs = {
             "{driver} - Dealer",
             "'{filename}' deleted"
         ),
-    )
+    ),
+    'file_moved': (
+        (
+            "Referee",
+            "Moving of '{src}' to '{dest}' from {driver}"
+        ),
+    ),
+    'move_completed': (
+        (
+            "{driver} - Dealer",
+            "'{src}' moved to '{dest}'"
+        ),
+    ),
 }

@@ -76,13 +76,34 @@ class Metadata(object):
 
         return metadata
 
+    def dict(self):
+        """Return the metadata as a dict"""
+        return dict((p, self.__getattribute__(p)) for p in self.PROPERTIES)
+
     def write(self):
         """Write the metadata of the current file in the database."""
-
-        values = dict((p, self.__getattribute__(p)) for p in self.PROPERTIES)
-
         with self.plug.escalator.write_batch() as batch:
-            batch.put('file:{}'.format(self.fid), values)
+            batch.put('file:{}'.format(self.fid), self.dict())
             batch.put(
                 'file:{}:entry:{}'.format(self.fid, self.plug.name), self.extra
             )
+
+    def clone(self, new_filename):
+        """
+        Return a new Metadata object with the same properties than the current,
+        but with a new filename. The object is not saved in the database, but
+        the entry's extras are copied and saved.
+        """
+        values = self.dict()
+        values['filename'] = new_filename
+
+        clone = self.__class__(self.plug, **values)
+
+        extras = self.plug.escalator.range('file:{}:entry:'.format(self.fid))
+
+        with self.plug.escalator.write_batch() as batch:
+            for key, extra in extras:
+                entry = key.split(':')[-1]
+                batch.put('file:{}:entry:{}'.format(clone.fid, entry), extra)
+
+        return clone

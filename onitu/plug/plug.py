@@ -15,7 +15,7 @@ from .exceptions import DriverError, AbortOperation
 
 from onitu.escalator.client import Escalator
 from onitu.utils import get_events_uri
-from onitu.referee import UP, DEL
+from onitu.referee import UP, DEL, MOV
 
 
 class Plug(object):
@@ -142,18 +142,21 @@ class Plug(object):
         self.logger.debug(
             "Notifying the Referee about '{}'", metadata.filename
         )
-        self.escalator.put('referee:event:{}'.format(fid), (UP, self.name))
-
-        with self.publisher_lock:
-            self.publisher.send(b'')
+        self.notify_referee(fid, UP, self.name)
 
     def delete_file(self, metadata):
-        self.escalator.put(
-            'referee:event:{}'.format(metadata.fid), (DEL, self.name)
-        )
+        self.notify_referee(metadata.fid, DEL, self.name)
 
-        with self.publisher_lock:
-            self.publisher.send(b'')
+    def move_file(self, metadata, new_filename):
+        new_metadata = metadata.clone(new_filename)
+        new_fid = new_metadata.fid
+
+        if self.name not in new_metadata.owners:
+            new_metadata.owners += (self.name,)
+        new_metadata.uptodate = (self.name,)
+        new_metadata.write()
+
+        self.notify_referee(metadata.fid, MOV, self.name, new_fid)
 
     def get_metadata(self, filename):
         """
@@ -263,6 +266,14 @@ class Plug(object):
                 handler_name, e
             )
             raise AbortOperation()
+
+    def notify_referee(self, fid, *args):
+        self.escalator.put(
+            'referee:event:{}'.format(fid), args
+        )
+
+        with self.publisher_lock:
+            self.publisher.send(b'')
 
     def close(self):
         if self.publisher:

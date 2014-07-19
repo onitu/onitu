@@ -69,4 +69,27 @@ def test_deletion_from_rep2():
     )
     rep2.unlink('to_delete')
     loop.run(timeout=5)
-    assert not rep2.exists('to_delete')
+    assert not rep1.exists('to_delete')
+
+
+def test_delete_dir():
+    rep1.mkdir('dir')
+    copy_file('dir/foo', 100)
+    copy_file('dir/bar', 100)
+    loop = CounterLoop(4)
+    launcher.on_file_deleted(
+        loop.check, driver='rep1', filename='dir/foo'
+    )
+    launcher.on_file_deleted(
+        loop.check, driver='rep1', filename='dir/bar'
+    )
+    launcher.on_deletion_completed(
+        loop.check, driver='rep2', filename='dir/foo'
+    )
+    launcher.on_deletion_completed(
+        loop.check, driver='rep2', filename='dir/bar'
+    )
+    rep1.rmdir('dir')
+    loop.run(timeout=5)
+    assert not rep2.exists('dir/foo')
+    assert not rep2.exists('dir/bar')
