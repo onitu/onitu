@@ -1,3 +1,5 @@
+import pytest
+
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
@@ -74,7 +76,7 @@ def test_move_from_rep2():
     assert rep1.exists('moved')
 
 
-def test_move_with_dirs():
+def test_move_in_subdirs():
     rep1.mkdir('test/with/subdirs/')
     copy_file('test/with/subdirs/foo', 100)
     loop = CounterLoop(2)
@@ -91,3 +93,29 @@ def test_move_with_dirs():
     loop.run(timeout=5)
     assert not rep2.exists('test/with/subdirs/foo')
     assert rep2.exists('test/to/other/dir/bar')
+
+
+@pytest.mark.xfail
+def test_move_dir_from_rep1():
+    rep1.mkdir('dir')
+    copy_file('dir/foo', 100)
+    copy_file('dir/bar', 100)
+    loop = CounterLoop(4)
+    launcher.on_file_moved(
+        loop.check, driver='rep1', src='dir/foo', dest='other/foo'
+    )
+    launcher.on_file_moved(
+        loop.check, driver='rep1', src='dir/bar', dest='other/bar'
+    )
+    launcher.on_move_completed(
+        loop.check, driver='rep2', src='dir/foo', dest='other/foo'
+    )
+    launcher.on_move_completed(
+        loop.check, driver='rep2', src='dir/bar', dest='other/bar'
+    )
+    rep1.rename('dir', 'other')
+    loop.run(timeout=5)
+    assert not rep2.exists('dir/foo')
+    assert not rep2.exists('dir/bar')
+    assert rep2.exists('other/foo')
+    assert rep2.exists('other/bar')
