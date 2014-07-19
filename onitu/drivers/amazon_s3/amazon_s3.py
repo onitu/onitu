@@ -11,7 +11,7 @@ elif sys.version_info.major == 3:
     from io import BytesIO as IOStream
 
 import requests
-from . import tinys3
+import tinys3
 
 from onitu.plug import Plug, DriverError, ServiceError
 
@@ -289,8 +289,12 @@ def abort_upload(metadata):
 
 @plug.handler()
 def delete_file(metadata):
+    global plug
     try:
         filename = root_prefixed_filename(metadata.filename)
+        plug.logger.debug("Deleting {}"
+                          "on bucket {}".format(filename,
+                                                plug.options['bucket']))
         S3Conn.delete(filename)
     except requests.HTTPError as httpe:
         raise ServiceError(

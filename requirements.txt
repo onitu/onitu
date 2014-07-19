@@ -6,3 +6,4 @@ path.py
 plyvel
 msgpack-python
 bottle
+git+git://github.com/Scylardor/tinys3#egg=tinys3

@@ -10,12 +10,12 @@ elif sys.version_info.major == 3:
 
 import requests
 
-from onitu.drivers.amazon_s3 import tinys3
-
+import tinys3
 from tests.utils.testdriver import TestDriver
 
 
 class Driver(TestDriver):
+
     def __init__(self, *args, **options):
         if "root" not in options:
             options['root'] = ''
