@@ -1,4 +1,5 @@
 import os
+import shutil
 
 from path import path
 
@@ -34,6 +35,9 @@ class Driver(TestDriver):
         # cf http://stackoverflow.com/a/17586891/180751
         import time
         time.sleep(0.1)
+
+    def rmdir(self, path):
+        shutil.rmtree(self.root / path)
 
     def write(self, filename, content):
         with open(self.root / filename, 'w+') as f:
