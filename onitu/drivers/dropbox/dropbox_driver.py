@@ -1,12 +1,11 @@
 import os
 import sys
 import threading
-import StringIO
+from StringIO import StringIO
 import time
 
 import dropbox
-import requests
-from dropbox import rest
+from dropbox.session import DropboxSession
 from dropbox.client import DropboxClient
 
 from onitu.plug import Plug
@@ -174,20 +173,24 @@ def connect_client():
     """Helper function to connect to Dropbox via the API, using access token
     keys to authenticate Onitu."""
     global dropbox_client
-    sess = dropbox.session.DropboxSession(ONITU_APP_KEY,
-                                          ONITU_APP_SECRET,
-                                          ACCESS_TYPE)
+    global plug
+    plug.logger.debug("Attempting Dropbox connection using Onitu credentials")
+    sess = DropboxSession(ONITU_APP_KEY,
+                          ONITU_APP_SECRET,
+                          ONITU_ACCESS_TYPE)
     # Use the OAuth access token previously retrieved by the user and typed
     # into Onitu configuration.
-    sess.set_token(plug.options['key'], plug.options['secret'])
+    sess.set_token(plug.options['access_key'], plug.options['access_secret'])
     dropbox_client = DropboxClient(sess)
+    plug.logger.debug("Dropbox connection with Onitu credentials successful")
     return dropbox_client
 
 
 @plug.handler()
 def get_chunk(metadata, offset, size):
     global dropbox_client
-    filename = metadata.filename
+    global plug
+    filename = root_prefixed_filename(metadata.filename)
     if not filename.startswith("/files/dropbox/"):
         filename = "/files/dropbox/" + filename
     # content_server = True is required to let us access to file contents,
@@ -197,38 +200,70 @@ def get_chunk(metadata, offset, size):
                                                   content_server=True)
     # Using the 'Range' HTTP Header for offseting.
     headers['Range'] = "bytes={}-{}".format(offset, offset+(size-1))
+    plug.logger.debug("Getting chunk of size {} from file {}"
+                      " from offset {} to {}".format(
+            size, filename, offset, offset+(size-1)
+            ))
     chunk = dropbox_client.rest_client.request("GET",
                                                url,
                                                headers=headers,
                                                raw_response=True)
+    plug.logger.debug("Getting chunk of size {} from file {}"
+                      " from offset {} to {} - Done".format(
+            size, filename, offset, offset+(size-1)
+            ))
     return chunk.read()
 
+
+def root_prefixed_filename(filename):
+    global plug
+    name = plug.options['root']
+    if not name.endswith('/'):
+        name += '/'
+    name += filename
+    return name
 
 
 @plug.handler()
 def upload_chunk(metadata, offset, chunk):
     global dropbox_client
+    filename = root_prefixed_filename(metadata.filename)
     buff = StringIO(chunk)
-    # Get the upload id used for this file. In case we don't have it since it's
+    # Get the upload id of this file. If we don't have it, e.g. since it's
     # the first chunk of this upload, the `get` method permits not to raise a
     # KeyError.
     up_id = metadata.extra.get('upload_id', None)
-    up_id = dropbox_client.upload_chunk(buff, len(chunk), offset, upload_id=up_id)
-    # First chunk : Store the upload id of this chunked upload.
-    if metadata.extra.get('upload_id', None) is None:
-        metadata.extra['upload_id'] = up_id
-        metadata.write()
+    plug.logger.debug("Uploading chunk of size {}"
+                      " to file {} at offset {} - Upload ID: {}".format(
+            len(chunk), filename, offset, up_id
+            ))
+    # upload_chunk returns a tuple containing the offset and the upload ID of
+    # this upload. The offset isn't very useful
+    (_, up_id) = dropbox_client.upload_chunk(file_obj=buff,
+                                             length=len(chunk),
+                                             offset=offset,
+                                             upload_id=up_id)
+    plug.logger.debug("Uploading chunk of size {}"
+                      " to file {} at offset {} - Done".format(
+            len(chunk), filename, offset
+            ))
+    plug.logger.debug("Storing upload ID {} in metadata".format(up_id))
+    metadata.extra['upload_id'] = up_id
+    metadata.write()
 
 
 @plug.handler()
 def end_upload(metadata):
     global dropbox_client
 
-    filename = metadata.filename
+    filename = root_prefixed_filename(metadata.filename)
+    # Note the difference between dropbox_client (the global variable), and
+    # dropbox.client, the access to the dropbox.client submodule
     path = "/commit_chunked_upload/{}/{}".format(
         dropbox_client.session.root,
-        dropbox_client.format_path(filename)
+        dropbox.client.format_path(filename)
         )
+    plug.logger.debug("Ending upload using path {}".format(path))
     up_id = metadata.extra.get('upload_id', None)
     # At this point we should have the upload ID no matter what
     if up_id is None:
@@ -237,13 +272,16 @@ def end_upload(metadata):
         overwrite = True,
         upload_id = up_id
         )
-    url, params, headers = self.client.request(path,
+    url, params, headers = dropbox_client.request(path,
                                                params,
                                                content_server=True)
     dropbox_client.rest_client.POST(url, params, headers)
+    plug.logger.debug("Ending upload using path {} - Done".format(path))
+    plug.logger.debug("Removing upload ID '{}' from metadata".format(up_id))
+    metadata.extra['upload_id'] = None
+    metadata.write()
 
 
 def start(*args, **kwargs):
     client = connect_client()
-#    drop.change_watcher()
     plug.listen()

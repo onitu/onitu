@@ -1,0 +1,8 @@
+Getting started with the Dropbox driver
+=======================================
+
+Run the get_access_token.py script in order to let Onitu gain access to your
+Dropbox account.
+
+Retrieve the access key and secret provided by the script and put it in
+Onitu's setup.json for Onitu to use it to authenticate itself with the Dropbox Core API.

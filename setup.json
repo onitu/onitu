@@ -14,12 +14,12 @@
         "root": "example/driver_b"
       }
     },
-    "C": {
+    "dropbox": {
       "driver": "dropbox",
       "options": {
-	"token_file": "token_file",
-	"key": "38jd72msqedx5n9",
-	"secret": "g4favy0bgjstt2w"
+        "root": "/onitu/",
+        "access_key": "hpcb300001vu0v6e",
+        "access_secret": "2os7zx0zj8vv7bm"
       }
     }
   },
@@ -27,11 +27,15 @@
   "rules": [
     {
       "match": {"path": "/"},
-      "sync": ["C"]
+      "sync": ["A"]
     },
     {
       "match": {"path": "/backedup/", "mime": ["application/pdf"]},
       "sync": ["B"]
+    },
+    {
+      "match": {"path": "/dropbox/"},
+      "sync": ["dropbox"]
     }
   ]
 
