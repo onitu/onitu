@@ -157,3 +157,211 @@ Entries
         "root": "example/A"
       }
     }
+
+.. http:get:: /entries/(name)/stats
+
+  Return the stats of a given entry (age, cpu, memory, status, name).
+
+  **Example request**:
+
+  .. sourcecode:: http
+
+    GET /api/v1/entries/A/stats HTTP/1.1
+    Host: 127.0.0.1
+    Accept: application/json
+
+  **Example response**:
+
+  .. sourcecode:: http
+
+    HTTP/1.1 200 OK
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "id": "63e6871d460647e8ace77419da7ab8fe",
+      "info": {
+        "3203": {
+          "age": 93.51760005950928,
+          "cpu": 0.2,
+          "create_time": 1405773648.99,
+          "ctime": "0:00.46",
+          "mem": 1.8,
+          "mem_info1": "18M",
+          "mem_info2": "707M",
+          "started": 1405773649.262883,
+        }
+      },
+      "name": "a",
+      "status": "ok",
+      "time": 1405773742.817528
+    }
+
+.. http:get:: /entries/(name)/stop
+
+  Stop a given entry.
+
+  **Example request**:
+
+  .. sourcecode:: http
+
+    GET /api/v1/entries/A/stop HTTP/1.1
+    Host: 127.0.0.1
+    Accept: application/json
+
+  **Example response**:
+
+  .. sourcecode:: http
+
+    HTTP/1.1 200 OK
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "status": "ok"
+    }
+
+.. http:get:: /entries/(name)/start
+
+  Start a given entry.
+
+  **Example request**:
+
+  .. sourcecode:: http
+
+    GET /api/v1/entries/A/start HTTP/1.1
+    Host: 127.0.0.1
+    Accept: application/json
+
+  **Example response**:
+
+  .. sourcecode:: http
+
+    HTTP/1.1 200 OK
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "status": "ok"
+    }
+
+.. http:get:: /entries/(name)/restart
+
+  Stop and start a given entry.
+
+  **Example request**:
+
+  .. sourcecode:: http
+
+    GET /api/v1/entries/A/restart HTTP/1.1
+    Host: 127.0.0.1
+    Accept: application/json
+
+  **Example response**:
+
+  .. sourcecode:: http
+
+    HTTP/1.1 200 OK
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "status": "ok"
+    }
+
+Rules
+-----
+
+.. http:get:: /rules
+
+  Get the rules
+
+  **Example request**:
+
+  .. sourcecode:: http
+
+    GET /api/v1/rules HTTP/1.1
+    Host: 127.0.0.1
+    Accept: application/json
+
+  **Example response**:
+
+  .. sourcecode:: http
+
+    HTTP/1.1 200 OK
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "rules": [
+        {
+          "match": {"path": "/"},
+          "sync": ["A"]
+        },
+        {
+          "match": {"path": "/backedup/", "mime": ["application/pdf"]},
+          "sync": ["B"]
+        }
+      ]
+    }
+
+.. http:put:: /rules
+
+  Update the rules
+
+  **Example request**:
+
+  .. sourcecode:: http
+
+    PUT /api/v1/rules HTTP/1.1
+    Host: 127.0.0.1
+    Accept: application/json
+
+    {
+      "rules": [
+        {
+          "match": {"path": "/"},
+          "sync": ["A"]
+        },
+        {
+          "match": {"path": "/backedup/", "mime": ["application/pdf"]},
+          "sync": ["B"]
+        }
+      ]
+    }
+
+  **Example response**:
+
+  .. sourcecode:: http
+
+    HTTP/1.1 200 OK
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "status": "ok"
+    }
+
+.. http:get:: /rules/reload
+
+  Apply the rules (if they changed since the last time)
+
+  **Example request**:
+
+  .. sourcecode:: http
+
+    GET /api/v1/rules/reload HTTP/1.1
+    Host: 127.0.0.1
+    Accept: application/json
+
+  **Example response**:
+
+  .. sourcecode:: http
+
+    HTTP/1.1 200 OK
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "status": "ok"
+    }
