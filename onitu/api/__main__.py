@@ -118,7 +118,7 @@ def get_entry_status(name):
     return status
 
 
-@app.route('/api/v1.0/entries/<name>/start', method='GET')
+@app.route('/api/v1.0/entries/<name>/start', method='PUT')
 def start_entry(name):
     name = name.upper()
     if entry_exist(name):
@@ -138,7 +138,7 @@ def start_entry(name):
     return response
 
 
-@app.route('/api/v1.0/entries/<name>/stop', method='GET')
+@app.route('/api/v1.0/entries/<name>/stop', method='PUT')
 def stop_entry(name):
     name = name.upper()
     if entry_exist(name):
@@ -158,7 +158,7 @@ def stop_entry(name):
     return response
 
 
-@app.route('/api/v1.0/entries/<name>/restart', method='GET')
+@app.route('/api/v1.0/entries/<name>/restart', method='PUT')
 def restart_entry(name):
     name = name.upper()
     if entry_exist(name):
