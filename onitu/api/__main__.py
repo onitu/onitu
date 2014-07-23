@@ -3,6 +3,7 @@ import sys
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
 from bottle import Bottle, run, response, abort
+from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
 from onitu.plug.metadata import Metadata
@@ -12,6 +13,7 @@ port = 3862
 
 app = Bottle()
 
+circus_client = CircusClient()
 escalator = Escalator(sys.argv[2], sys.argv[3])
 logger = Logger("REST API")
 
@@ -45,6 +47,11 @@ def entry(name):
     return {'name': name, 'driver': driver, 'options': options}
 
 
+def entry_exist(name):
+    names = [entry.upper() for entry in escalator.get('entries')]
+    return name in names
+
+
 @app.route('/api/v1.0/files', method='GET')
 def get_files():
     files = [metadatas(fid) for fid in escalator.get('files')]
@@ -71,6 +78,104 @@ def get_entry(name):
     if not e:
         abort(404)
     return e
+
+
+@app.route('/api/v1.0/entries/<name>/stats', method='GET')
+def get_entry_stats(name):
+    name = name.upper()
+    if entry_exist(name):
+        query = {
+            "command": "stats",
+            "properties": {
+                "name": name
+            }
+        }
+        stats = circus_client.call(query)
+    else:
+        stats = {
+            "stats": "error",
+            "reason": "entry {} not found".format(name)
+        }
+    return stats
+
+
+@app.route('/api/v1.0/entries/<name>/status', method='GET')
+def get_entry_status(name):
+    name = name.upper()
+    if entry_exist(name):
+        query = {
+            "command": "status",
+            "properties": {
+                "name": name
+            }
+        }
+        status = circus_client.call(query)
+    else:
+        status = {
+            "status": "error",
+            "reason": "entry {} not found".format(name)
+        }
+    return status
+
+
+@app.route('/api/v1.0/entries/<name>/start', method='GET')
+def start_entry(name):
+    name = name.upper()
+    if entry_exist(name):
+        query = {
+            "command": "start",
+            "properties": {
+                "name": name,
+                "waiting": True
+            }
+        }
+        response = circus_client.call(query)
+    else:
+        response = {
+            "status": "error",
+            "reason": "entry {} not found".format(name)
+        }
+    return response
+
+
+@app.route('/api/v1.0/entries/<name>/stop', method='GET')
+def stop_entry(name):
+    name = name.upper()
+    if entry_exist(name):
+        query = {
+            "command": "stop",
+            "properties": {
+                "name": name,
+                "waiting": True
+            }
+        }
+        response = circus_client.call(query)
+    else:
+        response = {
+            "status": "error",
+            "reason": "entry {} not found".format(name)
+        }
+    return response
+
+
+@app.route('/api/v1.0/entries/<name>/restart', method='GET')
+def restart_entry(name):
+    name = name.upper()
+    if entry_exist(name):
+        query = {
+            "command": "restart",
+            "properties": {
+                "name": name,
+                "waiting": True
+            }
+        }
+        response = circus_client.call(query)
+    else:
+        response = {
+            "status": "error",
+            "reason": "entry {} not found".format(name)
+        }
+    return response
 
 
 if __name__ == '__main__':
