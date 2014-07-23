@@ -40,7 +40,7 @@
       "sync": ["s3"]
     },
     {
-      "match": {"path": "/onitu/a/"},
+      "match": {"path": "/a/"},
       "sync": ["A"]
     }
   ]
