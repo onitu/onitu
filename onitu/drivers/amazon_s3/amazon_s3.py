@@ -340,7 +340,13 @@ class CheckChanges(threading.Thread):
                     break
             if is_being_uploaded:
                 continue  # Skip this file
-            metadata = plug.get_metadata(key.key)
+            # Strip the S3 root in the S3 filename for root coherence.
+            rootless_key = key.key[len(root):]
+            # # If the config root doesn't contain the trailing slash, we have to
+            # # strip it individually
+            if not root.endswith('/'):
+                rootless_key = rootless_key[1:]
+            metadata = plug.get_metadata(rootless_key)
             onitu_ts = metadata.extra.get('timestamp', 0.0)
             remote_ts = time.mktime(
                 time.strptime(key.lastmodified, TIMESTAMP_FMT))
