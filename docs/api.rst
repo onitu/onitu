@@ -197,7 +197,7 @@ Entries
       "time": 1405773742.817528
     }
 
-.. http:get:: /entries/(name)/stop
+.. http:put:: /entries/(name)/stop
 
   Stop a given entry.
 
@@ -205,7 +205,7 @@ Entries
 
   .. sourcecode:: http
 
-    GET /api/v1/entries/A/stop HTTP/1.1
+    PUT /api/v1/entries/A/stop HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -221,7 +221,7 @@ Entries
       "status": "ok"
     }
 
-.. http:get:: /entries/(name)/start
+.. http:put:: /entries/(name)/start
 
   Start a given entry.
 
@@ -229,7 +229,7 @@ Entries
 
   .. sourcecode:: http
 
-    GET /api/v1/entries/A/start HTTP/1.1
+    PUT /api/v1/entries/A/start HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -245,7 +245,7 @@ Entries
       "status": "ok"
     }
 
-.. http:get:: /entries/(name)/restart
+.. http:put:: /entries/(name)/restart
 
   Stop and start a given entry.
 
@@ -253,7 +253,7 @@ Entries
 
   .. sourcecode:: http
 
-    GET /api/v1/entries/A/restart HTTP/1.1
+    PUT /api/v1/entries/A/restart HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -342,7 +342,7 @@ Rules
       "status": "ok"
     }
 
-.. http:get:: /rules/reload
+.. http:put:: /rules/reload
 
   Apply the rules (if they changed since the last time)
 
@@ -350,7 +350,7 @@ Rules
 
   .. sourcecode:: http
 
-    GET /api/v1/rules/reload HTTP/1.1
+    PUT /api/v1/rules/reload HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
