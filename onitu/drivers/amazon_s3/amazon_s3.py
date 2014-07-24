@@ -19,8 +19,11 @@ plug = Plug()
 
 # Amazon S3 related global variables
 S3Conn = None
-# to deal with timestamp changes
+# To deal with timestamp changes
 TIMESTAMP_FMT = '%Y-%m-%dT%H:%M:%S.000Z'
+# When using HEAD requests on objects, the timestamp format changes
+# it is like e.g. 'Sat, 03 May 2014 04:36:11 GMT'
+HEAD_TIMESTAMP_FMT = '%a, %d %b %Y %H:%M:%S GMT'
 # "Each part must be at least 5 MB in size, except the last part."
 # http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html
 S3_MINIMUM_CHUNK_SIZE = 5 << 20
@@ -288,8 +291,41 @@ def abort_upload(metadata):
 
 
 @plug.handler()
+def move_file(old_metadata, new_metadata):
+    global plug
+    global S3Conn
+    old_filename = root_prefixed_filename(old_metadata.filename)
+    new_filename = root_prefixed_filename(new_metadata.filename)
+    bucket = plug.options['bucket']
+    plug.logger.debug("Moving file '{}' to '{}' on bucket '{}'"
+                      .format(old_filename, new_filename, bucket))
+    try:
+        plug.logger.debug("Copying file '{}' to '{}' on bucket '{}'..."
+                          .format(old_filename, new_filename, bucket))
+        S3Conn.copy(old_filename, bucket, new_filename, bucket)
+        plug.logger.debug("Copying file '{}' to '{}' on bucket '{}'..."
+                          " - Done".format(old_filename, new_filename, bucket))
+        plug.logger.debug("Deleting file '{}' on bucket '{}'..."
+                          .format(old_filename, bucket))
+        S3Conn.delete(old_filename)
+        plug.logger.debug("Deleting file '{}' on bucket '{}'..."
+                          " - Done".format(old_filename, bucket))
+        # Update timestamp of new object
+        # This permits to not detect a new update in the check changes thread
+        # and thus avoids an useless transfer the other way around
+        plug.logger.debug("Updating timestamp of {}".format(new_filename))
+        timestamp = get_file_timestamp(new_filename)
+        new_metadata.extra['timestamp'] = timestamp
+        new_metadata.write()
+    except requests.HTTPError as httpe:
+        raise ServiceError("Network problem while moving file - {}"
+                           .format(httpe))
+
+
+@plug.handler()
 def delete_file(metadata):
     global plug
+    global S3Conn
     try:
         filename = root_prefixed_filename(metadata.filename)
         plug.logger.debug("Deleting {}"
@@ -342,8 +378,8 @@ class CheckChanges(threading.Thread):
                 continue  # Skip this file
             # Strip the S3 root in the S3 filename for root coherence.
             rootless_key = key.key[len(root):]
-            # # If the config root doesn't contain the trailing slash, we have to
-            # # strip it individually
+            # If the config root doesn't contain the trailing slash, we have to
+            # strip it individually
             if not root.endswith('/'):
                 rootless_key = rootless_key[1:]
             metadata = plug.get_metadata(rootless_key)

@@ -27,7 +27,7 @@
       "name": "Changes timer",
       "description": "The frequency to check changes on the S3 bucket (in seconds).",
       "type": "integer",
-      "default": 1
+      "default": 10
     }
   }
 }
