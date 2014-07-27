@@ -6,6 +6,7 @@ from tests.utils.testdriver import TestDriver
 from tests.utils.tempdirs import dirs
 from onitu.drivers.dropbox.dropboxDriver import dropboxDriver
 
+
 class Driver(TestDriver):
     def __init__(self, *args, **options):
         if 'root' not in options:

@@ -22,7 +22,7 @@
       "name": "Changes timer",
       "description": "The frequency to check changes on the Dropbox account (in seconds).",
       "type": "integer",
-      "default": 10
+      "default": 300
     }
   }
 }
