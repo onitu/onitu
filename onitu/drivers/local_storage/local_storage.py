@@ -39,7 +39,7 @@ def update(metadata, abs_path, mtime=None):
 def delete(metadata, _):
     if plug.name not in metadata.owners:
         return
-
+    plug.logger.debug("test1")
     plug.delete_file(metadata)
 
 
@@ -242,21 +242,23 @@ if IS_WINDOWS:
                 win32con.FILE_NOTIFY_CHANGE_SECURITY,
                 None
             )
-
             for action, file_ in results:
                 abs_path = root / file_
-
                 if (abs_path.isdir() or abs_path.ext == TMP_EXT or
-                    not (win32api.GetFileAttributes(abs_path)
-                         & win32con.FILE_ATTRIBUTE_NORMAL)):
+                    os.path.exists(abs_path) and (not (win32api.GetFileAttributes(abs_path)
+                         & win32con.FILE_ATTRIBUTE_NORMAL) and not (win32api.GetFileAttributes(abs_path)
+                         & win32con.FILE_ATTRIBUTE_ARCHIVE))):
                     return
-
                 with file_lock:
                     if actions_names.get(action) == 'write':
                         filename = root.relpathto(abs_path)
                         metadata = plug.get_metadata(filename)
                         update(metadata, abs_path)
-
+                    elif actions_names.get(action) == 'delete':
+                        filename = root.relpathto(abs_path)
+                        metadata = plug.get_metadata(filename)
+                        delete(metadata, abs_path)
+                        plug.logger.debug("test")
     def watch_changes():
         file_lock = threading.Lock()
         notifier = threading.Thread(target=win32watcherThread,
