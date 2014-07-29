@@ -1,3 +1,4 @@
+import urllib3
 import threading
 from StringIO import StringIO
 
@@ -98,15 +99,14 @@ def upload_chunk(metadata, offset, chunk):
 @plug.handler()
 def end_upload(metadata):
     global dropbox_client
-
     filename = root_prefixed_filename(metadata.filename)
+    plug.logger.debug("Ending upload of '{}'".format(filename))
     # Note the difference between dropbox_client (the global variable), and
     # dropbox.client, the access to the dropbox.client submodule
     path = "/commit_chunked_upload/{}/{}".format(
         dropbox_client.session.root,
         dropbox.client.format_path(filename)
         )
-    plug.logger.debug("Ending upload using path {}".format(path))
     up_id = metadata.extra.get('upload_id', None)
     # At this point we should have the upload ID no matter what
     if up_id is None:
@@ -115,11 +115,14 @@ def end_upload(metadata):
     url, params, headers = dropbox_client.request(path,
                                                   params,
                                                   content_server=True)
-    dropbox_client.rest_client.POST(url, params, headers)
-    plug.logger.debug("Ending upload using path {} - Done".format(path))
+    resp = dropbox_client.rest_client.POST(url, params, headers)
     plug.logger.debug("Removing upload ID '{}' from metadata".format(up_id))
-    metadata.extra['upload_id'] = None
+    del metadata.extra['upload_id']
+    plug.logger.debug("Storing revision {} for '{}'"
+                      .format(resp['revision'], filename))
+    metadata.extra['revision'] = resp['revision']
     metadata.write()
+    plug.logger.debug("Ending upload of '{}' - Done".format(filename))
 
 
 class CheckChanges(threading.Thread):
@@ -146,8 +149,10 @@ timestamps."""
         global plug
         plug.logger.debug("Checking dropbox for changes in '{}' folder"
                           .format(plug.options['root']))
-        # We're only interested in files under Onitu's root
         prefix = plug.options['root']
+        # Dropbox lists filenames with a leading slash
+        if not prefix.startswith('/'):
+            prefix = '/' + prefix
         # Dropbox doesn't support trailing slashes
         if prefix.endswith('/'):
             prefix = prefix[:-1]
@@ -156,19 +161,23 @@ timestamps."""
         self.cursor = changes['cursor']
         plug.logger.debug("Processing {} entries"
                           .format(len(changes['entries'])))
-        for (db_filename, db_metadata) in changes['entries']:
+        prefix += '/'  # put the trailing slash back
+        # Entries are a list of couples (filename, metadatas).
+        # However, the filename is case-insensitive (and thus can be
+        # not representative of the true file name), and since metadata hold
+        # a field 'path' containing the true, correct-case filename, we don't
+        # need it
+        for (_, db_metadata) in changes['entries']:
             # Strip the S3 root in the S3 filename for root coherence.
-            rootless_filename = db_filename[len(prefix):]
-            # If the config root doesn't contain the trailing slash, we have to
-            # strip it individually
-            if not prefix.endswith('/'):
-                rootless_filename = rootless_filename[1:]
+            rootless_filename = db_metadata['path'][len(prefix):]
+            # empty string = root; since Dropbox doesn't allow path prefixes to
+            # be ended by trailing slashes, we can't take it out of the delta
+            # and thus must ignore it
             if rootless_filename == '':
-                # empty string = root; don't process it
                 continue
+            plug.logger.debug("Getting metadata of file '{}'"
+                              .format(rootless_filename))
             metadata = plug.get_metadata(rootless_filename)
-            # If the Dropbox revision is superior to the Onitu stored one,
-            # there is a modification. -1 for files unknown to Onitu
             onitu_rev = metadata.extra.get('revision', -1)
             dropbox_rev = db_metadata['revision']
             if dropbox_rev > onitu_rev:  # Dropbox revision is more recent
@@ -181,7 +190,11 @@ timestamps."""
     def run(self):
         global plug
         while not self.stop.isSet():
-            self.check_dropbox()
+            try:
+                self.check_dropbox()
+            except urllib3.exceptions.MaxRetryError as mre:
+                plug.logger.error("Cannot poll changes on Dropbox - {}"
+                                  .format(mre))
             self.stop.wait(self.timer)
 
     def stop(self):
