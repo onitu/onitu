@@ -26,6 +26,7 @@ def to_tmp(filename):
 
 
 def update(metadata, abs_path, mtime=None):
+
     try:
         metadata.size = abs_path.size
         metadata.extra['revision'] = mtime if mtime else abs_path.mtime
@@ -34,6 +35,7 @@ def update(metadata, abs_path, mtime=None):
             "Error updating file '{}': {}".format(metadata.filename, e)
         )
     else:
+        plug.logger.debug("update")
         plug.update_file(metadata)
 
 
@@ -226,10 +228,12 @@ if IS_WINDOWS:
             1: 'create',
             2: 'delete',
             3: 'write',
-            4: 'delete',
-            5: 'write'
+            4: 'moveFrom',
+            5: 'moveTo'
         }
-
+        moving = False
+        old_path = None
+        old_metadata = None
         while True:
             results = win32file.ReadDirectoryChangesW(
                 dirHandle,
@@ -245,13 +249,14 @@ if IS_WINDOWS:
             )
             for action, file_ in results:
                 abs_path = root / file_
+                plug.logger.debug("line 247 enter")
                 if (abs_path.isdir() or abs_path.ext == TMP_EXT or
                     os.path.exists(abs_path) and (not (win32api.GetFileAttributes(abs_path)
                          & win32con.FILE_ATTRIBUTE_NORMAL) and not (win32api.GetFileAttributes(abs_path)
                          & win32con.FILE_ATTRIBUTE_ARCHIVE))):
                     return
                 with file_lock:
-                    if actions_names.get(action) == 'write':
+                    if actions_names.get(action) == 'write' or actions_names.get(action) == 'create':
                         filename = root.relpathto(abs_path)
                         metadata = plug.get_metadata(filename)
                         update(metadata, abs_path)
@@ -259,8 +264,14 @@ if IS_WINDOWS:
                         filename = root.relpathto(abs_path)
                         metadata = plug.get_metadata(filename)
                         delete(metadata, abs_path)
-                        plug.logger.debug("test")
-
+                    elif actions_names.get(action) == 'moveFrom':
+                        old_path = root.relpathto(abs_path)
+                        old_metadata = plug.get_metadata(old_path)
+                        moving = True
+                    elif actions_names.get(action) == 'moveTo' and moving == True:
+                        move(old_metadata, old_path, abs_path)
+                        moving = False
+ 
     def watch_changes():
         file_lock = threading.Lock()
         notifier = threading.Thread(target=win32watcherThread,
