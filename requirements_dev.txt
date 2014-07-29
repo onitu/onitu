@@ -2,3 +2,4 @@ sh
 pytest
 flake8
 codespeed-client
+requests
