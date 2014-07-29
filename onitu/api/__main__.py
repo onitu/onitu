@@ -129,16 +129,17 @@ def get_entry_stats(name):
         }
     }
     stats = circus_client.call(query)
+    pid = stats['info'].keys()[0]
     resp = {
         "info": {
-            "age": stats['info']['age'],
-            "cpu": stats['info']['cpu'],
-            "create_time": stats['info']['create_time'],
-            "ctime": stats['info']['ctime'],
-            "mem": stats['info']['mem'],
-            "mem_info1": stats['info']['mem_info1'],
-            "mem_info2": stats['info']['mem_info2'],
-            "started": stats['info']['started'],
+            "age": stats['info'][pid]['age'],
+            "cpu": stats['info'][pid]['cpu'],
+            "create_time": stats['info'][pid]['create_time'],
+            "ctime": stats['info'][pid]['ctime'],
+            "mem": stats['info'][pid]['mem'],
+            "mem_info1": stats['info'][pid]['mem_info1'],
+            "mem_info2": stats['info'][pid]['mem_info2'],
+            "started": stats['info'][pid]['started'],
         },
         "name": stats['name'],
         "status": stats['status'],

@@ -179,22 +179,94 @@ Entries
     Content-Type: application/json
 
     {
-      "id": "63e6871d460647e8ace77419da7ab8fe",
       "info": {
-        "3203": {
-          "age": 93.51760005950928,
-          "cpu": 0.2,
-          "create_time": 1405773648.99,
-          "ctime": "0:00.46",
-          "mem": 1.8,
-          "mem_info1": "18M",
-          "mem_info2": "707M",
-          "started": 1405773649.262883,
-        }
+        "age": 20.701695919036865,
+        "cpu": 0.0,
+        "create_time": 1406628957.07,
+        "ctime": "0:00.19",
+        "mem": 1.8,
+        "mem_info1": "18M",
+        "mem_info2": "707M",
+        "started": 1406628957.370584
       },
-      "name": "a",
+      "name": "A",
       "status": "ok",
-      "time": 1405773742.817528
+      "time": 1406628978.109587
+    }
+
+  **Example error**:
+
+  .. sourcecode:: http
+
+    HTTP/1.1 404 Not Found
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "reason": "entry A not found",
+      "status": "error",
+    }
+
+  .. sourcecode:: http
+
+    HTTP/1.1 409 Conflict
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "reason": "entry A is not running",
+      "status": "error",
+    }
+
+.. http:get:: /entries/(name)/status
+
+  Return the status of a given entry.
+
+  **Example request**:
+
+  .. sourcecode:: http
+
+    GET /api/v1/entries/A/status HTTP/1.1
+    Host: 127.0.0.1
+    Accept: application/json
+
+  **Example response**:
+
+  .. sourcecode:: http
+
+    HTTP/1.1 200 OK
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "name": "A",
+      "status": "active",
+      "time": 1406628978.109587
+    }
+
+  .. sourcecode:: http
+
+    HTTP/1.1 200 OK
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "name": "A",
+      "status": "stopped",
+      "time": 1406628978.109587
+    }
+
+  **Example error**:
+
+  .. sourcecode:: http
+
+    HTTP/1.1 404 Not Found
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "reason": "entry A not found",
+      "status": "error",
     }
 
 .. http:put:: /entries/(name)/stop
@@ -218,7 +290,33 @@ Entries
     Content-Type: application/json
 
     {
-      "status": "ok"
+      "name": "A",
+      "status": "ok",
+      "time": 1406629516.531318
+    }
+
+  **Example error**:
+
+  .. sourcecode:: http
+
+    HTTP/1.1 404 Not Found
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "reason": "entry A not found",
+      "status": "error",
+    }
+
+  .. sourcecode:: http
+
+    HTTP/1.1 409 Conflict
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "reason": "entry A is already stopped",
+      "status": "error",
     }
 
 .. http:put:: /entries/(name)/start
@@ -242,7 +340,33 @@ Entries
     Content-Type: application/json
 
     {
-      "status": "ok"
+      "name": "A",
+      "status": "ok",
+      "time": 1406629516.531318
+    }
+
+  **Example error**:
+
+  .. sourcecode:: http
+
+    HTTP/1.1 404 Not Found
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "reason": "entry A not found",
+      "status": "error",
+    }
+
+  .. sourcecode:: http
+
+    HTTP/1.1 409 Conflict
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "reason": "entry A is already running",
+      "status": "error",
     }
 
 .. http:put:: /entries/(name)/restart
@@ -266,7 +390,33 @@ Entries
     Content-Type: application/json
 
     {
-      "status": "ok"
+      "name": "A",
+      "status": "ok",
+      "time": 1406629516.531318
+    }
+
+  **Example error**:
+
+  .. sourcecode:: http
+
+    HTTP/1.1 404 Not Found
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "reason": "entry A not found",
+      "status": "error",
+    }
+
+  .. sourcecode:: http
+
+    HTTP/1.1 409 Conflict
+    Vary: Accept
+    Content-Type: application/json
+
+    {
+      "reason": "entry A is not running",
+      "status": "error",
     }
 
 Rules
