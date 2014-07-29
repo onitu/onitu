@@ -359,11 +359,19 @@ class CheckChanges(threading.Thread):
                           " {} for changes".format(plug.options['bucket']))
         # We're only interested in keys and uploads under Onitu's root
         root = get_root()
+        # We add a trailing slash to only list files under root and not the
+        # root itself
+        if not root.endswith('/'):
+            root += '/'
         p = {'prefix': root}
-        # Getting multipart uploads once for all files
+        # Getting multipart uploads once for all files under root
         # is WAY faster than re-getting them for each file
         multipart_uploads = S3Conn.get_all_multipart_uploads(extra_params=p)
         keys = S3Conn.list_keys(extra_params=p)
+        # We have to be extra careful because S3 will list filenames without
+        # leading slash.
+        if root.startswith('/'):
+            root = root[1:]
         for key in keys:
             # During an upload, files can appear on the S3 file system
             # before the transfer has been completed (but they shouldn't).
@@ -376,12 +384,8 @@ class CheckChanges(threading.Thread):
                     break
             if is_being_uploaded:
                 continue  # Skip this file
-            # Strip the S3 root in the S3 filename for root coherence.
+            # Strip the S3 root of the S3 filename for root coherence.
             rootless_key = key.key[len(root):]
-            # If the config root doesn't contain the trailing slash, we have to
-            # strip it individually
-            if not root.endswith('/'):
-                rootless_key = rootless_key[1:]
             metadata = plug.get_metadata(rootless_key)
             onitu_ts = metadata.extra.get('timestamp', 0.0)
             remote_ts = time.mktime(
