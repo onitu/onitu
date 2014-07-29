@@ -7,7 +7,7 @@ from dropbox.session import DropboxSession
 from dropbox.client import DropboxClient
 
 from onitu.plug import Plug
-from onitu.plug import DriverError
+from onitu.plug import DriverError, ServiceError
 
 # Onitu has a unique set of App key and secret to identify it.
 ONITU_APP_KEY = "6towoytqygvexx3"
@@ -43,27 +43,37 @@ def root_prefixed_filename(filename):
     return name
 
 
+def remove_upload_id(metadata):
+    up_id = metadata.extra.get('upload_id', None)
+    if up_id is not None:
+        plug.logger.debug("Removing upload ID {} from metadata".format(up_id))
+        del metadata.extra['upload_id']
+
+
 @plug.handler()
 def get_chunk(metadata, offset, size):
     global dropbox_client
     global plug
     filename = root_prefixed_filename(metadata.filename)
-    if not filename.startswith("/files/dropbox/"):
-        filename = "/files/dropbox/" + filename
-    # content_server = True is required to let us access to file contents,
-    # not only metadata
-    url, params, headers = dropbox_client.request(filename,
-                                                  method="GET",
-                                                  content_server=True)
-    # Using the 'Range' HTTP Header for offseting.
-    headers['Range'] = "bytes={}-{}".format(offset, offset+(size-1))
     plug.logger.debug("Getting chunk of size {} from file {}"
                       " from offset {} to {}"
                       .format(size, filename, offset, offset+(size-1)))
-    chunk = dropbox_client.rest_client.request("GET",
-                                               url,
-                                               headers=headers,
-                                               raw_response=True)
+    # content_server = True is required to let us access to file contents,
+    # not only metadata
+    try:
+        url, params, headers = dropbox_client.request("/files/dropbox/{}"
+                                                      .format(filename),
+                                                      method="GET",
+                                                      content_server=True)
+        # Using the 'Range' HTTP Header for offseting.
+        headers['Range'] = "bytes={}-{}".format(offset, offset+(size-1))
+        chunk = dropbox_client.rest_client.request("GET",
+                                                   url,
+                                                   headers=headers,
+                                                   raw_response=True)
+    except (dropbox.rest.ErrorResponse, dropbox.rest.RESTSocketError) as err:
+        raise ServiceError("Cannot get chunk of '{}' - {}"
+                           .format(filename, err))
     plug.logger.debug("Getting chunk of size {} from file {}"
                       " from offset {} to {} - Done"
                       .format(size, filename, offset, offset+(size-1)))
@@ -112,12 +122,15 @@ def end_upload(metadata):
     if up_id is None:
         raise DriverError("No upload ID for {}".format(filename))
     params = dict(overwrite=True, upload_id=up_id)
-    url, params, headers = dropbox_client.request(path,
-                                                  params,
-                                                  content_server=True)
-    resp = dropbox_client.rest_client.POST(url, params, headers)
-    plug.logger.debug("Removing upload ID '{}' from metadata".format(up_id))
-    del metadata.extra['upload_id']
+    try:
+        url, params, headers = dropbox_client.request(path,
+                                                      params,
+                                                      content_server=True)
+        resp = dropbox_client.rest_client.POST(url, params, headers)
+    except (dropbox.rest.ErrorResponse, dropbox.rest.RESTSocketError) as err:
+        raise ServiceError("Cannot commit chunked upload for '{}' - {}"
+                           .format(filename, err))
+    remove_upload_id(metadata)
     plug.logger.debug("Storing revision {} for '{}'"
                       .format(resp['revision'], filename))
     metadata.extra['revision'] = resp['revision']
@@ -125,11 +138,44 @@ def end_upload(metadata):
     plug.logger.debug("Ending upload of '{}' - Done".format(filename))
 
 
+@plug.handler()
+def abort_upload(metadata):
+    remove_upload_id(metadata)
+
+
+@plug.handler()
+def move_file(old_metadata, new_metadata):
+    global dropbox_client
+    old_filename = root_prefixed_filename(old_metadata.filename)
+    new_filename = root_prefixed_filename(new_metadata.filename)
+    plug.logger.debug("Moving '{}' to '{}'".format(old_filename, new_filename))
+    try:
+        dropbox_client.file_move(from_path=old_filename,
+                                 to_path=new_filename)
+    except dropbox.rest.ErrorResponse as err:
+        raise ServiceError("Cannot move file {} - {}"
+                           .format(old_filename, err))
+    plug.logger.debug("Moving '{}' to '{}' - Done"
+                      .format(old_filename, new_filename))
+
+
+@plug.handler()
+def delete_file(metadata):
+    global dropbox_client
+    filename = root_prefixed_filename(metadata.filename)
+    plug.logger.debug("Deleting '{}'".format(filename))
+    try:
+        dropbox_client.file_delete(filename)
+    except dropbox.rest.ErrorResponse as err:
+        raise ServiceError("Cannot delete file {} - {}".format(filename, err))
+    plug.logger.debug("Deleting '{}' - Done".format(filename))
+
+
 class CheckChanges(threading.Thread):
     """A class spawned in a thread to poll for changes on the S3 bucket.
-Amazon S3 hasn't any bucket watching system in its API, so the best
-we can do is periodically polling the bucket's contents and compare the
-timestamps."""
+    Amazon S3 hasn't any bucket watching system in its API, so the best
+    we can do is periodically polling the bucket's contents and compare the
+    timestamps."""
 
     def __init__(self, timer):
         threading.Thread.__init__(self)
@@ -153,39 +199,46 @@ timestamps."""
         # Dropbox lists filenames with a leading slash
         if not prefix.startswith('/'):
             prefix = '/' + prefix
-        # Dropbox doesn't support trailing slashes
-        if prefix.endswith('/'):
-            prefix = prefix[:-1]
-        changes = dropbox_client.delta(cursor=self.cursor,
-                                       path_prefix=prefix)
-        self.cursor = changes['cursor']
-        plug.logger.debug("Processing {} entries"
-                          .format(len(changes['entries'])))
-        prefix += '/'  # put the trailing slash back
-        # Entries are a list of couples (filename, metadatas).
-        # However, the filename is case-insensitive (and thus can be
-        # not representative of the true file name), and since metadata hold
-        # a field 'path' containing the true, correct-case filename, we don't
-        # need it
-        for (_, db_metadata) in changes['entries']:
-            # Strip the S3 root in the S3 filename for root coherence.
-            rootless_filename = db_metadata['path'][len(prefix):]
-            # empty string = root; since Dropbox doesn't allow path prefixes to
-            # be ended by trailing slashes, we can't take it out of the delta
-            # and thus must ignore it
-            if rootless_filename == '':
-                continue
-            plug.logger.debug("Getting metadata of file '{}'"
-                              .format(rootless_filename))
-            metadata = plug.get_metadata(rootless_filename)
-            onitu_rev = metadata.extra.get('revision', -1)
-            dropbox_rev = db_metadata['revision']
-            if dropbox_rev > onitu_rev:  # Dropbox revision is more recent
-                plug.logger.debug("Updating metadata"
-                                  " of file '{}'".format(rootless_filename))
-                metadata.size = db_metadata['bytes']
-                metadata.extra['revision'] = db_metadata['revision']
-                plug.update_file(metadata)
+        has_more = True
+        while has_more:
+            # Dropbox doesn't support trailing slashes
+            if prefix.endswith('/'):
+                prefix = prefix[:-1]
+            changes = dropbox_client.delta(cursor=self.cursor,
+                                           path_prefix=prefix)
+            self.cursor = changes['cursor']
+            plug.logger.debug("Processing {} entries"
+                              .format(len(changes['entries'])))
+            prefix += '/'  # put the trailing slash back
+            # Entries are a list of couples (filename, metadatas).
+            # However, the filename is case-insensitive (and thus can be
+            # not representative of the true file name), and since metadata
+            # hold a field 'path' containing the true, correct-case filename,
+            # we don't need it
+            for (_, db_metadata) in changes['entries']:
+                # Strip the S3 root in the S3 filename for root coherence.
+                rootless_filename = db_metadata['path'][len(prefix):]
+                # empty string = root; since Dropbox doesn't allow path
+                # prefixes to be ended by trailing slashes, we can't take it
+                # out of the delta and thus must ignore it
+                if rootless_filename == '':
+                    continue
+                plug.logger.debug("Getting metadata of file '{}'"
+                                  .format(rootless_filename))
+                metadata = plug.get_metadata(rootless_filename)
+                onitu_rev = metadata.extra.get('revision', -1)
+                dropbox_rev = db_metadata['revision']
+                if dropbox_rev > onitu_rev:  # Dropbox revision is more recent
+                    plug.logger.debug("Updating metadata of file '{}'"
+                                      .format(rootless_filename))
+                    metadata.size = db_metadata['bytes']
+                    metadata.extra['revision'] = db_metadata['revision']
+                    plug.update_file(metadata)
+                # 'has_more' is set when where Dropbox couldn't send all data
+                # in one shot. It's a special case where we're allowed to
+                # immediately do another delta with the same cursor to retrieve
+                # the remaining data.
+                has_more = changes['has_more']
 
     def run(self):
         global plug
