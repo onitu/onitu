@@ -129,7 +129,22 @@ def get_entry_stats(name):
         }
     }
     stats = circus_client.call(query)
-    return stats
+    resp = {
+        "info": {
+            "age": stats['info']['age'],
+            "cpu": stats['info']['cpu'],
+            "create_time": stats['info']['create_time'],
+            "ctime": stats['info']['ctime'],
+            "mem": stats['info']['mem'],
+            "mem_info1": stats['info']['mem_info1'],
+            "mem_info2": stats['info']['mem_info2'],
+            "started": stats['info']['started'],
+        },
+        "name": stats['name'],
+        "status": stats['status'],
+        "time": stats['time'],
+    }
+    return resp
 
 
 @app.route('/api/v1.0/entries/<name>/status', method='GET')
@@ -144,7 +159,12 @@ def get_entry_status(name):
         }
     }
     status = circus_client.call(query)
-    return status
+    resp = {
+        "name": name,
+        "status": status['status'],
+        "time": status['time'],
+    }
+    return resp
 
 
 @app.route('/api/v1.0/entries/<name>/start', method='PUT')
@@ -166,7 +186,12 @@ def start_entry(name):
             "waiting": True
         }
     }
-    resp = circus_client.call(query)
+    start = circus_client.call(query)
+    resp = {
+        "name": name,
+        "status": start['status'],
+        "time": start['time'],
+    }
     return resp
 
 
@@ -189,7 +214,12 @@ def stop_entry(name):
             "waiting": True
         }
     }
-    resp = circus_client.call(query)
+    stop = circus_client.call(query)
+    resp = {
+        "name": name,
+        "status": stop['status'],
+        "time": stop['time'],
+    }
     return resp
 
 
@@ -207,7 +237,12 @@ def restart_entry(name):
             "waiting": True
         }
     }
-    resp = circus_client.call(query)
+    restart = circus_client.call(query)
+    resp = {
+        "name": name,
+        "status": restart['status'],
+        "time": restart['time'],
+    }
     return resp
 
 
