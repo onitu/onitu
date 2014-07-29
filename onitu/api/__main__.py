@@ -82,7 +82,7 @@ def entry_not_running(name):
     response.status = 409
     resp = {
         "status": "error",
-        "reason": "entry {} is not running".format(name)
+        "reason": "entry {} is stopped".format(name)
     }
     return resp
 

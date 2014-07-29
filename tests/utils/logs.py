@@ -4,11 +4,17 @@ logs = {
         ("{driver} - Router", "Started"),
         ("{driver} - Dealer", "Started"),
     ),
+    'driver_stopped': (
+        ("{driver}", "Exited"),
+    ),
     'plug_started': (
         ("{driver}", "Started"),
     ),
     'referee_started': (
         ("Referee", "Started"),
+    ),
+    'api_started': (
+        ("REST API", "Starting on localhost:3862"),
     ),
     'transfer_started': (
         (
