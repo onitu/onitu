@@ -47,9 +47,44 @@ def entry(name):
     return {'name': name, 'driver': driver, 'options': options}
 
 
-def entry_exist(name):
+def entry_exists(name):
     names = [entry.upper() for entry in escalator.get('entries')]
     return name in names
+
+
+def entry_is_running(name):
+    names = [entry.upper() for entry in escalator.get('entries')]
+    if name.upper() not in names:
+        return False
+    query = {
+        "command": "status",
+        "properties": {
+            "name": name
+        }
+    }
+    status = circus_client.call(query)
+    if status['status'] == "active":
+        return True
+    else:
+        return False
+
+
+def entry_not_found(name):
+    response.status = 404
+    resp = {
+        "status": "error",
+        "reason": "entry {} not found".format(name)
+    }
+    return resp
+
+
+def entry_not_running(name):
+    response.status = 409
+    resp = {
+        "status": "error",
+        "reason": "entry {} is not running".format(name)
+    }
+    return resp
 
 
 @app.route('/api/v1.0/files', method='GET')
@@ -83,101 +118,97 @@ def get_entry(name):
 @app.route('/api/v1.0/entries/<name>/stats', method='GET')
 def get_entry_stats(name):
     name = name.upper()
-    if entry_exist(name):
-        query = {
-            "command": "stats",
-            "properties": {
-                "name": name
-            }
+    if not entry_exists(name):
+        return entry_not_found(name)
+    if not entry_is_running(name):
+        return entry_not_running(name)
+    query = {
+        "command": "stats",
+        "properties": {
+            "name": name
         }
-        stats = circus_client.call(query)
-    else:
-        # TODO FIX IT!
-        response.status = 300
-        stats = {
-            "status": "error",
-            "reason": "entry {} not found".format(name)
-        }
+    }
+    stats = circus_client.call(query)
     return stats
 
 
 @app.route('/api/v1.0/entries/<name>/status', method='GET')
 def get_entry_status(name):
     name = name.upper()
-    if entry_exist(name):
-        query = {
-            "command": "status",
-            "properties": {
-                "name": name
-            }
+    if not entry_exists(name):
+        return entry_not_found(name)
+    query = {
+        "command": "status",
+        "properties": {
+            "name": name
         }
-        status = circus_client.call(query)
-    else:
-        status = {
-            "status": "error",
-            "reason": "entry {} not found".format(name)
-        }
+    }
+    status = circus_client.call(query)
     return status
 
 
 @app.route('/api/v1.0/entries/<name>/start', method='PUT')
 def start_entry(name):
     name = name.upper()
-    if entry_exist(name):
-        query = {
-            "command": "start",
-            "properties": {
-                "name": name,
-                "waiting": True
-            }
-        }
-        response = circus_client.call(query)
-    else:
-        response = {
+    if not entry_exists(name):
+        return entry_not_found(name)
+    if entry_is_running(name):
+        response.status = 409
+        resp = {
             "status": "error",
-            "reason": "entry {} not found".format(name)
+            "reason": "entry {} is already running".format(name)
         }
-    return response
+        return resp
+    query = {
+        "command": "start",
+        "properties": {
+            "name": name,
+            "waiting": True
+        }
+    }
+    resp = circus_client.call(query)
+    return resp
 
 
 @app.route('/api/v1.0/entries/<name>/stop', method='PUT')
 def stop_entry(name):
     name = name.upper()
-    if entry_exist(name):
-        query = {
-            "command": "stop",
-            "properties": {
-                "name": name,
-                "waiting": True
-            }
-        }
-        response = circus_client.call(query)
-    else:
-        response = {
+    if not entry_exists(name):
+        return entry_not_found(name)
+    if not entry_is_running(name):
+        response.status = 409
+        resp = {
             "status": "error",
-            "reason": "entry {} not found".format(name)
+            "reason": "entry {} is already stopped".format(name)
         }
-    return response
+        return resp
+    query = {
+        "command": "stop",
+        "properties": {
+            "name": name,
+            "waiting": True
+        }
+    }
+    resp = circus_client.call(query)
+    return resp
 
 
 @app.route('/api/v1.0/entries/<name>/restart', method='PUT')
 def restart_entry(name):
     name = name.upper()
-    if entry_exist(name):
-        query = {
-            "command": "restart",
-            "properties": {
-                "name": name,
-                "waiting": True
-            }
+    if not entry_exists(name):
+        return entry_not_found(name)
+    if not entry_is_running(name):
+        return entry_not_running(name)
+    query = {
+        "command": "restart",
+        "properties": {
+            "name": name,
+            "waiting": True
         }
-        response = circus_client.call(query)
-    else:
-        response = {
-            "status": "error",
-            "reason": "entry {} not found".format(name)
-        }
-    return response
+    }
+    resp = circus_client.call(query)
+    return resp
 
 
 if __name__ == '__main__':
