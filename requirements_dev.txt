@@ -1,5 +1,4 @@
 sh
 pytest
 flake8
-tox
 codespeed-client

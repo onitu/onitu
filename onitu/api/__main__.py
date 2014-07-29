@@ -92,6 +92,8 @@ def get_entry_stats(name):
         }
         stats = circus_client.call(query)
     else:
+        # TODO FIX IT!
+        response.status = 300
         stats = {
             "status": "error",
             "reason": "entry {} not found".format(name)
