@@ -216,11 +216,14 @@ class CheckChanges(threading.Thread):
             # hold a field 'path' containing the true, correct-case filename,
             # we don't need it
             for (_, db_metadata) in changes['entries']:
+                # No metadata  = deleted file.
+                if db_metadata is None:
+                    continue
                 # Strip the S3 root in the S3 filename for root coherence.
-                rootless_filename = db_metadata['path'][len(prefix):]
                 # empty string = root; since Dropbox doesn't allow path
                 # prefixes to be ended by trailing slashes, we can't take it
                 # out of the delta and thus must ignore it
+                rootless_filename = db_metadata['path'][len(prefix):]
                 if rootless_filename == '':
                     continue
                 plug.logger.debug("Getting metadata of file '{}'"
@@ -234,11 +237,11 @@ class CheckChanges(threading.Thread):
                     metadata.size = db_metadata['bytes']
                     metadata.extra['revision'] = db_metadata['revision']
                     plug.update_file(metadata)
-                # 'has_more' is set when where Dropbox couldn't send all data
-                # in one shot. It's a special case where we're allowed to
-                # immediately do another delta with the same cursor to retrieve
-                # the remaining data.
-                has_more = changes['has_more']
+            # 'has_more' is set when where Dropbox couldn't send all data
+            # in one shot. It's a special case where we're allowed to
+            # immediately do another delta with the same cursor to retrieve
+            # the remaining data.
+            has_more = changes['has_more']
 
     def run(self):
         global plug
