@@ -16,8 +16,8 @@ url = sess.build_authorize_url(request_token)
 print("url: {}".format(url))
 print("Please visit this website and press the 'Allow' button,"
       "then hit 'Enter' here.")
-raw_input()
+input()
 # This will fail if the user didn't visit the above URL
 access_token = sess.obtain_access_token(request_token)
 # Print the token for future reference
-print 'Access Key:', access_token.key, 'Access Secret:', access_token.secret
+print('Access Key:', access_token.key, 'Access Secret:', access_token.secret)

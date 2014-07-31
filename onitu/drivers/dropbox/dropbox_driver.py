@@ -1,6 +1,5 @@
 import urllib3
 import threading
-from StringIO import StringIO
 
 import dropbox
 from dropbox.session import DropboxSession
@@ -84,7 +83,6 @@ def get_chunk(metadata, offset, size):
 def upload_chunk(metadata, offset, chunk):
     global dropbox_client
     filename = root_prefixed_filename(metadata.filename)
-    buff = StringIO(chunk)
     # Get the upload id of this file. If we don't have it, e.g. since it's
     # the first chunk of this upload, the `get` method permits not to raise a
     # KeyError.
@@ -94,7 +92,7 @@ def upload_chunk(metadata, offset, chunk):
                       .format(len(chunk), filename, offset, up_id))
     # upload_chunk returns a tuple containing the offset and the upload ID of
     # this upload. The offset isn't very useful
-    (_, up_id) = dropbox_client.upload_chunk(file_obj=buff,
+    (_, up_id) = dropbox_client.upload_chunk(file_obj=chunk,
                                              length=len(chunk),
                                              offset=offset,
                                              upload_id=up_id)
