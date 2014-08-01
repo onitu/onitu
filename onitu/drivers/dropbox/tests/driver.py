@@ -14,13 +14,13 @@ from onitu.drivers.dropbox.dropbox_driver import (ONITU_APP_KEY,
 class Driver(TestDriver):
     def __init__(self, *args, **options):
         if 'root' not in options:
-            options['root'] = 'onitu/'
+            options['root'] = '/onitu/'
         if 'key' not in options:
-            options['key'] = "hpcb300001vu0v6e"
+            options['key'] = os.environ['ONITU_DROPBOX_KEY']
         if 'secret' not in options:
-            options['secret'] = "2os7zx0zj8vv7bm"
+            options['secret'] = os.environ['ONITU_DROPBOX_SECRET']
         if 'changes_timer' not in options:
-            options['changes_timer'] = 60.0
+            options['changes_timer'] = 60
         sess = DropboxSession(ONITU_APP_KEY,
                               ONITU_APP_SECRET,
                               ONITU_ACCESS_TYPE)
@@ -31,6 +31,7 @@ class Driver(TestDriver):
         super(Driver, self).__init__('dropbox',
                                      *args,
                                      **options)
+
 
     @property
     def root(self):
