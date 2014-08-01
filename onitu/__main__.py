@@ -152,12 +152,30 @@ if __name__ == '__main__':
         '--log-uri', help="A ZMQ socket where all the logs will be sent"
     )
     parser.add_argument(
+        '--endpoint', help="The ZMQ socket used to manage Onitu"
+        "via circusctl. (defaults to tcp://127.0.0.1:5555)",
+        default='tcp://127.0.0.1:5555'
+    )
+    parser.add_argument(
+        '--pubsub_endpoint', help="The ZMQ PUB/SUB socket receiving"
+        "publications of events. (defaults to tcp://127.0.0.1:5556)",
+        default='tcp://127.0.0.1:5556'
+    )
+    parser.add_argument(
+        '--stats_endpoint', help="The ZMQ PUB/SUB socket receiving"
+        "publications of stats. (defaults to tcp://127.0.0.1:5557)",
+        default='tcp://127.0.0.1:5557'
+    )
+    parser.add_argument(
         '--debug', action='store_true', help="Enable debugging logging"
     )
     args = parser.parse_args()
 
     setup_file = args.setup
     log_uri = args.log_uri
+    endpoint = args.endpoint
+    pubsub_endpoint = args.pubsub_endpoint
+    stats_endpoint = args.stats_endpoint
     dispatcher = None
 
     if not args.log_uri:
@@ -197,6 +215,9 @@ if __name__ == '__main__':
                 },
             ],
             proc_name="Onitu",
+            controller=endpoint,
+            pubsub_endpoint=pubsub_endpoint,
+            stats_endpoint=stats_endpoint,
             loop=loop
         )
 
