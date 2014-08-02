@@ -209,24 +209,32 @@ class CheckChanges(threading.Thread):
                               .format(len(changes['entries'])))
             prefix += '/'  # put the trailing slash back
             # Entries are a list of couples (filename, metadatas).
-            # However, the filename is case-insensitive (and thus can be
-            # not representative of the true file name), and since metadata
-            # hold a field 'path' containing the true, correct-case filename,
-            # we don't need it
-            for (_, db_metadata) in changes['entries']:
-                # No metadata  = deleted file.
+            # However, the filename is case-insensitive. So we have to use the
+            # 'path' field of the metadata containing the true, correct-case
+            # filename.
+            for (db_filename, db_metadata) in changes['entries']:
+                # No metadata = deleted file.
                 if db_metadata is None:
-                    continue
+                    # Retrieve the metadata saved by Dropbox.
+                    db_metadata = dropbox_client.metadata(db_filename)
                 # Strip the S3 root in the S3 filename for root coherence.
+                rootless_filename = db_metadata['path'][len(prefix):]
+                plug.logger.debug("Getting metadata of file '{}'"
+                                  .format(rootless_filename))
                 # empty string = root; since Dropbox doesn't allow path
                 # prefixes to be ended by trailing slashes, we can't take it
                 # out of the delta and thus must ignore it
-                rootless_filename = db_metadata['path'][len(prefix):]
                 if rootless_filename == '':
                     continue
-                plug.logger.debug("Getting metadata of file '{}'"
-                                  .format(rootless_filename))
                 metadata = plug.get_metadata(rootless_filename)
+                # If the file has been deleted
+                if db_metadata.get('is_deleted', False) is True:
+                    # If it was synchronized by Onitu, notify the Plug
+                    if metadata is not None:
+                        plug.logger.debug("Delete detected on Dropbox of "
+                                          "file {}".format(metadata.filename))
+                        plug.delete_file(metadata)
+                    continue
                 onitu_rev = metadata.extra.get('revision', -1)
                 dropbox_rev = db_metadata['revision']
                 if dropbox_rev > onitu_rev:  # Dropbox revision is more recent
