@@ -1,6 +1,7 @@
 import hashlib
 import os
 import sys
+from path import path
 # Python 2/3 compatibility
 if sys.version_info.major == 2:
     from StringIO import StringIO as IOStream
@@ -15,10 +16,11 @@ from tests.utils.testdriver import TestDriver
 
 
 class Driver(TestDriver):
+    SPEED_BUMP = 1
 
     def __init__(self, *args, **options):
         if "root" not in options:
-            options['root'] = ''
+            options['root'] = 'onitu/'
         if "aws_access_key" not in options:
             options['aws_access_key'] = os.environ['ONITU_AWS_ACCESS_KEY']
         if "aws_secret_key" not in options:
@@ -33,14 +35,10 @@ class Driver(TestDriver):
                                      *args,
                                      **options)
 
-    def prefix_with_root(self, filename):
-        root = self.root()
-        real_filename = root + filename
-        return real_filename
-
     def create_file(self, filename, content=""):
         self.write(filename, content)
 
+    @property
     def root(self):
         root = self.options['root']
         # S3 doesn't like leading slashes
@@ -48,10 +46,10 @@ class Driver(TestDriver):
             root = root[1:]
         if not root.endswith('/'):
             root += '/'
-        return root
+        return path(root)
 
     def close(self):
-        root = self.root()
+        root = str(self.root)
         for key in self.conn.list_keys(extra_params={'prefix': root}):
             self.conn.delete(key.key)
         # Don't delete the whole bucket !
@@ -59,12 +57,16 @@ class Driver(TestDriver):
             self.conn.delete(root)
 
     def mkdir(self, subdirs):
-        subdirs = self.prefix_with_root(subdirs)
+        subdirs = str(self.root) + subdirs
         self.create_file(subdirs)
+
+    def rmdir(self, path):
+        path = str(self.root) + path
+        self.unlink(path)
 
     def write(self, filename, content, includes_root=False):
         if not includes_root:
-            filename = self.prefix_with_root(filename)
+            filename = str(self.root) + filename
         if sys.version_info.major == 3 and not isinstance(content, bytes):
             content = content.encode()
         s = IOStream(content)
@@ -72,22 +74,30 @@ class Driver(TestDriver):
         s.close()
 
     def generate(self, filename, size):
+        filename = str(self.root) + filename
         self.write(filename, os.urandom(size))
 
     def unlink(self, filename):
-        filename = self.prefix_with_root(filename)
+        filename = str(self.root) + filename
         if filename != '':
             self.conn.delete(filename)
 
     def exists(self, filename):
-        filename = self.prefix_with_root(filename)
+        filename = str(self.root) + filename
         try:
             self.conn.head_object(filename)
         except requests.HTTPError:
             return False
         return True
 
+    def rename(self, source, target):
+        source = str(self.root) + source
+        target = str(self.root) + target
+        bucket = self.options['bucket']
+        self.conn.copy(source, bucket, target, bucket)
+        self.conn.delete(source)
+
     def checksum(self, filename):
-        filename = self.prefix_with_root(filename)
+        filename = str(self.root) + filename
         file = self.conn.get(filename)
         return hashlib.md5(file.content).hexdigest()
