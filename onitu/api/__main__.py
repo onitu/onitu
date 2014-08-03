@@ -4,7 +4,6 @@ from logbook import Logger
 from logbook.queues import ZeroMQHandler
 from bottle import Bottle, run, response, abort
 from circus.client import CircusClient
-from circus.exc import CallError
 
 from onitu.escalator.client import Escalator
 from onitu.plug.metadata import Metadata
@@ -14,7 +13,7 @@ port = 3862
 
 app = Bottle()
 
-circus_client = CircusClient()
+circus_client = CircusClient(endpoint=sys.argv[4])
 escalator = Escalator(sys.argv[2], sys.argv[3])
 logger = Logger("REST API")
 
@@ -159,11 +158,9 @@ def get_entry_stats(name):
             "status": stats['status'],
             "time": stats['time'],
         }
-    except CallError as e:
+        return resp
+    except Exception as e:
         resp = error(error_message=str(e))
-    except:
-        resp = error()
-    finally:
         return resp
 
 
@@ -185,11 +182,9 @@ def get_entry_status(name):
             "status": status['status'],
             "time": status['time'],
         }
-    except CallError as e:
+        return resp
+    except Exception as e:
         resp = error(error_message=str(e))
-    except:
-        resp = error()
-    finally:
         return resp
 
 
@@ -217,11 +212,9 @@ def start_entry(name):
             "status": start['status'],
             "time": start['time'],
         }
-    except CallError as e:
+        return resp
+    except Exception as e:
         resp = error(error_message=str(e))
-    except:
-        resp = error()
-    finally:
         return resp
 
 
@@ -249,11 +242,9 @@ def stop_entry(name):
             "status": stop['status'],
             "time": stop['time'],
         }
-    except CallError as e:
+        return resp
+    except Exception as e:
         resp = error(error_message=str(e))
-    except:
-        resp = error()
-    finally:
         return resp
 
 
@@ -278,11 +269,9 @@ def restart_entry(name):
             "status": restart['status'],
             "time": restart['time'],
         }
-    except CallError as e:
+        return resp
+    except Exception as e:
         resp = error(error_message=str(e))
-    except:
-        resp = error()
-    finally:
         return resp
 
 
