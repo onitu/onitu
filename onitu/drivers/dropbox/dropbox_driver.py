@@ -45,7 +45,8 @@ def root_prefixed_filename(filename):
 def remove_upload_id(metadata):
     up_id = metadata.extra.get('upload_id', None)
     if up_id is not None:
-        plug.logger.debug("Removing upload ID {} from metadata".format(up_id))
+        plug.logger.debug("Removing upload ID '{}' from '{}' metadata"
+                          .format(up_id, metadata.filename))
         del metadata.extra['upload_id']
 
 
@@ -83,9 +84,7 @@ def get_chunk(metadata, offset, size):
 def upload_chunk(metadata, offset, chunk):
     global dropbox_client
     filename = root_prefixed_filename(metadata.filename)
-    # Get the upload id of this file. If we don't have it, e.g. since it's
-    # the first chunk of this upload, the `get` method permits not to raise a
-    # KeyError.
+    # Get the upload id of this file. None = upload's first time
     up_id = metadata.extra.get('upload_id', None)
     plug.logger.debug("Uploading chunk of size {}"
                       " to file {} at offset {} - Upload ID: {}"
@@ -96,12 +95,12 @@ def upload_chunk(metadata, offset, chunk):
                                              length=len(chunk),
                                              offset=offset,
                                              upload_id=up_id)
+    metadata.extra['upload_id'] = up_id
+    metadata.write()
+    plug.logger.debug("Storing upload ID {} in metadata".format(up_id))
     plug.logger.debug("Uploading chunk of size {}"
                       " to file {} at offset {} - Done"
                       .format(len(chunk), filename, offset))
-    plug.logger.debug("Storing upload ID {} in metadata".format(up_id))
-    metadata.extra['upload_id'] = up_id
-    metadata.write()
 
 
 @plug.handler()
@@ -129,16 +128,17 @@ def end_upload(metadata):
         raise ServiceError("Cannot commit chunked upload for '{}' - {}"
                            .format(filename, err))
     remove_upload_id(metadata)
-    plug.logger.debug("Storing revision {} for '{}'"
-                      .format(resp['revision'], filename))
     metadata.extra['revision'] = resp['revision']
     metadata.write()
+    plug.logger.debug("Storing revision {} for '{}'"
+                      .format(resp['revision'], filename))
     plug.logger.debug("Ending upload of '{}' - Done".format(filename))
 
 
 @plug.handler()
 def abort_upload(metadata):
     remove_upload_id(metadata)
+    metadata.write()
 
 
 @plug.handler()
