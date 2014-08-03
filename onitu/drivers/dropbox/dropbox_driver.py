@@ -115,9 +115,14 @@ def end_upload(metadata):
         dropbox.client.format_path(filename)
         )
     up_id = metadata.extra.get('upload_id', None)
-    # At this point we should have the upload ID no matter what
+    # At this point we should have the upload ID.
     if up_id is None:
-        raise DriverError("No upload ID for {}".format(filename))
+        # empty file. We must upload one.
+        if metadata.size == 0:
+            (_, upload_id) = dropbox_client.upload_chunk('', 0)
+            up_id = upload_id
+        else:
+            raise DriverError("No upload ID for {}".format(filename))
     params = dict(overwrite=True, upload_id=up_id)
     try:
         url, params, headers = dropbox_client.request(path,
@@ -128,6 +133,7 @@ def end_upload(metadata):
         raise ServiceError("Cannot commit chunked upload for '{}' - {}"
                            .format(filename, err))
     remove_upload_id(metadata)
+    metadata.size = resp['bytes']
     metadata.extra['revision'] = resp['revision']
     metadata.write()
     plug.logger.debug("Storing revision {} for '{}'"
