@@ -1,3 +1,4 @@
+from circus.client import CircusClient
 from requests import get, put
 
 from tests.utils.launcher import Launcher
@@ -7,9 +8,43 @@ from tests.utils.loop import CounterLoop
 
 api_addr = 'http://localhost:3862'
 monitoring_path = '/api/v1.0/entries/{}/{}'
+circus_client = CircusClient()
 launcher, setup = None, None
 rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
 json_file = 'test_startup.json'
+
+
+def is_running(name):
+    query = {
+        "command": "status",
+        "properties": {
+            "name": name
+        }
+    }
+    status = circus_client.call(query)
+    return status['status'] == 'active'
+
+
+def start(name):
+    query = {
+        "command": "start",
+        "properties": {
+            "name": name,
+            "waiting": True
+        }
+    }
+    circus_client.call(query)
+
+
+def stop(name):
+    query = {
+        "command": "stop",
+        "properties": {
+            "name": name,
+            "waiting": True
+        }
+    }
+    circus_client.call(query)
 
 
 def setup_module(module):
@@ -38,51 +73,95 @@ def teardown_module(module):
     setup.clean()
 
 
-def start_driver(name):
-    start = monitoring_path.format(name, 'start')
-    start_url = '{}{}'.format(api_addr, start)
-    put(start_url)
-
-
-def stop_driver(name):
-    stop = monitoring_path.format(name, 'stop')
-    stop_url = '{}{}'.format(api_addr, stop)
-    put(stop_url)
-
-
 def test_stop():
-    pass
+    start(rep1.name)
+    monitoring = monitoring_path.format(rep1.name, 'stop')
+    url = '{}{}'.format(api_addr, monitoring)
+    r = put(url)
+    json = r.json()
+    assert json['status'] == 'ok'
+    assert json['name'] == rep1.name.upper()
+    assert "time" in json
+    assert is_running(rep1.name) is False
+    start(rep1.name)
 
 
 def test_start():
-    pass
-
-
-def test_stop_already_stopped():
-    pass
-
-
-def test_start_already_started():
-    pass
-
-
-def test_restart_stopped():
-    pass
+    stop(rep1.name)
+    monitoring = monitoring_path.format(rep1.name, 'start')
+    url = '{}{}'.format(api_addr, monitoring)
+    r = put(url)
+    json = r.json()
+    assert json['status'] == 'ok'
+    assert json['name'] == rep1.name.upper()
+    assert "time" in json
+    assert is_running(rep1.name) is True
+    start(rep1.name)
 
 
 def test_restart():
-    pass
+    start(rep1.name)
+    monitoring = monitoring_path.format(rep1.name, 'restart')
+    url = '{}{}'.format(api_addr, monitoring)
+    r = put(url)
+    json = r.json()
+    assert json['status'] == 'ok'
+    assert json['name'] == rep1.name.upper()
+    assert "time" in json
+    assert is_running(rep1.name) is True
+
+
+def test_stop_already_stopped():
+    stop(rep1.name)
+    monitoring = monitoring_path.format(rep1.name, 'stop')
+    url = '{}{}'.format(api_addr, monitoring)
+    r = put(url)
+    json = r.json()
+    assert json['status'] == 'error'
+    assert json['reason'] == 'entry {} is already stopped'.format(
+        rep1.name.upper()
+    )
+    assert is_running(rep1.name) is False
+    start(rep1.name)
+
+
+def test_start_already_started():
+    start(rep1.name)
+    monitoring = monitoring_path.format(rep1.name, 'start')
+    url = '{}{}'.format(api_addr, monitoring)
+    r = put(url)
+    json = r.json()
+    assert json['status'] == 'error'
+    assert json['reason'] == 'entry {} is already running'.format(
+        rep1.name.upper()
+    )
+    assert is_running(rep1.name) is True
+
+
+def test_restart_stopped():
+    stop(rep1.name)
+    monitoring = monitoring_path.format(rep1.name, 'restart')
+    url = '{}{}'.format(api_addr, monitoring)
+    r = put(url)
+    json = r.json()
+    assert json['status'] == 'error'
+    assert json['reason'] == 'entry {} is stopped'.format(
+        rep1.name.upper()
+    )
+    assert is_running(rep1.name) is False
+    start(rep1.name)
 
 
 def test_stats_running():
+    start(rep1.name)
     infos = ["age", "cpu", "create_time", "ctime", "mem", "mem_info1",
              "mem_info2", "started"]
     monitoring = monitoring_path.format(rep1.name, 'stats')
     url = '{}{}'.format(api_addr, monitoring)
     r = get(url)
     json = r.json()
-    assert json['name'] == rep1.name.upper()
     assert json['status'] == 'ok'
+    assert json['name'] == rep1.name.upper()
     assert "time" in json
     keys = json['info'].keys()
     for info in infos:
@@ -90,19 +169,20 @@ def test_stats_running():
 
 
 def test_stats_stopped():
+    stop(rep1.name)
     monitoring = monitoring_path.format(rep1.name, 'stats')
     url = '{}{}'.format(api_addr, monitoring)
-    stop_driver(rep1.name)
     r = get(url)
     json = r.json()
     assert json['status'] == 'error'
     assert json['reason'] == 'entry {} is stopped'.format(
         rep1.name.upper()
     )
-    start_driver(rep1.name)
+    start(rep1.name)
 
 
 def test_status_started():
+    start(rep1.name)
     monitoring = monitoring_path.format(rep1.name, 'status')
     url = '{}{}'.format(api_addr, monitoring)
     r = get(url)
@@ -112,11 +192,11 @@ def test_status_started():
 
 
 def test_status_stopped():
+    stop(rep1.name)
     monitoring = monitoring_path.format(rep1.name, 'status')
     url = '{}{}'.format(api_addr, monitoring)
-    stop_driver(rep1.name)
     r = get(url)
     json = r.json()
     assert json['name'] == rep1.name.upper()
     assert json['status'] == 'stopped'
-    start_driver(rep1.name)
+    start(rep1.name)
