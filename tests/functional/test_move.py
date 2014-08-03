@@ -45,33 +45,33 @@ def copy_file(filename, size):
 
 
 def test_move_from_rep1():
-    copy_file('to_move', 100)
+    copy_file('to_move1', 100)
     loop = CounterLoop(2)
     launcher.on_file_moved(
-        loop.check, driver='rep1', src='to_move', dest='moved'
+        loop.check, driver='rep1', src='to_move1', dest='moved1'
     )
     launcher.on_move_completed(
-        loop.check, driver='rep2', src='to_move', dest='moved'
+        loop.check, driver='rep2', src='to_move1', dest='moved1'
     )
-    rep1.rename('to_move', 'moved')
+    rep1.rename('to_move1', 'moved1')
     loop.run(timeout=5)
-    assert not rep2.exists('to_move')
-    assert rep2.exists('moved')
+    assert not rep2.exists('to_move1')
+    assert rep2.exists('moved1')
 
 
 def test_move_from_rep2():
-    copy_file('to_move', 100)
+    copy_file('to_move2', 100)
     loop = CounterLoop(2)
     launcher.on_file_moved(
-        loop.check, driver='rep2', src='to_move', dest='moved'
+        loop.check, driver='rep2', src='to_move2', dest='moved2'
     )
     launcher.on_move_completed(
-        loop.check, driver='rep1', src='to_move', dest='moved'
+        loop.check, driver='rep1', src='to_move2', dest='moved2'
     )
-    rep2.rename('to_move', 'moved')
+    rep2.rename('to_move2', 'moved2')
     loop.run(timeout=5)
-    assert not rep1.exists('to_move')
-    assert rep1.exists('moved')
+    assert not rep1.exists('to_move2')
+    assert rep1.exists('moved2')
 
 
 def test_move_in_subdirs():
