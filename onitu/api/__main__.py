@@ -142,7 +142,7 @@ def get_entry_stats(name):
             }
         }
         stats = circus_client.call(query)
-        pid = stats['info'].keys()[0]
+        pid = list(stats['info'].keys())[0]
         resp = {
             "info": {
                 "age": stats['info'][pid]['age'],
