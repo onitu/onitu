@@ -82,6 +82,15 @@ def start_setup(*args, **kwargs):
 
     yield start_watcher("Rest API", 'onitu.api')
 
+    majordomo = arbiter.add_watcher(
+        "Majordomo",
+        sys.executable,
+        args=('-m', 'onitu.majordomo', log_uri, escalator_uri, session),
+        copy_env=True,
+    )
+
+    loop.add_callback(start_watcher, majordomo)
+
 
 @gen.coroutine
 def load_service(escalator, service, conf):
