@@ -1,8 +1,8 @@
 import sys
 import uuid
 
-#import zmq.auth
-#from zmq.auth.thread import ThreadAuthenticator
+import zmq.auth
+from zmq.auth.thread import ThreadAuthenticator
 from circus.client import CircusClient
 
 from . import broker
@@ -21,6 +21,15 @@ class Broker(broker.Broker):
         super(Broker, self).__init__((20001, 20003))
         self.circus_client = CircusClient()
         self.nb_remotes = 0
+
+    def _before_bind(self):
+        super(Broker, self)._before_bind()
+        self.frontend.reqs.curve_server = True
+        pub_key, priv_key = zmq.auth.load_certificate('server.key_secret')
+        self.frontend.reqs.curve_publickey = pub_key
+        self.frontend.reqs.curve_secretkey = priv_key
+        self.frontend.reps.curve_publickey = pub_key
+        self.frontend.reps.curve_secretkey = priv_key
 
     def _handle_socket(self, socket):
         if socket is not self.frontend.reqs:
@@ -64,17 +73,10 @@ class Broker(broker.Broker):
 
 if __name__ == '__main__':
     with ZeroMQHandler(log_uri, multi=True).applicationbound():
-        #ctx = zmq.Context.instance()
-        #auth = ThreadAuthenticator(ctx)
-        #auth.start()
-        #auth.configure_curve(domain='*', location='authorized_keys')
-        #clients_req = ctx.socket(zmq.ROUTER)
-        #clients_req.curve_server = True
-        #clients_req.curve_publickey, clients_req.curve_secretkey \
-        #    = zmq.auth.load_certificate('server.key_secret')
-        #server_req = ctx.socket(zmq.DEALER)
-        #clients_req.bind('tcp://*:55443')
-        #server_req.bind('tcp://*:55444')
+        ctx = zmq.Context.instance()
+        auth = ThreadAuthenticator(ctx)
+        auth.start()
+        auth.configure_curve(domain='*', location='authorized_keys')
 
         logger = Logger('Majordomo')
         logger.info('Started')
@@ -83,5 +85,5 @@ if __name__ == '__main__':
         while True:
             broker.poll()
 
-        #auth.stop()
+        auth.stop()
         logger.info('Exited')
