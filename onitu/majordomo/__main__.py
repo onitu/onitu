@@ -25,6 +25,7 @@ class Broker(broker.Broker):
     def _before_bind(self):
         super(Broker, self)._before_bind()
         self.frontend.reqs.curve_server = True
+        self.frontend.reps.curve_server = True
         pub_key, priv_key = zmq.auth.load_certificate('server.key_secret')
         self.frontend.reqs.curve_publickey = pub_key
         self.frontend.reqs.curve_secretkey = priv_key
