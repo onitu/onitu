@@ -62,6 +62,15 @@ def start_setup(*args, **kwargs):
 
     yield referee.start()
 
+    majordomo = arbiter.add_watcher(
+        "Majordomo",
+        sys.executable,
+        args=('-m', 'onitu.majordomo', log_uri, escalator_uri, session),
+        copy_env=True,
+    )
+
+    loop.add_callback(start_watcher, majordomo)
+
     for name, conf in entries.items():
         logger.debug("Loading entry {}", name)
 
