@@ -20,7 +20,7 @@ class Driver(TestDriver):
 
     def __init__(self, *args, **options):
         if "root" not in options:
-            options['root'] = 'onitu/'
+            options['root'] = 'onitu'  # bug: don't put a trailing slash
         if "aws_access_key" not in options:
             options['aws_access_key'] = os.environ['ONITU_AWS_ACCESS_KEY']
         if "aws_secret_key" not in options:
@@ -35,9 +35,6 @@ class Driver(TestDriver):
                                      *args,
                                      **options)
 
-    def create_file(self, filename, content=""):
-        self.write(filename, content)
-
     @property
     def root(self):
         root = self.options['root']
@@ -50,15 +47,17 @@ class Driver(TestDriver):
 
     def close(self):
         root = str(self.root)
-        for key in self.conn.list_keys(extra_params={'prefix': root}):
-            self.conn.delete(key.key)
+        for key in self.conn.list(prefix=root):
+            self.conn.delete(key['key'])
         # Don't delete the whole bucket !
-        if root != '/':
+        if root.endswith('/'):
+            root = root[:-1]
+        if root != '':
             self.conn.delete(root)
 
     def mkdir(self, subdirs):
         subdirs = str(self.root) + subdirs
-        self.create_file(subdirs)
+        self.write(subdirs, '', True)
 
     def rmdir(self, path):
         path = str(self.root) + path
@@ -75,7 +74,7 @@ class Driver(TestDriver):
 
     def generate(self, filename, size):
         filename = str(self.root) + filename
-        self.write(filename, os.urandom(size))
+        self.write(filename, os.urandom(size), True)
 
     def unlink(self, filename):
         filename = str(self.root) + filename

@@ -81,34 +81,16 @@ def root_prefixed_filename(filename):
     return rp_filename
 
 
-def get_file(filename):
-    """Gets a file on the bucket (S3 calls them "keys").
-    Prefixes the given filename with Onitu's root.
-    Raises a ServiceError if file doesn't exist."""
-    global S3Conn
-
-    filename = root_prefixed_filename(filename)
-    try:
-        file = S3Conn.get(filename)
-    except requests.HTTPError as httpe:
-        err = "Cannot retrieve file '{}' on bucket '{}'".format(
-            filename, plug.options['bucket'])
-        if httpe.response.status_code == 404:
-            err += ": The file doesn't exist"
-        err += " - {}".format(httpe)
-        raise ServiceError(err)
-    return file
-
-
 def get_file_timestamp(filename):
     """Returns the float timestamp based on the
     date format timestamp stored by Amazon.
     Prefixes the given filename with Onitu's root."""
     global S3Conn
 
-    key = S3Conn.get_key(filename)
+    metadata = S3Conn.head_object(filename)
+    timestamp = metadata.headers['last-modified']
     # convert timestamp to timestruct...
-    timestamp = time.strptime(key.lastmodified, TIMESTAMP_FMT)
+    timestamp = time.strptime(timestamp, HEAD_TIMESTAMP_FMT)
     # ...timestruct to float
     timestamp = time.mktime(timestamp)
     return timestamp
@@ -149,8 +131,7 @@ def get_multipart_upload(metadata):
         raise DriverError("Unable to retrieve multipart upload ID")
     if metadata_mp_id not in cache:
         # Try to only request multipart uploads of this file
-        params = {'prefix': filename}
-        for mp in S3Conn.list_multipart_uploads(extra_params=params):
+        for mp in S3Conn.list_multipart_uploads(prefix=filename):
             # Go through all the multipart uploads
             # to find the one of this transfer
             if mp.uploadId == metadata_mp_id:
@@ -231,6 +212,10 @@ def start_upload(metadata):
     global plug
 
     filename = root_prefixed_filename(metadata.filename)
+    plug.logger.debug("Starting upload of '{}' to '{}' on bucket {}"
+                      .format(metadata.filename, filename,
+                              plug.options['bucket']))
+
     # Create a new multipart upload for this file
     new_mp = S3Conn.initiate_multipart_upload(filename)
     # Write the new multipart ID in metadata
@@ -243,6 +228,8 @@ def start_upload(metadata):
     metadata.write()
     # Store the Multipart upload id in cache
     add_to_cache(new_mp)
+    plug.logger.debug("Storing upload ID {} for {}"
+                      .format(new_mp.uploadId, filename))
 
 
 @plug.handler()
@@ -363,37 +350,32 @@ class CheckChanges(threading.Thread):
         # root itself
         if not root.endswith('/'):
             root += '/'
-        p = {'prefix': root}
+        keys = S3Conn.list(prefix=root)
         # Getting multipart uploads once for all files under root
         # is WAY faster than re-getting them for each file
-        multipart_uploads = S3Conn.get_all_multipart_uploads(extra_params=p)
-        keys = S3Conn.list_keys(extra_params=p)
+        multipart_uploads = S3Conn.get_all_multipart_uploads(prefix=root)
+        keys_being_uploaded = [mp.key for mp in multipart_uploads]
         # We have to be extra careful because S3 will list filenames without
         # leading slash.
         if root.startswith('/'):
             root = root[1:]
         for key in keys:
             # During an upload, files can appear on the S3 file system
-            # before the transfer has been completed (but they shouldn't).
-            # If there's currently an upload going on this file,
-            # don't notify it.
-            is_being_uploaded = False
-            for mp in multipart_uploads:
-                if mp.key == key.key:
-                    is_being_uploaded = True
-                    break
-            if is_being_uploaded:
-                continue  # Skip this file
+            # before the transfer has been completed.
+            # Skip if there's currently an upload going on
+            if key in keys_being_uploaded:
+                plug.logger.debug("Remote file '{}' is being uploaded"
+                                  " - skipped".format(key['key']))
+                continue
             # Strip the S3 root of the S3 filename for root coherence.
-            rootless_key = key.key[len(root):]
+            rootless_key = key['key'][len(root):]
             metadata = plug.get_metadata(rootless_key)
             onitu_ts = metadata.extra.get('timestamp', 0.0)
-            remote_ts = time.mktime(
-                time.strptime(key.lastmodified, TIMESTAMP_FMT))
+            remote_ts = time.mktime(key['last_modified'].timetuple())
             if onitu_ts < remote_ts:  # Remote timestamp is more recent
                 plug.logger.debug("Updating metadata"
                                   " of file {}".format(metadata.filename))
-                metadata.size = int(key.size)
+                metadata.size = int(key['size'])
                 metadata.extra['timestamp'] = remote_ts
                 plug.update_file(metadata)
 
