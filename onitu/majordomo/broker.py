@@ -4,10 +4,12 @@ import zmq
 class Broker(object):
 
     class Interface(object):
-        def __init__(self, protocol='tcp', addr='*', ports=(None, None)):
+        def __init__(self):
             ctx = zmq.Context.instance()
             self.reqs = ctx.socket(zmq.ROUTER)
             self.reps = ctx.socket(zmq.ROUTER)
+
+        def bind(self, protocol='tcp', addr='*', ports=(None, None)):
             self.reqs_port = self._bind_socket(self.reqs,
                                                protocol,
                                                addr,
@@ -29,12 +31,15 @@ class Broker(object):
     def __init__(self, frontend_ports, backend_ports=(None, None),
                  frontend_addr='*', backend_addr='*',
                  frontend_protocol='tcp', backend_protocol='tcp'):
-        self.frontend = self.Interface(frontend_protocol,
-                                       frontend_addr,
-                                       frontend_ports)
-        self.backend = self.Interface(backend_protocol,
-                                      backend_addr,
-                                      backend_ports)
+        self.frontend = self.Interface()
+        self.backend = self.Interface()
+        self._before_bind()
+        self.frontend.bind(frontend_protocol,
+                           frontend_addr,
+                           frontend_ports)
+        self.backend.bind(backend_protocol,
+                          backend_addr,
+                          backend_ports)
 
         self.poller = zmq.Poller()
         self.poller.register(self.frontend.reqs, zmq.POLLIN)
@@ -54,6 +59,9 @@ class Broker(object):
             self.frontend.reps: 'F-REP',
             self.backend.reps: 'B-REP'
         }
+
+    def _before_bind(self):
+        pass
 
     def _get_msg(self, socket):
         print self.logs.get(socket, 'ERROR')
