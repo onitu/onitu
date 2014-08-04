@@ -2,10 +2,13 @@ import threading
 import random
 
 import zmq
+import msgpack
 
 from onitu.plug import Plug
 
 plug = Plug()
+
+remote_socket, handlers_socket = None, None
 
 
 class Thread(threading.Thread):
@@ -13,29 +16,70 @@ class Thread(threading.Thread):
         threading.Thread.__init__(self)
 
     def run(self):
-        ctx = zmq.Context.instance()
-        remote_socket = ctx.socket(zmq.REQ)
-        remote_socket.identity = plug.options['id']
-        remote_socket.connect(plug.options['remote_uri'])
-        handlers_socket = ctx.socket(zmq.REQ)
-        handlers_socket.identity = plug.options['id']
-        handlers_socket.connect(plug.options['handlers_uri'])
-
         pouet = random.randrange(100)
         n = 0
 
         remote_socket.send_multipart((b'', b'ready'))
         while True:
             req_id, msg = remote_socket.recv_multipart()
+            print req_id, type(req_id)
             print 'Recv', msg, 'from', req_id
             resp = 'ok-{}-{}'.format(pouet, n).encode()
             remote_socket.send_multipart((req_id, resp))
             n += 1
 
 
+def metadata_serializer(m):
+    props = [getattr(m, p) for p in m.PROPERTIES]
+    return m.fid, props, m.extra
+
+def metadata_unserialize(m):
+    fid, (filename, size, owners, uptodate), extra = m
+    metadata = plug.get_metadata(filename)
+    metadata.size = size
+    metadata.owners = owners
+    metadata.uptodate = uptodate
+    metadata.extra = extra
+    return metadata
+
+serializers = {
+    'metadata': metadata_serializer
+}
+
+def cmd_handler(name, *args_serializers):
+    @plug.handler(name)
+    def handler(*args):
+        msg = [name] + [(ser, serializers.get(ser, lambda x: x)(arg))
+                        for (ser, arg) in zip(args_serializers, args)]
+        handlers_socket.send_multipart((plug.options['remote_id'], msgpack.packb(msg)))
+        plug.logger.debug('===={}====', msg)
+        _, resp = handlers_socket.recv_multipart()
+        resp = msgpack.unpackb(resp)
+        plug.logger.debug('RESP {}', resp)
+        return resp
+    return handler
+
+
+start_upload = cmd_handler('start_upload', 'metadata')
+upload_chunk = cmd_handler('upload_chunk', 'metadata', None, None)
+end_upload = cmd_handler('end_upload', 'metadata')
+abort_upload = cmd_handler('abort_upload', 'metadata')
+get_chunk = cmd_handler('get_chunk', 'metadata', None, None)
+
+
 def start():
+    global remote_socket, handlers_socket
+
     print "Launching driver"
     print plug.options
+
+    ctx = zmq.Context.instance()
+    remote_socket = ctx.socket(zmq.REQ)
+    remote_socket.identity = plug.options['id']
+    remote_socket.connect(plug.options['remote_uri'])
+    handlers_socket = ctx.socket(zmq.REQ)
+    handlers_socket.identity = plug.options['id']
+    handlers_socket.connect(plug.options['handlers_uri'])
 
     thread = Thread()
     thread.start()

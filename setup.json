@@ -24,6 +24,10 @@
     {
       "match": {"path": "/backedup/", "mime": ["application/pdf"]},
       "sync": ["B"]
+    },
+    {
+      "match": {"path": "/"},
+      "sync": ["remote-1"]
     }
   ]
 
