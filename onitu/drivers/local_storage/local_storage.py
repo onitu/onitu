@@ -249,7 +249,7 @@ if IS_WINDOWS:
                 if (abs_path.isdir() or abs_path.ext == TMP_EXT or
                     not (win32api.GetFileAttributes(abs_path)
                          & win32con.FILE_ATTRIBUTE_NORMAL)):
-                    return
+                    continue
 
                 with file_lock:
                     if actions_names.get(action) == 'write':
