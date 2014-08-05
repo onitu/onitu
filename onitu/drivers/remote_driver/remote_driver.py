@@ -1,5 +1,4 @@
 import threading
-import random
 
 import zmq
 import msgpack
@@ -34,16 +33,9 @@ class Thread(threading.Thread):
         threading.Thread.__init__(self)
 
     def run(self):
-        #pouet = random.randrange(100)
-        #n = 0
-
-        remote_socket.send_multipart((b'', b'ready'))
+        remote_socket.send_multipart((plug.options['remote_id'], b''))
         while True:
             req_id, msg = remote_socket.recv_multipart()
-            #print req_id, type(req_id)
-            #resp = 'ok-{}-{}'.format(pouet, n).encode()
-            #remote_socket.send_multipart((req_id, resp))
-            #n += 1
             msg = msgpack.unpackb(msg, use_list=False)
             print 'Recv', msg, 'from', req_id
             if msg[0] == 'get_metadata':

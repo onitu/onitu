@@ -67,7 +67,6 @@ class Broker(broker.Broker):
                 }
             }
             self.circus_client.call(query)
-            socket.send_multipart((from_id, b'', to_id))
             return
         self._handle_relay(socket, from_id, to_id, msg)
 
