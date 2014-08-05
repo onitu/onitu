@@ -253,7 +253,7 @@ if IS_WINDOWS:
                     os.path.exists(abs_path) and (not (win32api.GetFileAttributes(abs_path)
                          & win32con.FILE_ATTRIBUTE_NORMAL) and not (win32api.GetFileAttributes(abs_path)
                          & win32con.FILE_ATTRIBUTE_ARCHIVE))):
-                    return
+                    continue
                 with file_lock:
                     if actions_names.get(action) == 'write' or actions_names.get(action) == 'create':
                         filename = root.relpathto(abs_path)
