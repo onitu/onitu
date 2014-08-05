@@ -11,24 +11,6 @@ plug = Plug()
 remote_socket, handlers_socket = None, None
 
 
-class Thread(threading.Thread):
-    def __init__(self):
-        threading.Thread.__init__(self)
-
-    def run(self):
-        pouet = random.randrange(100)
-        n = 0
-
-        remote_socket.send_multipart((b'', b'ready'))
-        while True:
-            req_id, msg = remote_socket.recv_multipart()
-            print req_id, type(req_id)
-            print 'Recv', msg, 'from', req_id
-            resp = 'ok-{}-{}'.format(pouet, n).encode()
-            remote_socket.send_multipart((req_id, resp))
-            n += 1
-
-
 def metadata_serializer(m):
     props = [getattr(m, p) for p in m.PROPERTIES]
     return m.fid, props, m.extra
@@ -45,6 +27,39 @@ def metadata_unserialize(m):
 serializers = {
     'metadata': metadata_serializer
 }
+
+
+class Thread(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+
+    def run(self):
+        #pouet = random.randrange(100)
+        #n = 0
+
+        remote_socket.send_multipart((b'', b'ready'))
+        while True:
+            req_id, msg = remote_socket.recv_multipart()
+            #print req_id, type(req_id)
+            #resp = 'ok-{}-{}'.format(pouet, n).encode()
+            #remote_socket.send_multipart((req_id, resp))
+            #n += 1
+            msg = msgpack.unpackb(msg, use_list=False)
+            print 'Recv', msg, 'from', req_id
+            if msg[0] == 'get_metadata':
+                m = plug.get_metadata(msg[1])
+                remote_socket.send_multipart((req_id, msgpack.packb(metadata_serializer(m))))
+            elif msg[0] == 'update_file':
+                m = metadata_unserialize(msg[1])
+                plug.update_file(m)
+                remote_socket.send_multipart((req_id, b''))
+            elif msg[0]== 'metadata_write':
+                m = metadata_unserialize(msg[1])
+                m.write()
+                remote_socket.send_multipart((req_id, b''))
+            else:
+                remote_socket.send_multipart((req_id, b''))
+
 
 def cmd_handler(name, *args_serializers):
     @plug.handler(name)
