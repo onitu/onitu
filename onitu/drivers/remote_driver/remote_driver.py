@@ -33,7 +33,7 @@ class Thread(threading.Thread):
         threading.Thread.__init__(self)
 
     def run(self):
-        remote_socket.send_multipart((plug.options['remote_id'], b''))
+        remote_socket.send_multipart((plug.options['remote_id'], plug.name))
         while True:
             req_id, msg = remote_socket.recv_multipart()
             msg = msgpack.unpackb(msg, use_list=False)
@@ -44,6 +44,15 @@ class Thread(threading.Thread):
             elif msg[0] == 'update_file':
                 m = metadata_unserialize(msg[1])
                 plug.update_file(m)
+                remote_socket.send_multipart((req_id, b''))
+            elif msg[0] == 'delete_file':
+                m = metadata_unserialize(msg[1])
+                plug.delete_file(m)
+                remote_socket.send_multipart((req_id, b''))
+            elif msg[0] == 'move_file':
+                old_m = metadata_unserialize(msg[1])
+                new_filename = msg[2]
+                plug.move_file(old_m, new_filename)
                 remote_socket.send_multipart((req_id, b''))
             elif msg[0]== 'metadata_write':
                 m = metadata_unserialize(msg[1])
@@ -72,6 +81,8 @@ upload_chunk = cmd_handler('upload_chunk', 'metadata', None, None)
 end_upload = cmd_handler('end_upload', 'metadata')
 abort_upload = cmd_handler('abort_upload', 'metadata')
 get_chunk = cmd_handler('get_chunk', 'metadata', None, None)
+delete_file = cmd_handler('delete_file', 'metadata')
+move_file = cmd_handler('move_file', 'metadata', 'metadata')
 
 
 def start():
