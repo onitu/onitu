@@ -38,9 +38,6 @@ def get_conn():
     Raises an error if conn cannot be established"""
     global S3Conn
 
-    # TODO: try catch:
-    # - if invalid bucket name
-    # - if invalid credentials
     S3Conn = tinys3.Connection(plug.options['aws_access_key'],
                                plug.options['aws_secret_key'],
                                default_bucket=plug.options['bucket'], tls=True)
@@ -60,8 +57,6 @@ def get_conn():
 
 def get_root():
     """Returns Onitu's root for S3. Removes the leading slash if any."""
-    global plug
-
     root = plug.options['root']
     if root.startswith('/'):  # S3 doesn't like leading slashes
         root = root[1:]
@@ -98,11 +93,12 @@ def get_file_timestamp(filename):
 
 def add_to_cache(multipart_upload):
     """Caches a multipart upload. Checks that the cache isn't growing
-    past MAX_CACHE_SIZE."""
+    past MAX_CACHE_SIZE and that it isn't in the cache yet."""
     global cache
 
     if len(cache) < MAX_CACHE_SIZE:
-        cache[multipart_upload.uploadId] = multipart_upload
+        if multipart_upload.uploadId not in cache:
+            cache[multipart_upload.uploadId] = multipart_upload
 
 
 def remove_from_cache(multipart_upload):
@@ -203,6 +199,7 @@ def upload_chunk(metadata, offset, chunk):
         err = err.format(part_num, multipart_upload.key, httpe)
         raise ServiceError(err)
     plug.logger.debug("Chunk upload complete")
+    add_to_cache(multipart_upload)
     upload_fp.close()
 
 
