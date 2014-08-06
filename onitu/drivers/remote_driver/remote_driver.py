@@ -107,3 +107,6 @@ def start():
     thread.start()
 
     plug.listen()
+    thread.join()
+    remote_socket.close()
+    handlers_socket.close()
