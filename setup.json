@@ -18,8 +18,8 @@
       "driver": "dropbox",
       "options": {
         "root": "/onitu/",
-        "access_key": "hpcb300001vu0v6e",
-        "access_secret": "2os7zx0zj8vv7bm"
+        "access_key": "Your_Access_Key",
+        "access_secret": "Your_Access_Secret"
       }
     }
   },
