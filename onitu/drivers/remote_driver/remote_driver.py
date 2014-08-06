@@ -35,7 +35,11 @@ class Thread(threading.Thread):
     def run(self):
         remote_socket.send_multipart((plug.options['remote_id'], plug.name))
         while True:
-            req_id, msg = remote_socket.recv_multipart()
+            try:
+                req_id, msg = remote_socket.recv_multipart()
+            except zmq.ZMQError as e:
+                if e.errno == zmq.ETERM:
+                    break
             msg = msgpack.unpackb(msg, use_list=False)
             print 'Recv', msg, 'from', req_id
             if msg[0] == 'get_metadata':
