@@ -1,6 +1,7 @@
-from time import sleep
+import requests
+import time
+
 from circus.client import CircusClient
-from requests import get, put
 
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
@@ -13,6 +14,22 @@ circus_client = CircusClient()
 launcher, setup = None, None
 rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
 json_file = 'test_startup.json'
+
+
+def get(*args, **kwargs):
+    while True:
+        try:
+            return requests.get(*args, **kwargs)
+        except requests.exceptions.ConnectionError:
+            time.sleep(0.1)
+
+
+def put(*args, **kwargs):
+    while True:
+        try:
+            return requests.put(*args, **kwargs)
+        except requests.exceptions.ConnectionError:
+            time.sleep(0.1)
 
 
 def is_running(name):
@@ -67,8 +84,6 @@ def setup_module(module):
     except:
         teardown_module(module)
         raise
-    # TODO: remove the sleep
-    sleep(5.)
 
 
 def teardown_module(module):
