@@ -67,6 +67,8 @@ def setup_module(module):
     except:
         teardown_module(module)
         raise
+    # TODO: remove the sleep
+    sleep(5.)
 
 
 def teardown_module(module):
@@ -75,8 +77,6 @@ def teardown_module(module):
 
 
 def test_stop():
-    # TODO: remove the sleep
-    sleep(1.)
     start(rep1.name)
     monitoring = monitoring_path.format(rep1.name, 'stop')
     url = '{}{}'.format(api_addr, monitoring)
