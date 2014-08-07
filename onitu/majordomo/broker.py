@@ -64,9 +64,7 @@ class Broker(object):
         pass
 
     def _get_msg(self, socket):
-        print self.logs.get(socket, 'ERROR')
         from_id, _, to_id, msg = socket.recv_multipart()
-        print '--', from_id, to_id, msg
         return from_id, to_id, msg
 
     def _handle_socket(self, socket):
