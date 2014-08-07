@@ -28,18 +28,9 @@ class Broker(object):
                 socket.bind('{}://{}:{}'.format(protocol, addr, port))
             return port
 
-    def __init__(self, frontend_ports, backend_ports=(None, None),
-                 frontend_addr='*', backend_addr='*',
-                 frontend_protocol='tcp', backend_protocol='tcp'):
+    def __init__(self):
         self.frontend = self.Interface()
         self.backend = self.Interface()
-        self._before_bind()
-        self.frontend.bind(frontend_protocol,
-                           frontend_addr,
-                           frontend_ports)
-        self.backend.bind(backend_protocol,
-                          backend_addr,
-                          backend_ports)
 
         self.poller = zmq.Poller()
         self.poller.register(self.frontend.reqs, zmq.POLLIN)
@@ -60,8 +51,15 @@ class Broker(object):
             self.backend.reps: 'B-REP'
         }
 
-    def _before_bind(self):
-        pass
+    def bind(self, frontend_ports, backend_ports=(None, None),
+             frontend_addr='*', backend_addr='*',
+             frontend_protocol='tcp', backend_protocol='tcp'):
+        self.frontend.bind(frontend_protocol,
+                           frontend_addr,
+                           frontend_ports)
+        self.backend.bind(backend_protocol,
+                          backend_addr,
+                          backend_ports)
 
     def _get_msg(self, socket):
         from_id, _, to_id, msg = socket.recv_multipart()
