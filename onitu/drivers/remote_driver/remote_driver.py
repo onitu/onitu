@@ -1,69 +1,13 @@
-import threading
-
 import zmq
 import msgpack
 
 from onitu.plug import Plug
+from .remote import Remote
+from .serializers import serializers
 
 plug = Plug()
 
 remote_socket, handlers_socket = None, None
-
-
-def metadata_serializer(m):
-    props = [getattr(m, p) for p in m.PROPERTIES]
-    return m.fid, props, m.extra
-
-def metadata_unserialize(m):
-    fid, (filename, size, owners, uptodate), extra = m
-    metadata = plug.get_metadata(filename)
-    metadata.size = size
-    metadata.owners = owners
-    metadata.uptodate = uptodate
-    metadata.extra = extra
-    return metadata
-
-serializers = {
-    'metadata': metadata_serializer
-}
-
-
-class Thread(threading.Thread):
-    def __init__(self):
-        threading.Thread.__init__(self)
-
-    def run(self):
-        remote_socket.send_multipart((plug.options['remote_id'], plug.name))
-        while True:
-            try:
-                req_id, msg = remote_socket.recv_multipart()
-            except zmq.ZMQError as e:
-                if e.errno == zmq.ETERM:
-                    break
-            msg = msgpack.unpackb(msg, use_list=False)
-            print 'Recv', msg, 'from', req_id
-            if msg[0] == 'get_metadata':
-                m = plug.get_metadata(msg[1])
-                remote_socket.send_multipart((req_id, msgpack.packb(metadata_serializer(m))))
-            elif msg[0] == 'update_file':
-                m = metadata_unserialize(msg[1])
-                plug.update_file(m)
-                remote_socket.send_multipart((req_id, b''))
-            elif msg[0] == 'delete_file':
-                m = metadata_unserialize(msg[1])
-                plug.delete_file(m)
-                remote_socket.send_multipart((req_id, b''))
-            elif msg[0] == 'move_file':
-                old_m = metadata_unserialize(msg[1])
-                new_filename = msg[2]
-                plug.move_file(old_m, new_filename)
-                remote_socket.send_multipart((req_id, b''))
-            elif msg[0]== 'metadata_write':
-                m = metadata_unserialize(msg[1])
-                m.write()
-                remote_socket.send_multipart((req_id, b''))
-            else:
-                remote_socket.send_multipart((req_id, b''))
 
 
 def cmd_handler(name, *args_serializers):
@@ -71,7 +15,8 @@ def cmd_handler(name, *args_serializers):
     def handler(*args):
         msg = [name] + [(ser, serializers.get(ser, lambda x: x)(arg))
                         for (ser, arg) in zip(args_serializers, args)]
-        handlers_socket.send_multipart((plug.options['remote_id'], msgpack.packb(msg)))
+        handlers_socket.send_multipart((plug.options['remote_id'],
+                                        msgpack.packb(msg)))
         plug.logger.debug('===={}====', msg)
         _, resp = handlers_socket.recv_multipart()
         resp = msgpack.unpackb(resp)
@@ -103,10 +48,10 @@ def start():
     handlers_socket.identity = plug.options['id']
     handlers_socket.connect(plug.options['handlers_uri'])
 
-    thread = Thread()
-    thread.start()
+    remote = Remote(plug, remote_socket)
+    remote.start()
 
     plug.listen()
-    thread.join()
+    remote.join()
     remote_socket.close()
     handlers_socket.close()
