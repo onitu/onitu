@@ -15,7 +15,7 @@
     },
     "access_secret": {
       "name": "Dropbox Access Token Secret",
-      "description": "The key provided by Dropbox with the OAuth access token.",
+      "description": "The secret provided by Dropbox with the OAuth access token.",
       "type": "string"
     },
     "changes_timer": {

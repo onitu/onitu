@@ -20,7 +20,6 @@ def connect_client():
     """Helper function to connect to Dropbox via the API, using access token
     keys to authenticate Onitu."""
     global dropbox_client
-    global plug
     plug.logger.debug("Attempting Dropbox connection using Onitu credentials")
     sess = DropboxSession(ONITU_APP_KEY,
                           ONITU_APP_SECRET,
@@ -34,7 +33,6 @@ def connect_client():
 
 
 def root_prefixed_filename(filename):
-    global plug
     name = plug.options['root']
     if not name.endswith('/'):
         name += '/'
@@ -52,8 +50,6 @@ def remove_upload_id(metadata):
 
 @plug.handler()
 def get_chunk(metadata, offset, size):
-    global dropbox_client
-    global plug
     filename = root_prefixed_filename(metadata.filename)
     plug.logger.debug("Getting chunk of size {} from file {}"
                       " from offset {} to {}"
@@ -82,7 +78,6 @@ def get_chunk(metadata, offset, size):
 
 @plug.handler()
 def upload_chunk(metadata, offset, chunk):
-    global dropbox_client
     filename = root_prefixed_filename(metadata.filename)
     # Get the upload id of this file. None = upload's first time
     up_id = metadata.extra.get('upload_id', None)
@@ -105,7 +100,6 @@ def upload_chunk(metadata, offset, chunk):
 
 @plug.handler()
 def end_upload(metadata):
-    global dropbox_client
     filename = root_prefixed_filename(metadata.filename)
     plug.logger.debug("Ending upload of '{}'".format(filename))
     # Note the difference between dropbox_client (the global variable), and
@@ -149,23 +143,30 @@ def abort_upload(metadata):
 
 @plug.handler()
 def move_file(old_metadata, new_metadata):
-    global dropbox_client
     old_filename = root_prefixed_filename(old_metadata.filename)
     new_filename = root_prefixed_filename(new_metadata.filename)
     plug.logger.debug("Moving '{}' to '{}'".format(old_filename, new_filename))
     try:
-        dropbox_client.file_move(from_path=old_filename,
-                                 to_path=new_filename)
+        new_db_metadata = dropbox_client.file_move(from_path=old_filename,
+                                                   to_path=new_filename)
     except dropbox.rest.ErrorResponse as err:
         raise ServiceError("Cannot move file {} - {}"
                            .format(old_filename, err))
+    # Update revision of new object
+    # This permits to not detect a new update in the check changes thread
+    # and thus avoids an useless transfer the other way around
+
+    new_metadata.extra['revision'] = new_db_metadata['revision']
+    new_metadata.write()
+    plug.logger.debug("Storing revision '{}' for file '{}'"
+                      .format(new_db_metadata['revision'], new_filename))
+
     plug.logger.debug("Moving '{}' to '{}' - Done"
                       .format(old_filename, new_filename))
 
 
 @plug.handler()
 def delete_file(metadata):
-    global dropbox_client
     filename = root_prefixed_filename(metadata.filename)
     plug.logger.debug("Deleting '{}'".format(filename))
     try:
@@ -195,8 +196,6 @@ class CheckChanges(threading.Thread):
         self.cursor = None
 
     def check_dropbox(self):
-        global dropbox_client
-        global plug
         plug.logger.debug("Checking dropbox for changes in '{}' folder"
                           .format(plug.options['root']))
         prefix = plug.options['root']
@@ -256,7 +255,6 @@ class CheckChanges(threading.Thread):
             has_more = changes['has_more']
 
     def run(self):
-        global plug
         while not self.stop.isSet():
             try:
                 self.check_dropbox()
@@ -270,12 +268,11 @@ class CheckChanges(threading.Thread):
 
 
 def start(*args, **kwargs):
-    global plug
     if plug.options['changes_timer'] < 0:
         raise DriverError(
             "The change timer option must be a positive integer")
     connect_client()
-    # Star the watching-for-new-files thread
+    # Start the watching-for-new-files thread
     check = CheckChanges(plug.options['changes_timer'])
     check.daemon = True
     check.start()
