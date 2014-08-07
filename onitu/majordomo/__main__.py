@@ -9,6 +9,7 @@ from . import broker
 from onitu.escalator.client import Escalator
 from logbook.queues import ZeroMQHandler
 from logbook import Logger
+from onitu.utils import at_exit
 
 log_uri = sys.argv[1]
 escalator_uri = sys.argv[2]
@@ -71,6 +72,11 @@ class Broker(broker.Broker):
         self._handle_relay(socket, from_id, to_id, msg)
 
 
+def cleanup():
+    auth.stop()
+    logger.info('Exited')
+
+
 if __name__ == '__main__':
     with ZeroMQHandler(log_uri, multi=True).applicationbound():
         ctx = zmq.Context.instance()
@@ -81,9 +87,11 @@ if __name__ == '__main__':
         logger = Logger('Majordomo')
         logger.info('Started')
 
-        broker = Broker()
-        while True:
-            broker.poll()
+        at_exit(cleanup)
 
-        auth.stop()
-        logger.info('Exited')
+        broker = Broker()
+        try:
+            while True:
+                broker.poll()
+        except zmq.ZMQError as e:
+            pass
