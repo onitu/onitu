@@ -8,6 +8,7 @@ from onitu.referee import UP, DEL, MOV
 
 from .metadata import Metadata
 from .exceptions import AbortOperation
+from .router import CHUNK, FILE
 
 
 class Worker(object):
@@ -63,11 +64,17 @@ class TransferWorker(Worker):
 
         try:
             self.start_transfer()
-            self.get_file()
+            dealer = self.get_dealer()
+            if 'upload_chunk' in self.dealer.plug._handlers:
+                self.get_file_multipart(dealer)
+            else:
+                self.get_file_oneshot(dealer)
         except AbortOperation:
             pass
         else:
             success = True
+        finally:
+            dealer.close()
 
         self.end_transfer(success)
 
@@ -103,9 +110,21 @@ class TransferWorker(Worker):
                 "Starting to get '{}' from {}", self.filename, self.driver
             )
 
-    def get_file(self):
-        dealer = self.get_dealer()
+    def get_file_oneshot(self, dealer):
+        self.logger.debug(
+            "Asking {} for the content of '{}'", self.driver, self.filename
+        )
 
+        dealer.send_multipart((FILE, str(self.fid).encode()))
+        _, content = dealer.recv_multipart()
+
+        self.logger.debug(
+            "Received content of file '{}' from {}", self.filename, self.driver
+        )
+
+        self.call('upload_file', self.metadata, content)
+
+    def get_file_multipart(self, dealer):
         while self.offset < self.metadata.size:
             if self._stop.is_set():
                 raise AbortOperation()
@@ -113,11 +132,12 @@ class TransferWorker(Worker):
             self.logger.debug("Asking {} for a new chunk", self.driver)
 
             dealer.send_multipart((
+                CHUNK,
                 str(self.fid).encode(),
                 str(self.offset).encode(),
                 str(self.chunk_size).encode()
             ))
-            chunk = dealer.recv()
+            _, chunk = dealer.recv_multipart()
 
             self.logger.debug(
                 "Received chunk of size {} from {} for '{}'",
