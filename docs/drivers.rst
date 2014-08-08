@@ -9,7 +9,7 @@ Basics
 
 The drivers communicate with Onitu via the :class:`.Plug` class, which handles the operations common to all drivers. Each driver implements its specific tasks with the system of handlers_. Those handlers will be called by the :class:`.Plug` at certain occasions.
 
-In Onitu the file transfers are made by chunks. When a new transfer begin, the :class:`.Plug` asks the others drivers for new chunks, and then call the `upload_chunk` handler.
+In Onitu the file transfers can be made by chunks. When a new transfer begin, the :class:`.Plug` asks the others drivers for new chunks, and then call the `upload_chunk` handler. The transfers can also be made via the `upload_file` handler, which upload the full content of the file. Both protocols can be used together.
 
 Each driver must expose a function called `start` and an instance of the :class:`.Plug` in their `__init__.py` file. This `start` function will be called by Onitu during the initialization of the driver, and should not return until the end of life of the driver (*cf* :meth:`.Plug.listen`).
 
@@ -47,6 +47,14 @@ At this stage, the list of the handlers that can be defined is the following :
   :type size: int
   :rtype: string
 
+.. function:: get_file(metadata)
+
+  Return the full content of a file.
+
+  :param metadata: The metadata of the file
+  :type metadata: :class:`.Metadata`
+  :rtype: string
+
 .. function:: upload_chunk(metadata, offset, chunk)
 
   Write a chunk in a file at a given offset.
@@ -56,6 +64,15 @@ At this stage, the list of the handlers that can be defined is the following :
   :param offset: The offset from which the content should be written
   :type offset: int
   :param chunk: The content that should be written
+  :type chunk: string
+
+.. function:: upload_file(metadata, content)
+
+  Write the full content of a file.
+
+  :param metadata: The metadata of the file
+  :type metadata: :class:`.Metadata`
+  :param content: The content of the file
   :type chunk: string
 
 .. function:: set_chunk_size(chunk_size)
