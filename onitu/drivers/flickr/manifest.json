@@ -1,0 +1,44 @@
+{
+  "name": "Flickr",
+  "description": "Driver to synchronize files with a Flickr account.",
+  "options": {
+
+    "root": {
+      "name": "Root",
+      "description": "The root of the directories under Onitu's watch",
+      "type": "string",
+      "default": ""
+    },
+
+    "client_id": {
+      "name": "Client id",
+      "description": "Your client ID",
+      "type": "string"
+
+    },
+    "client_secret": {
+      "name": "Client secret",
+      "description": "Your client secret",
+      "type": "string"
+    },
+
+    "oauth_token": {
+      "name": "Oauth token",
+      "description": "Your oauth token",
+      "type": "string"
+    },
+
+    "oauth_token_verifier": {
+      "name": "Oauth token verifier",
+      "description": "Your oauth token verifier",
+      "type": "string"
+    },
+
+    "changes_timer": {
+      "name": "Changes timer",
+      "description": "The frequency to check changes on the Flickr account (in seconds).",
+      "type": "integer",
+      "default": 10
+    }
+  }
+}
