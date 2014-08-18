@@ -1,0 +1,30 @@
+{
+  "name": "example",
+
+  "entries": {
+    "A": {
+      "driver": "local_storage",
+      "options": {
+        "root": "example/driver_a"
+      }
+    },
+    "B": {
+      "driver": "local_storage",
+      "options": {
+        "root": "example/driver_b"
+      }
+    }
+  },
+
+  "rules": [
+    {
+      "match": {"path": "/"},
+      "sync": ["A"]
+    },
+    {
+      "match": {"path": "/backedup/", "mime": ["application/pdf"]},
+      "sync": ["B"]
+    }
+  ]
+
+}
