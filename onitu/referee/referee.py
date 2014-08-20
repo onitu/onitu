@@ -195,6 +195,9 @@ class Referee(object):
                               "control. should be deleted.", filename, name)
 
     def notify(self, drivers, cmd, fid, *args):
+        if not drivers:
+            return
+
         publisher = self.context.socket(zmq.PUSH)
         publisher.linger = 1000
 
