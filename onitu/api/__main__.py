@@ -6,7 +6,7 @@ from bottle import Bottle, run, response, abort
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
-from onitu.plug.metadata import Metadata
+from onitu.utils import get_fid
 
 host = 'localhost'
 port = 3862
@@ -27,16 +27,6 @@ def enable_cors():
     response.headers['Access-Control-Allow-Headers'] = (
         'Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
     )
-
-
-def metadatas(fid):
-    raw = escalator.get('file:{}'.format(fid), default=None)
-    if not raw:
-        return None
-    m = {'fid': fid}
-    for name, (deserialize, _) in Metadata.PROPERTIES.items():
-        m[name] = deserialize(raw.get(name))
-    return m
 
 
 def entry(name):
@@ -101,16 +91,20 @@ def timeout():
 
 @app.route('/api/v1.0/files', method='GET')
 def get_files():
-    files = [metadatas(fid) for fid in escalator.get('files')]
+    files = [metadata for key, metadata in escalator.range('file:')
+             if key.count(':') == 1]
+    for metadata in files:
+        metadata['fid'] = get_fid(metadata['filename'])
     return {'files': files}
 
 
-@app.route('/api/v1.0/files/<fid:int>/metadata', method='GET')
+@app.route('/api/v1.0/files/<fid>/metadata', method='GET')
 def get_file(fid):
-    f = metadatas(fid)
-    if not f:
+    metadata = escalator.get('file:{}'.format(fid), default=None)
+    metadata['fid'] = fid
+    if not metadata:
         abort(404)
-    return f
+    return metadata
 
 
 @app.route('/api/v1.0/entries', method='GET')
