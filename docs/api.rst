@@ -24,7 +24,7 @@ Files
 
   .. sourcecode:: http
 
-    GET /api/v1/files HTTP/1.1
+    GET /api/v1.0/files HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -67,7 +67,7 @@ Files
 
   .. sourcecode:: http
 
-    GET /api/v1/files/1/metadata HTTP/1.1
+    GET /api/v1.0/files/1/metadata HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -98,7 +98,7 @@ Entries
 
   .. sourcecode:: http
 
-    GET /api/v1/entries HTTP/1.1
+    GET /api/v1.0/entries HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -138,7 +138,7 @@ Entries
 
   .. sourcecode:: http
 
-    GET /api/v1/entries/A HTTP/1.1
+    GET /api/v1.0/entries/A HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -166,7 +166,7 @@ Entries
 
   .. sourcecode:: http
 
-    GET /api/v1/entries/A/stats HTTP/1.1
+    GET /api/v1.0/entries/A/stats HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -226,7 +226,7 @@ Entries
 
   .. sourcecode:: http
 
-    GET /api/v1/entries/A/status HTTP/1.1
+    GET /api/v1.0/entries/A/status HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -277,7 +277,7 @@ Entries
 
   .. sourcecode:: http
 
-    PUT /api/v1/entries/A/stop HTTP/1.1
+    PUT /api/v1.0/entries/A/stop HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -327,7 +327,7 @@ Entries
 
   .. sourcecode:: http
 
-    PUT /api/v1/entries/A/start HTTP/1.1
+    PUT /api/v1.0/entries/A/start HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -377,7 +377,7 @@ Entries
 
   .. sourcecode:: http
 
-    PUT /api/v1/entries/A/restart HTTP/1.1
+    PUT /api/v1.0/entries/A/restart HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -430,7 +430,7 @@ Rules
 
   .. sourcecode:: http
 
-    GET /api/v1/rules HTTP/1.1
+    GET /api/v1.0/rules HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -463,7 +463,7 @@ Rules
 
   .. sourcecode:: http
 
-    PUT /api/v1/rules HTTP/1.1
+    PUT /api/v1.0/rules HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -500,7 +500,7 @@ Rules
 
   .. sourcecode:: http
 
-    PUT /api/v1/rules/reload HTTP/1.1
+    PUT /api/v1.0/rules/reload HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
