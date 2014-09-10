@@ -32,7 +32,7 @@ class Databases(object):
     def get(self, uid):
         return self.get_db(self.get_name(uid))
 
-    def connect(self, name, create=False):
+    def connect(self, name, prefix=None, create=False):
         with self._lock:
             try:
                 name = os.path.join(self._working_dir, name)
@@ -40,6 +40,12 @@ class Databases(object):
                     self._databases[name] = plyvel.DB(name,
                                                       create_if_missing=create)
                     self._names.append(name)
+                if prefix:
+                    db = self._databases[name]
+                    name = '{}/{}'.format(name, prefix)
+                    if name not in self._databases:
+                        self._databases[name] = db.prefixed_db(prefix)
+                        self._names.append(name)
                 return self._names.index(name)
             except plyvel._plyvel.IOError as e:
                 raise Databases.OpenError(*e.args)
@@ -51,7 +57,10 @@ class Databases(object):
 
     def close(self, name=None):
         if name:
-            self.get_db(name).close()
+            db = self.get_db(name)
+            if not hasattr(db, 'prefix'):
+                db.close()
         else:
             for db in self._databases.values():
-                db.close()
+                if not hasattr(db, 'prefix'):
+                    db.close()

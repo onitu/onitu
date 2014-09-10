@@ -8,7 +8,8 @@ from .batch import WriteBatch
 
 
 class Escalator(object):
-    def __init__(self, uri, session, create_db=False, context=None):
+    def __init__(self, uri, session, prefix=None, create_db=False,
+                 context=None):
         super(Escalator, self).__init__()
         self.uri = uri
         self.session = session
@@ -18,7 +19,7 @@ class Escalator(object):
         self.socket.linger = 0  # don't wait for data to be sent when closing
         self.lock = Lock()
         self.socket.connect(uri)
-        self.connect(session, create_db)
+        self.connect(session, prefix, create_db)
 
     def _request(self, cmd, *args):
         with self.lock:
@@ -63,8 +64,11 @@ class Escalator(object):
     def create(self, name):
         self._request(protocol.cmd.CREATE, name)
 
-    def connect(self, name, create=False):
-        self.db_uid = self._request(protocol.cmd.CONNECT, name, create)[0]
+    def connect(self, name, prefix=None, create=False):
+        self.db_uid = self._request(protocol.cmd.CONNECT,
+                                    name,
+                                    prefix,
+                                    create)[0]
 
     def get(self, key, **kwargs):
         try:
