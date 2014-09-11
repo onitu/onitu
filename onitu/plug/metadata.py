@@ -1,5 +1,5 @@
-from onitu.utils import get_fid
 
+from onitu.utils import get_fid, get_mimetype
 
 class Metadata(object):
     """The Metadata class represent the metadata of any file in Onitu.
@@ -21,6 +21,8 @@ class Metadata(object):
         The entries which should have this file
     **uptodate**
         The entries with an up-to-date version of this file
+    **mimetype**
+        The MIME type of the file, as detected by python
 
     Each entry can also store extra informations via the :attr:`.extra`
     attribute. It's a dictionary which can contain any kind of information,
@@ -29,21 +31,25 @@ class Metadata(object):
     are stocked separately.
     """
 
-    PROPERTIES = ('filename', 'size', 'owners', 'uptodate')
+    PROPERTIES = ('filename', 'size', 'owners', 'uptodate', 'mimetype')
 
     def __init__(self, plug=None, filename=None, size=0,
-                 fid=None, owners=[], uptodate=[]):
+                 fid=None, owners=[], uptodate=[], mimetype=None):
         super(Metadata, self).__init__()
 
         self.filename = filename
         self.size = size
         self.owners = owners
         self.uptodate = uptodate
+        self.mimetype = mimetype
 
         if not fid and filename:
             self.fid = get_fid(filename)
         elif fid:
             self.fid = fid
+
+        if not self.mimetype and filename:
+            self.mimetype = get_mimetype(filename)
 
         self.extra = {}
 
