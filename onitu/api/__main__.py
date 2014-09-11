@@ -30,7 +30,7 @@ def enable_cors():
 
 
 def entry(name):
-    driver = escalator.get('entry:{}:driver'.format(name))
+    driver = escalator.get('entry:{}:driver'.format(name), default=None)
     if not driver:
         return None
     options = escalator.get('entry:{}:options'.format(name))
@@ -117,7 +117,7 @@ def get_entries():
 def get_entry(name):
     e = entry(name)
     if not e:
-        abort(404)
+        return entry_not_found(name)
     return e
 
 
