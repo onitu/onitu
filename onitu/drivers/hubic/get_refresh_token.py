@@ -3,6 +3,12 @@ import urllib
 import webbrowser
 import base64
 
+# Python 3 compatibility
+try:
+    raw_input
+except NameError:
+    raw_input = input
+
 if __name__ == '__main__':
 
     client_id = ""
@@ -14,10 +20,10 @@ if __name__ == '__main__':
     url += "&redirect_uri=" + urllib.quote_plus(redirect_uri)
     url += "&scope=credentials.r&response_type=code"
 
-    print "Your web browser will be launched and you must accept onitu."
-    print "Then, you will be redirected to a localhost adress."
-    print "There is a parameter (in the url) named \"code\"."
-    print "You will need to copy/paste it for the next part of this script."
+    print("Your web browser will be launched and you must accept onitu.")
+    print("Then, you will be redirected to a localhost adress.")
+    print("There is a parameter (in the url) named \"code\".")
+    print("You will need to copy/paste it for the next part of this script.")
 
     raw_input("If you are ready press enter.")
     webbrowser.open(url)
@@ -42,4 +48,4 @@ if __name__ == '__main__':
         raise Exception('The provided email address and/or pass are incorrect')
 
     hubic_refresh_token = response.json()["refresh_token"]
-    print "Please copy this code in setup.json: " + hubic_refresh_token
+    print("Please copy this code in setup.json:", hubic_refresh_token)
