@@ -31,27 +31,22 @@ class Driver(TestDriver):
     def get_path(self, filename):
         return str(os.path.join(self.options['root'], filename))
 
-    # ok
     def mkdir(self, subdirs):
         subdirs = self.get_path(subdirs)
         self.hubic.create_folders(subdirs)
 
-    # ok
     def write(self, filename, content):
         filename = self.hubic.get_path(filename)
         self.hubic.os_call('put', 'default/' + filename, content)
 
-    # ok
     def generate(self, filename, size):
         self.write(filename, os.urandom(size))
 
-    # ok
     def unlink(self, filename):
         filename = self.get_path(filename)
         if filename != '':
             self.hubic.os_call('delete', 'default/' + filename)
 
-    # ok
     def close(self):
         path = self.hubic.get_path('')
         if path.endswith('/'):
@@ -65,7 +60,6 @@ class Driver(TestDriver):
         filename = self.hubic.get_path(path)
         self.hubic.os_call('delete', 'default/' + filename)
 
-    # ok
     def exists(self, filename):
         filename = self.get_path(filename)
         try:
@@ -94,7 +88,6 @@ class Driver(TestDriver):
 
         self.unlink(source)
 
-    # ok
     def checksum(self, filename):
         filename = self.get_path(filename)
         headers = {'Range': 'FIRST_BYTE_OFFSET-LAST_BYTE_OFFSET'}
