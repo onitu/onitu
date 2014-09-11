@@ -39,14 +39,14 @@ Files
     {
       "files": [
         {
-          "fid": 1,
+          "fid": "10a0a66a-522b-57c6-aa96-bfba35afa12a",
           "filename": "toto",
           "size": 256,
           "owners": ["A", "B", "C"],
           "uptodate": ["A", "C"]
         },
         {
-          "fid": 2,
+          "fid": "758644be-7d76-52f9-ad5e-add997549664",
           "filename": "photos/foo.jpg",
           "size": 12345,
           "owners": ["A", "B"],
@@ -59,7 +59,7 @@ Files
   :query limit: Default to 20. The maximum number of elements returned.
 
 
-.. http:get:: /files/(int:id)/metadata
+.. http:get:: /files/(string:fid)/metadata
 
   Return the metadata of a file.
 
@@ -67,7 +67,7 @@ Files
 
   .. sourcecode:: http
 
-    GET /api/v1.0/files/1/metadata HTTP/1.1
+    GET /api/v1.0/files/758644be-7d76-52f9-ad5e-add997549664/metadata HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -80,7 +80,7 @@ Files
     Content-Type: application/json
 
     {
-      "fid": 1,
+      "fid": 758644be-7d76-52f9-ad5e-add997549664,
       "filename": "toto",
       "size": 256,
       "owners": ["A", "B", "C"],

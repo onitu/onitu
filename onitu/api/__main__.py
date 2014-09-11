@@ -38,14 +38,11 @@ def entry(name):
 
 
 def entry_exists(name):
-    names = [entry.upper() for entry in escalator.get('entries')]
+    names = [entry for entry in escalator.get('entries')]
     return name in names
 
 
 def entry_is_running(name):
-    names = [entry.upper() for entry in escalator.get('entries')]
-    if name.upper() not in names:
-        return False
     query = {
         "command": "status",
         "properties": {
@@ -75,10 +72,13 @@ def entry_not_found(name):
     )
 
 
-def entry_not_running(name):
+def entry_not_running(name, already=False):
+    fmt = "entry {} is {}stopped".format
+    # "already" in case a stop has been requested on an already stopped entry
+    err_msg = fmt(name, "already ") if already else fmt(name, "")
     return error(
         error_code=409,
-        error_message="entry {} is stopped".format(name)
+        error_message=err_msg
     )
 
 
@@ -118,14 +118,14 @@ def get_entry(name):
     e = entry(name)
     if not e:
         return entry_not_found(name)
+    # Do not check if entry is running as we must be able to get info anyway
     return e
 
 
 @app.route('/api/v1.0/entries/<name>/stats', method='GET')
 def get_entry_stats(name):
-    name = name.upper()
     try:
-        if not entry_exists(name):
+        if not entry(name):
             return entry_not_found(name)
         if not entry_is_running(name):
             return entry_not_running(name)
@@ -136,7 +136,7 @@ def get_entry_stats(name):
             }
         }
         stats = circus_client.call(query)
-        pid = list(stats['info'].keys())[0]
+        pid = next(iter(stats['info'].keys()))
         resp = {
             "info": {
                 "age": stats['info'][pid]['age'],
@@ -152,17 +152,15 @@ def get_entry_stats(name):
             "status": stats['status'],
             "time": stats['time'],
         }
-        return resp
     except Exception as e:
         resp = error(error_message=str(e))
-        return resp
+    return resp
 
 
 @app.route('/api/v1.0/entries/<name>/status', method='GET')
 def get_entry_status(name):
-    name = name.upper()
     try:
-        if not entry_exists(name):
+        if not entry(name):
             return entry_not_found(name)
         query = {
             "command": "status",
@@ -176,17 +174,15 @@ def get_entry_status(name):
             "status": status['status'],
             "time": status['time'],
         }
-        return resp
     except Exception as e:
         resp = error(error_message=str(e))
-        return resp
+    return resp
 
 
 @app.route('/api/v1.0/entries/<name>/start', method='PUT')
 def start_entry(name):
-    name = name.upper()
     try:
-        if not entry_exists(name):
+        if not entry(name):
             return entry_not_found(name)
         if entry_is_running(name):
             return error(
@@ -206,23 +202,18 @@ def start_entry(name):
             "status": start['status'],
             "time": start['time'],
         }
-        return resp
     except Exception as e:
         resp = error(error_message=str(e))
-        return resp
+    return resp
 
 
 @app.route('/api/v1.0/entries/<name>/stop', method='PUT')
 def stop_entry(name):
-    name = name.upper()
     try:
-        if not entry_exists(name):
+        if not entry(name):
             return entry_not_found(name)
         if not entry_is_running(name):
-            return error(
-                error_code=409,
-                error_message="entry {} is already stopped".format(name)
-            )
+            return entry_not_running(name, already=True)
         query = {
             "command": "stop",
             "properties": {
@@ -236,15 +227,13 @@ def stop_entry(name):
             "status": stop['status'],
             "time": stop['time'],
         }
-        return resp
     except Exception as e:
         resp = error(error_message=str(e))
-        return resp
+    return resp
 
 
 @app.route('/api/v1.0/entries/<name>/restart', method='PUT')
 def restart_entry(name):
-    name = name.upper()
     try:
         if not entry_exists(name):
             return entry_not_found(name)
@@ -263,10 +252,9 @@ def restart_entry(name):
             "status": restart['status'],
             "time": restart['time'],
         }
-        return resp
     except Exception as e:
         resp = error(error_message=str(e))
-        return resp
+    return resp
 
 
 if __name__ == '__main__':
