@@ -101,9 +101,9 @@ def get_files():
 @app.route('/api/v1.0/files/<fid>/metadata', method='GET')
 def get_file(fid):
     metadata = escalator.get('file:{}'.format(fid), default=None)
-    metadata['fid'] = fid
     if not metadata:
         abort(404)
+    metadata['fid'] = fid
     return metadata
 
 
