@@ -8,6 +8,7 @@ import uuid
 import signal
 import socket
 import tempfile
+import mimetypes
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
@@ -49,6 +50,25 @@ def get_fid(filename):
         filename = filename.encode('utf-8')
 
     return str(uuid.uuid5(NAMESPACE_ONITU, filename))
+
+
+def get_mimetype(filename):
+    """
+    Get the MIME type of the given filename.
+
+    This avoids interfaces and clients of the Onitu instances having to
+    determine the MIME type of the files they receive notifications from.
+    """
+
+    mimetype = mimetypes.guess_type(filename)[0]
+
+    # RFC 2046 states in section 4.5.1:
+    # The "octet-stream" subtype is used to indicate that a body contains
+    # arbitrary binary data.
+    if not mimetype:
+        mimetype = 'application/octet-stream'
+
+    return mimetype
 
 
 def get_open_port():
