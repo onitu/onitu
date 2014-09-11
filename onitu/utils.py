@@ -68,8 +68,6 @@ def get_mimetype(filename):
     if not mimetype:
         mimetype = 'application/octet-stream'
 
-    print(mimetype)
-
     return mimetype
 
 
