@@ -1,6 +1,7 @@
 
 from onitu.utils import get_fid, get_mimetype
 
+
 class Metadata(object):
     """The Metadata class represent the metadata of any file in Onitu.
 

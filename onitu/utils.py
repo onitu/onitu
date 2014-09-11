@@ -62,15 +62,16 @@ def get_mimetype(filename):
 
     mimetype = mimetypes.guess_type(filename)[0]
 
-    ## RFC 2046 states in section 4.5.1:
-    ## The "octet-stream" subtype is used to indicate that a body contains
-    ## arbitrary binary data.
+    # RFC 2046 states in section 4.5.1:
+    # The "octet-stream" subtype is used to indicate that a body contains
+    # arbitrary binary data.
     if not mimetype:
         mimetype = 'application/octet-stream'
 
-    print mimetype
+    print(mimetype)
 
     return mimetype
+
 
 def get_open_port():
     """
