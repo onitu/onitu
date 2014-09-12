@@ -1,0 +1,4 @@
+For getting the refresh token use the script get_refresh_token.py.
+You can find it in /onitu/drivers/hubic/get_refresh_token.py.
+
+Please put the same client_id and client_secret in the script than in the onitu's configuration file.
