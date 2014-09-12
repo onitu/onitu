@@ -45,6 +45,7 @@ class Plug(object):
         self.escalator = None
         self.options = {}
         self._handlers = {}
+        self._entry_db = None
 
         self.context = zmq.Context.instance()
 
@@ -284,3 +285,18 @@ class Plug(object):
             self.escalator.close()
 
         self.context.term()
+
+    @property
+    def entry_db(self):
+        """
+        This property is an intance of the database client
+        :class:`.Escalator`, configured to store values only
+        for the current entry.
+
+        It can be used by a driver like any :class:`.Escalator`
+        instance.
+        """
+        if not self._entry_db:
+            prefix = 'entry:{}:db:'.format(self.name)
+            self._entry_db = self.escalator.clone(prefix=prefix)
+        return self._entry_db
