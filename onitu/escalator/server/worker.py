@@ -82,10 +82,10 @@ class Worker(Thread):
     def create(self, name):
         return self.connect(name, True)
 
-    def connect(self, name, create):
+    def connect(self, name, prefix, create):
         name = name.decode()
         try:
-            uid = self.databases.connect(name, create)
+            uid = self.databases.connect(name, prefix, create)
             resp = protocol.msg.format_response(uid, status=protocol.status.OK)
         except self.databases.NotExistError as e:
             self.logger.warning("No such database: {}", name)
