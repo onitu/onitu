@@ -7,6 +7,9 @@ from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
 from tests.utils.loop import CounterLoop
+from tests.utils.files import KB
+
+from onitu.utils import get_fid
 
 api_addr = "http://localhost:3862"
 monitoring_path = "/api/v1.0/entries/{}/{}"
@@ -89,6 +92,45 @@ def setup_module(module):
 def teardown_module(module):
     launcher.kill()
     setup.clean()
+
+
+def test_list_files():
+    list_files = "/api/v1.0/files"
+    url = "{}{}".format(api_addr, list_files)
+
+    files_number = 10
+    files_types = ['txt', 'pdf', 'exe', 'jpeg', 'png',
+                   'mp4', 'zip', 'tar', 'rar', 'html']
+    files_names = ["test_list_files-{}.{}".format(i, files_types[i])
+                   for i in range(files_number)]
+    origin_files = {files_names[i]: i * KB
+                    for i in range(files_number)}
+
+    for i in range(files_number):
+        file_name = files_names[i]
+        file_size = origin_files[file_name]
+        rep1.generate(file_name, file_size)
+    r = get(url)
+    json = r.json()
+    files = json['files']
+    assert len(files) == files_number
+    for i in range(files_number):
+        origin_file_size = origin_files[files[i]['filename']]
+        assert files[i]['size'] == origin_file_size
+
+
+def test_file():
+        rep1.generate("test_file.txt", 10 * KB)
+        fid = get_fid("test_file.txt")
+
+        url = "{}/api/v1.0/files/{}/metadata".format(api_addr, fid)
+        r = get(url)
+        json = r.json()
+
+        assert json['fid'] == fid
+        assert json['filename'] == "test_file.txt"
+        assert json['size'] == 10 * KB
+        assert json['mimetype'] == "text/plain"
 
 
 def test_stop():
