@@ -6,7 +6,7 @@ from circus.client import CircusClient
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
-from tests.utils.loop import CounterLoop
+from tests.utils.loop import BooleanLoop, CounterLoop
 from tests.utils.files import KB
 
 from onitu.utils import get_fid
@@ -68,6 +68,16 @@ def stop(name):
     circus_client.call(query)
 
 
+def create_file(filename, size):
+    launcher.unset_all_events()
+    loop = BooleanLoop()
+    launcher.on_transfer_ended(
+        loop.stop, d_from='rep1', d_to='rep2', filename=filename
+    )
+    rep1.generate(filename, size)
+    loop.run(timeout=10)
+
+
 def setup_module(module):
     global launcher, setup
     setup = Setup()
@@ -109,7 +119,7 @@ def test_list_files():
     for i in range(files_number):
         file_name = files_names[i]
         file_size = origin_files[file_name]
-        rep1.generate(file_name, file_size)
+        create_file(file_name, file_size)
     r = get(url)
     json = r.json()
     files = json['files']
@@ -120,7 +130,7 @@ def test_list_files():
 
 
 def test_file():
-        rep1.generate("test_file.txt", 10 * KB)
+        create_file("test_file.txt", 10 * KB)
         fid = get_fid("test_file.txt")
 
         url = "{}/api/v1.0/files/{}/metadata".format(api_addr, fid)
