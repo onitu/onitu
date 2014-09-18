@@ -70,7 +70,7 @@ def root_prefixed_filename(filename):
         rp_filename = root
         if not rp_filename.endswith('/'):
             rp_filename += '/'
-            rp_filename += filename
+        rp_filename += filename
     else:
         rp_filename = filename
     return rp_filename
@@ -156,6 +156,8 @@ def get_chunk(metadata, offset, size):
     global S3Conn
     global plug
 
+    plug.logger.debug("GET CHUNK {} {} {}".format(metadata.filename, offset,
+                                                  size))
     filename = root_prefixed_filename(metadata.filename)
     plug.logger.debug("Downloading {} bytes from the {} key"
                       " on bucket {}".format(size, filename,
@@ -227,6 +229,24 @@ def start_upload(metadata):
     add_to_cache(new_mp)
     plug.logger.debug("Storing upload ID {} for {}"
                       .format(new_mp.uploadId, filename))
+
+
+@plug.handler()
+def upload_file(metadata, data):
+    global S3Conn
+    global plug
+    filename = root_prefixed_filename(metadata.filename)
+    plug.logger.debug("Starting one-shot upload of '{}' to '{}' on bucket {}"
+                      .format(metadata.filename, filename,
+                              plug.options['bucket']))
+    fp = IOStream(data)
+    try:
+        S3Conn.upload(filename, fp)
+    except requests.HTTPError as httpe:
+        err = "Upload on file {} failed - {}"
+        err = err.format(filename, httpe)
+        raise ServiceError(err)
+    plug.logger.debug("Chunk upload complete")
 
 
 @plug.handler()
@@ -347,7 +367,9 @@ class CheckChanges(threading.Thread):
         # root itself
         if not root.endswith('/'):
             root += '/'
-        keys = S3Conn.list(prefix=root)
+        # We need to unroll the generator to be able to check for folders
+        keys = [key for key in S3Conn.list(prefix=root)]
+        plug.logger.debug("Processing files under '{}'".format(root))
         # Getting multipart uploads once for all files under root
         # is WAY faster than re-getting them for each file
         multipart_uploads = S3Conn.get_all_multipart_uploads(prefix=root)
@@ -357,6 +379,7 @@ class CheckChanges(threading.Thread):
         if root.startswith('/'):
             root = root[1:]
         for key in keys:
+            plug.logger.debug("Processing file '{}'".format(key['key']))
             # During an upload, files can appear on the S3 file system
             # before the transfer has been completed.
             # Skip if there's currently an upload going on
@@ -364,6 +387,18 @@ class CheckChanges(threading.Thread):
                 plug.logger.debug("Remote file '{}' is being uploaded"
                                   " - skipped".format(key['key']))
                 continue
+            # Amazon S3 has no concept of folder, they are just empty files to
+            # it. But we must not notify them on Onitu or it transfers them as
+            # regular files. If a file is empty, check if other files begin
+            # by its name (meaning it contains them)
+            if key['size'] == 0:
+                prefix = key['key'] + '/'
+                children = [child for child in keys
+                            if child['key'].startswith(prefix)]
+                if children:
+                    plug.logger.debug("File '{}' is a folder on S3"
+                                      " - skipped".format(key['key']))
+                    continue
             # Strip the S3 root of the S3 filename for root coherence.
             rootless_key = key['key'][len(root):]
             metadata = plug.get_metadata(rootless_key)
@@ -375,6 +410,8 @@ class CheckChanges(threading.Thread):
                 metadata.size = int(key['size'])
                 metadata.extra['timestamp'] = remote_ts
                 plug.update_file(metadata)
+        plug.logger.debug("Done checking bucket - next check in {} seconds"
+                          .format(self.timer))
 
     def run(self):
         global plug

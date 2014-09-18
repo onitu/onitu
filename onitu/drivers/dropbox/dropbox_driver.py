@@ -90,9 +90,10 @@ def upload_chunk(metadata, offset, chunk):
                                              length=len(chunk),
                                              offset=offset,
                                              upload_id=up_id)
-    metadata.extra['upload_id'] = up_id
-    metadata.write()
-    plug.logger.debug("Storing upload ID {} in metadata".format(up_id))
+    if metadata.extra.get('upload_id', None) != up_id:
+        metadata.extra['upload_id'] = up_id
+        metadata.write()
+        plug.logger.debug("Storing upload ID {} in metadata".format(up_id))
     plug.logger.debug("Uploading chunk of size {}"
                       " to file {} at offset {} - Done"
                       .format(len(chunk), filename, offset))
@@ -177,10 +178,10 @@ def delete_file(metadata):
 
 
 class CheckChanges(threading.Thread):
-    """A class spawned in a thread to poll for changes on the S3 bucket.
-    Amazon S3 hasn't any bucket watching system in its API, so the best
-    we can do is periodically polling the bucket's contents and compare the
-    timestamps."""
+    """A class spawned in a thread to poll for changes on the Dropbox account.
+    Dropbox works with deltas so we have to periodically send a request to
+    Dropbox with our current delta to know what has changed since we retrieved
+    it."""
 
     def __init__(self, timer):
         threading.Thread.__init__(self)
@@ -190,12 +191,12 @@ class CheckChanges(threading.Thread):
         # send changes. A cursor is returned at each delta request, and one
         # ought to send the previous cursor to receive only the changes that
         # have occurred since the last time.
-        # Since there is no way to store it in database yet, Onitu starts with
-        # an empty cursor, which means the first delta may be a little longer
-        # than the subsequent ones.
-        self.cursor = None
+        self.cursor = plug.entry_db.get('dropbox_cursor', default=None)
+        plug.logger.debug("Getting cursor '{}' out of database"
+                          .format(self.cursor))
 
     def check_dropbox(self):
+        global plug
         plug.logger.debug("Checking dropbox for changes in '{}' folder"
                           .format(plug.options['root']))
         prefix = plug.options['root']
@@ -203,13 +204,13 @@ class CheckChanges(threading.Thread):
         if not prefix.startswith('/'):
             prefix = '/' + prefix
         has_more = True
+        changes = None
         while has_more:
             # Dropbox doesn't support trailing slashes
             if prefix.endswith('/'):
                 prefix = prefix[:-1]
             changes = dropbox_client.delta(cursor=self.cursor,
                                            path_prefix=prefix)
-            self.cursor = changes['cursor']
             plug.logger.debug("Processing {} entries"
                               .format(len(changes['entries'])))
             prefix += '/'  # put the trailing slash back
@@ -222,14 +223,13 @@ class CheckChanges(threading.Thread):
                 if db_metadata is None:
                     # Retrieve the metadata saved by Dropbox.
                     db_metadata = dropbox_client.metadata(db_filename)
-                # Strip the S3 root in the S3 filename for root coherence.
+                # Strip the root in the Dropbox filename for root coherence.
                 rootless_filename = db_metadata['path'][len(prefix):]
                 plug.logger.debug("Getting metadata of file '{}'"
                                   .format(rootless_filename))
-                # empty string = root; since Dropbox doesn't allow path
-                # prefixes to be ended by trailing slashes, we can't take it
-                # out of the delta and thus must ignore it
-                if rootless_filename == '':
+                # empty string = root; ignore it
+                # ignore directories as well (onitu creates them on the fly)
+                if rootless_filename == '' or db_metadata.get('is_dir', False):
                     continue
                 metadata = plug.get_metadata(rootless_filename)
                 # If the file has been deleted
@@ -253,6 +253,13 @@ class CheckChanges(threading.Thread):
             # immediately do another delta with the same cursor to retrieve
             # the remaining data.
             has_more = changes['has_more']
+        plug.logger.debug("New cursor: '{}' Old cursor: '{}'"
+                          .format(changes['cursor'], self.cursor))
+        if changes['cursor'] != self.cursor:
+            plug.entry_db.put('dropbox_cursor', changes['cursor'])
+            plug.logger.debug("Setting '{}' as new cursor"
+                              .format(changes['cursor']))
+            self.cursor = changes['cursor']
 
     def run(self):
         while not self.stop.isSet():
