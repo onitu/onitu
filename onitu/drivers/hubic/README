@@ -2,3 +2,44 @@ For getting the refresh token use the script get_refresh_token.py.
 You can find it in /onitu/drivers/hubic/get_refresh_token.py.
 
 Please put the same client_id and client_secret in the script than in the onitu's configuration file.
+
+To get the client_id and client_secret, go to this page https://hubic.com/home/browser/developers/
+Then add a new application. The redirection domain should be http://localhost/
+Finally edit and launch the get_refresh_token.py script
+
+An example of setup.json file with hubic:
+
+{
+  "name": "example",
+
+  "entries": {
+        "hubic-A": {
+              "driver": "hubic",
+              "options": {
+                    "root": "/onitu-A",
+                    "refresh_token": "",
+                    "client_id": "",
+                    "client_secret": "",
+                    "changes_timer" : 60
+              }
+        },
+        "hubic-B": {
+              "driver": "hubic",
+              "options": {
+                    "root": "/onitu-B",
+                    "refresh_token": "",
+                    "client_id": "",
+                    "client_secret": "",
+                    "changes_timer" : 60
+              }
+        }
+  },
+
+  "rules": [
+    {
+      "match": {"path": "/"},
+      "sync": ["hubic-A", "hubic-B"]
+    }
+  ]
+
+}
