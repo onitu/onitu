@@ -272,6 +272,7 @@ def start_upload(metadata):
         upload_file(metadata, None)
 
 
+@plug.handler()
 def upload_file(metadata, data):
     global hubic
 
