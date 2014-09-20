@@ -1,13 +1,14 @@
 import zmq
 import msgpack
 
-from onitu.plug import Plug
+from onitu.plug import Plug, DriverError, ServiceError
 from .remote import Remote
 from .serializers import serializers
 
 plug = Plug()
 
 remote_socket, handlers_socket = None, None
+exceptions_status = {1: DriverError, 2: ServiceError}
 
 
 def cmd_handler(name, *args_serializers):
@@ -19,7 +20,10 @@ def cmd_handler(name, *args_serializers):
                                         msgpack.packb(msg)))
         plug.logger.debug('===={}====', msg)
         _, resp = handlers_socket.recv_multipart()
-        resp = msgpack.unpackb(resp)
+        status, resp = msgpack.unpackb(resp)
+        if status:
+            E = exceptions_status.get(status, DriverError)
+            raise E(*resp)
         plug.logger.debug('RESP {}', resp)
         return resp
     return handler
