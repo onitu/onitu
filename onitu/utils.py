@@ -2,7 +2,6 @@
 This module provides a set of classes and functions useful in several
 parts of Onitu.
 """
-import os
 import sys
 import uuid
 import signal
@@ -11,10 +10,13 @@ import tempfile
 import mimetypes
 import pkg_resources
 
+from sys import platform as _platform
+
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
 
-IS_WINDOWS = os.name == 'nt'
+IS_WINDOWS = _platform == "win32"
+IS_DARWIN = _platform == "darwin"
 
 TMPDIR = tempfile.gettempdir()
 
