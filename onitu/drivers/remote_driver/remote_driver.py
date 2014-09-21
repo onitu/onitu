@@ -1,3 +1,5 @@
+import threading
+
 import zmq
 import msgpack
 
@@ -9,23 +11,25 @@ plug = Plug()
 
 remote_socket, handlers_socket = None, None
 exceptions_status = {1: DriverError, 2: ServiceError}
+handlers_lock = threading.Lock()
 
 
 def cmd_handler(name, *args_serializers):
     @plug.handler(name)
     def handler(*args):
-        msg = [name] + [(ser, serializers.get(ser, lambda x: x)(arg))
-                        for (ser, arg) in zip(args_serializers, args)]
-        handlers_socket.send_multipart((plug.options['remote_id'],
-                                        msgpack.packb(msg)))
-        plug.logger.debug('===={}====', msg)
-        _, resp = handlers_socket.recv_multipart()
-        status, resp = msgpack.unpackb(resp)
-        if status:
-            E = exceptions_status.get(status, DriverError)
-            raise E(*resp)
-        plug.logger.debug('RESP {}', resp)
-        return resp
+        with handlers_lock:
+            msg = [name] + [(ser, serializers.get(ser, lambda x: x)(arg))
+                            for (ser, arg) in zip(args_serializers, args)]
+            handlers_socket.send_multipart((plug.options['remote_id'],
+                                            msgpack.packb(msg)))
+            plug.logger.debug('===={}====', msg)
+            _, resp = handlers_socket.recv_multipart()
+            status, resp = msgpack.unpackb(resp)
+            if status:
+                E = exceptions_status.get(status, DriverError)
+                raise E(*resp)
+            plug.logger.debug('RESP {}', resp)
+            return resp
     return handler
 
 
