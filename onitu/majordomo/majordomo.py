@@ -25,6 +25,7 @@ class Majordomo(broker.Broker):
         self.auth = ThreadAuthenticator(zmq.Context.instance())
         self.circus_client = CircusClient()
         self.nb_remotes = 0
+        self.remote_names = {}
 
         self.logger.info('Started')
 
@@ -50,6 +51,7 @@ class Majordomo(broker.Broker):
             to_id = uuid.uuid4().hex
             self.nb_remotes += 1
             name = 'remote-{}'.format(self.nb_remotes)
+            self.remote_names[from_id] = name
             self.escalator.put('entry:{}:driver'.format(name), 'remote_driver')
             self.escalator.put('entry:{}:options'.format(name), {
                 'id': to_id,
@@ -77,6 +79,18 @@ class Majordomo(broker.Broker):
                 }
             }
             self.circus_client.call(query)
+            return
+        elif not to_id and msg == b'stop':
+            name = self.remote_names.get(from_id)
+            if name is not None:
+                del self.remote_names[from_id]
+                query = {
+                    "command": 'rm',
+                    "properties": {
+                        "name": name
+                    }
+                }
+                self.circus_client.call(query)
             return
         self._handle_relay(socket, from_id, to_id, msg)
 
