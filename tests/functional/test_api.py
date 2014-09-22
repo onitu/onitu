@@ -106,6 +106,33 @@ def teardown_module(module):
     setup.clean()
 
 
+def test_entries():
+    entries_url = "/api/v1.0/entries"
+    url = "{}{}".format(api_addr, entries_url)
+
+    r = get(url)
+    json = r.json()
+    assert "entries" in json
+    j = json['entries']
+    entries = sorted(j, key=lambda x: x['name'])
+    assert len(entries) == 2
+    for i in range(len(entries)):
+        assert entries[i]['driver'] == "local_storage"
+        assert entries[i]['name'] == "rep{}".format(i + 1)
+        assert "root" in entries[i]['options']
+
+
+def test_entry():
+    entries_url = "/api/v1.0/entries/rep1"
+    url = "{}{}".format(api_addr, entries_url)
+
+    r = get(url)
+    json = r.json()
+    assert json['driver'] == "local_storage"
+    assert json['name'] == "rep1"
+    assert "root" in json['options']
+
+
 def test_list_files():
     list_files = "/api/v1.0/files"
     url = "{}{}".format(api_addr, list_files)
