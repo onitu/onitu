@@ -18,6 +18,8 @@ launcher, setup = None, None
 rep1, rep2 = LocalStorageDriver("rep1"), TargetDriver("rep2")
 json_file = "test_startup.json"
 
+STOP = ("stopped", "stopping")
+
 
 def get(*args, **kwargs):
     while True:
@@ -268,5 +270,5 @@ def test_status_stopped():
     r = get(url)
     json = r.json()
     assert json['name'] == rep1.name
-    assert json['status'] == "stopped"
+    assert json['status'] in STOP
     start(rep1.name)
