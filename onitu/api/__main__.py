@@ -2,7 +2,7 @@ import sys
 
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
-from bottle import Bottle, run, response, abort
+from bottle import Bottle, run, response, abort, redirect
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
@@ -87,6 +87,12 @@ def timeout():
         error_code=408,
         error_message="timed out"
     )
+
+
+@app.route('/api', method='GET')
+@app.route('/api/v1.0', method='GET')
+def api_doc():
+    redirect("https://onitu.readthedocs.org/en/latest/api.html")
 
 
 @app.route('/api/v1.0/files', method='GET')
