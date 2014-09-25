@@ -1,5 +1,10 @@
 import sys
 
+from sys import version_info
+if version_info.major == 2:
+    from urllib import unquote as unquote
+elif version_info.major == 3:
+    from urllib.parse import unquote as unquote
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
 from bottle import Bottle, run, response, abort, redirect
@@ -104,6 +109,7 @@ def api_doc():
 
 @app.route('/api/v1.0/files/id/<name>', method='GET')
 def get_file_id(name):
+    name = unquote(name)
     return {name: get_fid(name)}
 
 

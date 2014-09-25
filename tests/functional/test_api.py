@@ -1,6 +1,11 @@
 import requests
 import time
 
+from sys import version_info
+if version_info.major == 2:
+    from urllib import quote as quote
+elif version_info.major == 3:
+    from urllib.parse import quote as quote
 from circus.client import CircusClient
 
 from tests.utils.launcher import Launcher
@@ -155,8 +160,8 @@ def test_entry():
 
 
 def test_file_id():
-    filename = "onitu is a project _-.txt"
-    fid_path = "/api/v1.0/files/fid/{}".format(filename)
+    filename = "onitu,is/a project ?!_-.txt"
+    fid_path = "/api/v1.0/files/id/{}".format(quote(filename))
     url = "{}{}".format(api_addr, fid_path)
 
     r = get(url)
