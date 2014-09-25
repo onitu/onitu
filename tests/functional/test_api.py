@@ -189,7 +189,7 @@ def test_file_fail():
     r = get(url)
     json = extract_json(r)
 
-    assert json.status_code == 404
+    assert r.status_code == 404
     assert json['status'] == "error"
     assert json['reason'] == "file {} not found".format(fid)
 
