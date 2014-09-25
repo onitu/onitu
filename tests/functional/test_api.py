@@ -40,6 +40,15 @@ def put(*args, **kwargs):
             time.sleep(0.1)
 
 
+def extract_json(req):
+    try:
+        return req.json()
+    except Exception as e:
+        print(req.status_code)
+        print(req.content)
+        raise e
+
+
 def is_running(name):
     query = {
         'command': "status",
@@ -113,7 +122,7 @@ def test_entries():
     url = "{}{}".format(api_addr, entries_path)
 
     r = get(url)
-    json = r.json()
+    json = extract_json(r)
     assert "entries" in json
     j = json['entries']
     entries = sorted(j, key=lambda x: x['name'])
@@ -124,12 +133,24 @@ def test_entries():
         assert "root" in entries[i]['options']
 
 
+def test_entry_fail():
+    entries_url = entries_path.format("/fail-repo")
+    url = "{}{}".format(api_addr, entries_url)
+
+    r = get(url)
+    json = extract_json(r)
+    assert r.status_code == 404
+    assert json['status'] == "error"
+    assert json['reason'] == "entry fail-repo not found"
+
+
 def test_entry():
     entries_url = entries_path.format("/rep1")
     url = "{}{}".format(api_addr, entries_url)
 
     r = get(url)
-    json = r.json()
+    json = extract_json(r)
+    assert r.status_code == 200
     assert json['driver'] == "local_storage"
     assert json['name'] == "rep1"
     assert "root" in json['options']
@@ -152,8 +173,9 @@ def test_list_files():
         file_size = origin_files[file_name]
         create_file(file_name, file_size)
     r = get(url)
-    json = r.json()
+    json = extract_json(r)
     files = json['files']
+    assert r.status_code == 200
     assert len(files) == files_number
     for i in range(files_number):
         origin_file_size = origin_files[files[i]['filename']]
@@ -167,7 +189,7 @@ def test_file():
         file_path = files_path.format(fid)
         url = "{}{}".format(api_addr, file_path)
         r = get(url)
-        json = r.json()
+        json = extract_json(r)
 
         assert json['fid'] == fid
         assert json['filename'] == "test_file.txt"
@@ -180,7 +202,7 @@ def test_stop():
     monitoring = monitoring_path.format(rep1.name, "stop")
     url = "{}{}".format(api_addr, monitoring)
     r = put(url)
-    json = r.json()
+    json = extract_json(r)
     assert json['status'] == "ok"
     assert json['name'] == rep1.name
     assert 'time' in json
@@ -193,7 +215,7 @@ def test_start():
     monitoring = monitoring_path.format(rep1.name, "start")
     url = "{}{}".format(api_addr, monitoring)
     r = put(url)
-    json = r.json()
+    json = extract_json(r)
     assert json['status'] == "ok"
     assert json['name'] == rep1.name
     assert 'time' in json
@@ -206,7 +228,7 @@ def test_restart():
     monitoring = monitoring_path.format(rep1.name, "restart")
     url = "{}{}".format(api_addr, monitoring)
     r = put(url)
-    json = r.json()
+    json = extract_json(r)
     assert json['status'] == "ok"
     assert json['name'] == rep1.name
     assert 'time' in json
@@ -218,7 +240,7 @@ def test_stop_already_stopped():
     monitoring = monitoring_path.format(rep1.name, "stop")
     url = "{}{}".format(api_addr, monitoring)
     r = put(url)
-    json = r.json()
+    json = extract_json(r)
     assert json['status'] == "error"
     assert json['reason'] == "entry {} is already stopped".format(
         rep1.name
@@ -232,7 +254,7 @@ def test_start_already_started():
     monitoring = monitoring_path.format(rep1.name, "start")
     url = "{}{}".format(api_addr, monitoring)
     r = put(url)
-    json = r.json()
+    json = extract_json(r)
     assert json['status'] == "error"
     assert json['reason'] == "entry {} is already running".format(
         rep1.name
@@ -245,7 +267,7 @@ def test_restart_stopped():
     monitoring = monitoring_path.format(rep1.name, "restart")
     url = "{}{}".format(api_addr, monitoring)
     r = put(url)
-    json = r.json()
+    json = extract_json(r)
     assert json['status'] == "error"
     assert json['reason'] == "entry {} is stopped".format(
         rep1.name
@@ -261,7 +283,7 @@ def test_stats_running():
     monitoring = monitoring_path.format(rep1.name, "stats")
     url = "{}{}".format(api_addr, monitoring)
     r = get(url)
-    json = r.json()
+    json = extract_json(r)
     assert json['status'] == "ok"
     assert json['name'] == rep1.name
     assert 'time' in json
@@ -275,7 +297,7 @@ def test_stats_stopped():
     monitoring = monitoring_path.format(rep1.name, "stats")
     url = "{}{}".format(api_addr, monitoring)
     r = get(url)
-    json = r.json()
+    json = extract_json(r)
     assert json['status'] == "error"
     assert json['reason'] == "entry {} is stopped".format(
         rep1.name
@@ -288,7 +310,7 @@ def test_status_started():
     monitoring = monitoring_path.format(rep1.name, "status")
     url = "{}{}".format(api_addr, monitoring)
     r = get(url)
-    json = r.json()
+    json = extract_json(r)
     assert json['name'] == rep1.name
     assert json['status'] == "active"
 
@@ -298,7 +320,7 @@ def test_status_stopped():
     monitoring = monitoring_path.format(rep1.name, "status")
     url = "{}{}".format(api_addr, monitoring)
     r = get(url)
-    json = r.json()
+    json = extract_json(r)
     assert json['name'] == rep1.name
     assert json['status'] in STOP
     start(rep1.name)
