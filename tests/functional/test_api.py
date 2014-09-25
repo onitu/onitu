@@ -134,8 +134,7 @@ def test_entries():
 
 
 def test_entry_fail():
-    entries_url = entries_path.format("/fail-repo")
-    url = "{}{}".format(api_addr, entries_url)
+    url = "{}{}/{}".format(api_addr, entries_path, "fail-repo")
 
     r = get(url)
     json = extract_json(r)
@@ -145,8 +144,7 @@ def test_entry_fail():
 
 
 def test_entry():
-    entries_url = entries_path.format("/rep1")
-    url = "{}{}".format(api_addr, entries_url)
+    url = "{}{}/{}".format(api_addr, entries_path, "rep1")
 
     r = get(url)
     json = extract_json(r)
