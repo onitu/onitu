@@ -65,6 +65,13 @@ def error(error_code=500, error_message="internal server error"):
     return resp
 
 
+def file_not_found(name):
+    return error(
+        error_code=404,
+        error_message="file {} not found".format(name)
+    )
+
+
 def entry_not_found(name):
     return error(
         error_code=404,
@@ -95,6 +102,11 @@ def api_doc():
     redirect("https://onitu.readthedocs.org/en/latest/api.html")
 
 
+@app.route('/api/v1.0/files/id/<name>', method='GET')
+def get_file_id(name):
+    return {name: get_fid(name)}
+
+
 @app.route('/api/v1.0/files', method='GET')
 def get_files():
     files = [metadata for key, metadata in escalator.range('file:')
@@ -108,6 +120,7 @@ def get_files():
 def get_file(fid):
     metadata = escalator.get('file:{}'.format(fid), default=None)
     if not metadata:
+        return file_not_found(fid)
         abort(404)
     metadata['fid'] = fid
     return metadata

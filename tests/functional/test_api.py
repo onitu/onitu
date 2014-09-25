@@ -180,6 +180,21 @@ def test_list_files():
         assert files[i]['size'] == origin_file_size
 
 
+def test_file_fail():
+        create_file("test_file.txt", 10 * KB)
+        fid = get_fid("test_file.txt")
+
+        file_path = files_path.format("non-valid-id")
+        url = "{}{}".format(api_addr, file_path)
+        r = get(url)
+        json = extract_json(r)
+
+        assert json['fid'] == fid
+        assert json['filename'] == "test_file.txt"
+        assert json['size'] == 10 * KB
+        assert json['mimetype'] == "text/plain"
+
+
 def test_file():
         create_file("test_file.txt", 10 * KB)
         fid = get_fid("test_file.txt")
