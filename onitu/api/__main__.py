@@ -124,6 +124,7 @@ def get_files():
 
 @app.route('/api/v1.0/files/<fid>/metadata', method='GET')
 def get_file(fid):
+    fid = unquote(fid)
     metadata = escalator.get('file:{}'.format(fid), default=None)
     if not metadata:
         return file_not_found(fid)
@@ -140,6 +141,7 @@ def get_entries():
 
 @app.route('/api/v1.0/entries/<name>', method='GET')
 def get_entry(name):
+    name = unquote(name)
     e = entry(name)
     if not e:
         return entry_not_found(name)
@@ -149,6 +151,7 @@ def get_entry(name):
 
 @app.route('/api/v1.0/entries/<name>/stats', method='GET')
 def get_entry_stats(name):
+    name = unquote(name)
     try:
         if not entry(name):
             return entry_not_found(name)
@@ -184,6 +187,7 @@ def get_entry_stats(name):
 
 @app.route('/api/v1.0/entries/<name>/status', method='GET')
 def get_entry_status(name):
+    name = unquote(name)
     try:
         if not entry(name):
             return entry_not_found(name)
@@ -206,6 +210,7 @@ def get_entry_status(name):
 
 @app.route('/api/v1.0/entries/<name>/start', method='PUT')
 def start_entry(name):
+    name = unquote(name)
     try:
         if not entry(name):
             return entry_not_found(name)
@@ -234,6 +239,7 @@ def start_entry(name):
 
 @app.route('/api/v1.0/entries/<name>/stop', method='PUT')
 def stop_entry(name):
+    name = unquote(name)
     try:
         if not entry(name):
             return entry_not_found(name)
@@ -259,6 +265,7 @@ def stop_entry(name):
 
 @app.route('/api/v1.0/entries/<name>/restart', method='PUT')
 def restart_entry(name):
+    name = unquote(name)
     try:
         if not entry_exists(name):
             return entry_not_found(name)

@@ -160,7 +160,7 @@ def test_entry():
 
 
 def test_file_id():
-    filename = "onitu,is/a project ?!_-.txt"
+    filename = "onitu,is*a project ?!_-.txt"
     fid_path = "/api/v1.0/files/id/{}".format(quote(filename))
     url = "{}{}".format(api_addr, fid_path)
 
