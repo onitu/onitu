@@ -284,6 +284,9 @@ class Plug(object):
         if self.escalator:
             self.escalator.close()
 
+        if self._entry_db:
+            self.entry_db._close()
+
         self.context.term()
 
     @property
