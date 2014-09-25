@@ -13,6 +13,9 @@ from onitu.utils import get_fid
 
 api_addr = "http://localhost:3862"
 monitoring_path = "/api/v1.0/entries/{}/{}"
+files_path = "/api/v1.0/files/{}/metadata"
+entries_path = "/api/v1.0/entries"
+
 circus_client = CircusClient()
 launcher, setup = None, None
 rep1, rep2 = LocalStorageDriver("rep1"), TargetDriver("rep2")
@@ -107,8 +110,7 @@ def teardown_module(module):
 
 
 def test_entries():
-    entries_url = "/api/v1.0/entries"
-    url = "{}{}".format(api_addr, entries_url)
+    url = "{}{}".format(api_addr, entries_path)
 
     r = get(url)
     json = r.json()
@@ -123,7 +125,7 @@ def test_entries():
 
 
 def test_entry():
-    entries_url = "/api/v1.0/entries/rep1"
+    entries_url = entries_path.format("/rep1")
     url = "{}{}".format(api_addr, entries_url)
 
     r = get(url)
@@ -162,7 +164,8 @@ def test_file():
         create_file("test_file.txt", 10 * KB)
         fid = get_fid("test_file.txt")
 
-        url = "{}/api/v1.0/files/{}/metadata".format(api_addr, fid)
+        file_path = files_path.format(fid)
+        url = "{}{}".format(api_addr, file_path)
         r = get(url)
         json = r.json()
 
