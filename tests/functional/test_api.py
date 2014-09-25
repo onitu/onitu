@@ -154,6 +154,17 @@ def test_entry():
     assert "root" in json['options']
 
 
+def test_file_id():
+    filename = "onitu is a project _-.txt"
+    fid_path = "/api/v1.0/files/fid/{}".format(filename)
+    url = "{}{}".format(api_addr, fid_path)
+
+    r = get(url)
+    json = extract_json(r)
+    assert r.status_code == 200
+    assert json[filename] == get_fid(filename)
+
+
 def test_list_files():
     list_files = "/api/v1.0/files"
     url = "{}{}".format(api_addr, list_files)
