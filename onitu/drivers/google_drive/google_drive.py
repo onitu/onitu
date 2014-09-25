@@ -1,27 +1,28 @@
-from onitu.api import Plug
+from onitu.plug import Plug
 import libdrive
 import threading
 import time
 import json
 
-plug = Plug()
-drive = None
-ft = 'application/vnd.google-apps.folder'
-access_token = None
-token_expi = None
-root_id = None
-tree = {}
+global tree
 
+plug = Plug()
+ft = 'application/vnd.google-apps.folder'
 
 def get_token():
+    global access_token
+    global token_expi
+#    global token_expi
+#    humtime = token_expi
+#    print humtime
+    if time.time() + 20.0 < token_expi:
+        return
     ret_val, _, data = libdrive.get_token(plug.options["client_id"],
                                           plug.options["client_secret"],
                                           plug.options["refresh_token"])
     data = json.loads(data)
     if ret_val == 200:
-        global access_token
         access_token = data["access_token"]
-        global token_expi
         token_expi = time.time() + data["expires_in"]
     else:
         plug.logger.error("Can not get token: " + data["error"]["message"])
@@ -41,10 +42,14 @@ def get_chunk(metadata, offset, size):
 
 @plug.handler()
 def start_upload(metadata):
+    global tree
+    global root_id
     metadata.extra["inProcess"] = ""
     metadata.write()
     path = metadata.filename.split("/")
+    path = [p for p in path if p != u""]
     tmproot = root_id
+    print path
     if len (path) > 1 and "parent_id" not in metadata.extra.keys():
         for f in path[:len(path)-1]:
             ret_val, _, data = libdrive.get_information(access_token, f, tmproot)
@@ -53,15 +58,16 @@ def start_upload(metadata):
                 if (data["items"] != []):
                     prev_id = tmproot
                     tmproot = data["items"][0]["id"]
+		    tree[tmproot] = prev_id
                 else:
                     ret_val, _, data = libdrive.add_folder(access_token, f, tmproot)
                     if ret_val == 200:
                         data = json.loads(data)
                         prev_id = tmproot
                         tmproot = data["id"]
+			tree[tmproot] = prev_id
                     else:
                         plug.logger.error("Can not add folder: " + data["error"]["message"])
-                tree[tmproot] = prev_id
             else:
                 plug.logger.error("Can not get information: " + data["error"]["message"])
     self_id = None
@@ -83,6 +89,7 @@ def end_upload(metadata):
     del metadata.extra["inProcess"]
     del metadata.extra["location"]
     path = metadata.filename.split("/")
+    path = [p for p in path if p != u""]
     ret_val, _, data = libdrive.get_information(access_token, path[len(path)-1], metadata.extra["parent_id"])
     data = json.loads(data)
     if ret_val == 200:
@@ -110,6 +117,7 @@ def restart_upload(metadata, offset):
 
 @plug.handler()
 def abort_upload(metadata):
+    global tree
     id_d = metadata.extra["id"]
     tree = {k:v for k,v in tree.items() if v == id_d or k == id_d}
     libdrive.delete_by_id(access_token, metadata.extra["id"])
@@ -125,6 +133,7 @@ def set_chunk_size(size):
 
 @plug.handler()
 def delete_file(metadata):
+    global tree
     id_d = metadata.extra["id"]
     tree = {k:v for k,v in tree.items() if v == id_d or k == id_d}
     libdrive.delete_by_id(access_token, id_d)
@@ -201,12 +210,16 @@ class CheckChanges(threading.Thread):
         return None
 
     def check_if_path_exist(self, path_id):
+        global tree
         if path_id in tree:
             return True
         return False
 
     def get_path(self, parent_id):
         path = []
+        global root_id
+        global access_token
+        global tree
         while parent_id != root_id and parent_id != "root":
             ret_val, _, data = libdrive.get_information_by_id(access_token, parent_id)
             data = json.loads(data)
@@ -215,10 +228,14 @@ class CheckChanges(threading.Thread):
             else:
                 plug.logger.error("Can not get information: " + data["error"]["message"])
             path.append(info["title"])
+	    print tree
             parent_id = tree[parent_id]
         return "/".join(reversed(path))
 
     def check_if_parent_exist(self, file_id):
+        global access_token
+        global root_id
+        global tree
         ret_val, _, data = libdrive.get_parent(access_token, file_id)
         data = json.loads(data)
         if ret_val == 200:
@@ -257,6 +274,9 @@ class CheckChanges(threading.Thread):
                     return True
 
     def check_folder(self, path, path_id):
+        global access_token
+        global root_id
+	global tree
         if self.lasterChangeId == 0:
             ret_val, _, data = libdrive.get_change(access_token, 1, 1)
             data = json.loads(data)
@@ -313,6 +333,7 @@ class CheckChanges(threading.Thread):
 
     def run(self):
         while not self.stop.isSet():
+            get_token()
             self.check_folder("", root_id)
             self.stop.wait(self.timer)
 
@@ -322,10 +343,18 @@ class CheckChanges(threading.Thread):
 
 def start(*args, **kwargs):
     if plug.options["refresh_token"] != "":
-        get_token()
         path = plug.options["root"].split("/")
+	path = [p for p in path if p != u""]
+        global access_token
+        access_token = ""
+        global token_expi
+        token_expi = 0.0
         global root_id
         root_id = "root"
+        global tree
+        tree = {}
+        get_token()
+	print path
         for f in path:
             ret_val, _, data = libdrive.get_information(access_token, f, root_id)
             data = json.loads(data)
@@ -333,16 +362,16 @@ def start(*args, **kwargs):
                 if (data["items"] != []):
                     prev_id = root_id
                     root_id = data["items"][0]["id"]
+		    tree[root_id] = prev_id
                 else:
                     ret_val, _, data = libdrive.add_folder(access_token, f, root_id)
+		    data = json.loads(data)
                     if ret_val == 200:
-                        data = json.loads(data)
                         prev_id = root_id
                         root_id = data["id"]
+			tree[root_id] = prev_id
                     else:
-                        plug.logger.error("Can not add folder: " + data["error"]["message"])
-                global tree
-                tree[root_id] = prev_id
+                        plug.logger.error("Can not add folder: " + data["error"]["message"])                
             else:
                 plug.logger.error("Can not get information: " + data["error"]["message"])
         check = CheckChanges(int(plug.options['changes_timer']))
