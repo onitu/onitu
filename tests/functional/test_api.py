@@ -182,7 +182,6 @@ def test_list_files():
 
 def test_file_fail():
     create_file("test_file.txt", 10 * KB)
-    fid = get_fid("non-valid-id")
 
     file_path = files_path.format("non-valid-id")
     url = "{}{}".format(api_addr, file_path)
@@ -191,7 +190,7 @@ def test_file_fail():
 
     assert r.status_code == 404
     assert json['status'] == "error"
-    assert json['reason'] == "file {} not found".format(fid)
+    assert json['reason'] == "file {} not found".format("non-valid-id")
 
 
 def test_file():
