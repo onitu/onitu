@@ -10,27 +10,15 @@
       "default": ""
     },
 
-    "client_id": {
-      "name": "Client id",
-      "description": "Your client ID",
-      "type": "string"
-
-    },
-    "client_secret": {
-      "name": "Client secret",
-      "description": "Your client secret",
-      "type": "string"
-    },
-
     "oauth_token": {
       "name": "Oauth token",
-      "description": "Your oauth token",
+      "description": "Your oauth token retrieved with get_token.py",
       "type": "string"
     },
 
-    "oauth_token_verifier": {
-      "name": "Oauth token verifier",
-      "description": "Your oauth token verifier",
+    "oauth_token_secret": {
+      "name": "Oauth token secret",
+      "description": "Your oauth token secret retrieved with get_token.py",
       "type": "string"
     },
 
@@ -38,7 +26,7 @@
       "name": "Changes timer",
       "description": "The frequency to check changes on the Flickr account (in seconds).",
       "type": "integer",
-      "default": 10
+      "default": 20
     }
   }
 }
