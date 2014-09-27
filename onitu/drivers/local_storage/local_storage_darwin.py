@@ -14,6 +14,7 @@ events_to_ignore = set()
 # Store the mtime of the last write of each transfered file
 last_mtime = {}
 last_creation = set()
+last_delete = set()
 
 root = None
 
@@ -22,19 +23,12 @@ def to_tmp(path):
     return path.parent.joinpath('.' + path.name + TMP_EXT)
 
 
-def update(metadata, abs_path, mtime=None):
-    try:
-        metadata.size = abs_path.size
-        metadata.extra['revision'] = mtime if mtime else abs_path.mtime
-    except (IOError, OSError) as e:
-        raise ServiceError(
-            "Error updating file '{}': {}".format(metadata.filename, e)
-        )
-    else:
-        plug.update_file(metadata)
-
-
 def delete(metadata, _):
+    if metadata.filename in last_delete:
+        plug.logger.debug("ignore -> last delete")
+        last_delete.remove(metadata.filename)
+        return
+
     if plug.name not in metadata.owners:
         return
 
@@ -83,7 +77,7 @@ def check_changes():
             mtime = 0.
 
         if mtime > revision:
-            update(metadata, abs_path, mtime)
+            update_file(metadata, abs_path, mtime)
 
 
 @plug.handler()
@@ -171,6 +165,7 @@ def delete_file(metadata):
     filename = root / metadata.filename
 
     try:
+        last_delete.add(metadata.filename)
         filename.unlink()
     except (IOError, OSError) as e:
         raise ServiceError(
@@ -199,26 +194,19 @@ def move_file(old_metadata, new_metadata):
     delete_empty_dirs(old_filename)
 
 
-def update_file(metadata, path):
-    # if metadata.filename in events_to_ignore:
-    #     plug.logger.debug("ignore -> events_to_ignore")
-    #     return
-
+def update_file(metadata, path, mtime=None):
     if metadata.filename in last_creation:
         plug.logger.debug("ignore -> last creation")
         last_creation.remove(metadata.filename)
         return
-    # if metadata.filename in last_mtime:
-    #     if last_mtime[metadata.filename] >= path.mtime:
-    #         # We're about to send an event for a file that hasn't changed
-    #         # since the last upload, we stop here
-    #         plug.logger.debug("ignore -> mtime")
-    #         return
-    #     else:
-    #         del last_mtime[metadata.filename]
 
-    metadata.size = path.size
-    metadata.revision = path.mtime
+    try:
+        metadata.size = path.size
+        metadata.extra['revision'] = mtime if mtime else path.mtime
+    except (IOError, OSError) as e:
+        raise ServiceError(
+            "Error updating file '{}': {}".format(metadata.filename, e)
+        )
     plug.update_file(metadata)
 
 
