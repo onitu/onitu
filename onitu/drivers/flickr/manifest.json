@@ -20,13 +20,6 @@
       "name": "Oauth token secret",
       "description": "Your oauth token secret retrieved with get_token.py",
       "type": "string"
-    },
-
-    "changes_timer": {
-      "name": "Changes timer",
-      "description": "The frequency to check changes on the Flickr account (in seconds).",
-      "type": "integer",
-      "default": 20
     }
   }
 }

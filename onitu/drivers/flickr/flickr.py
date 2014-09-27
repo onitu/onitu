@@ -1,8 +1,6 @@
 import cStringIO
-import threading
 import requests
 import hashlib
-import os
 
 from xml.etree.ElementTree import fromstring, ElementTree
 from requests_toolbelt import MultipartEncoder
@@ -11,34 +9,6 @@ from requests_oauthlib import OAuth1
 from onitu.plug import Plug, ServiceError
 
 plug = Plug()
-
-# ############################## WATCHER ######################################
-
-
-class CheckChanges(threading.Thread):
-    """A class spawned in a thread to poll for changes on the HUBIC bucket.
-    HUBIC hasn't any bucket watching system in its API, so the best we can
-    do is periodically polling the bucket's contents and compare the
-    timestamps."""
-
-    def __init__(self, root, timer):
-        threading.Thread.__init__(self)
-        self.stop = threading.Event()
-        self.timer = timer
-        self.root = root
-
-    def check_changes(self, path=''):
-        ''' Detects changes in the given folder and its subfolders and
-        launches the download if needed '''
-        pass
-
-    def run(self):
-        while not self.stop.isSet():
-            self.check_changes()
-            self.stop.wait(self.timer)
-
-    def stop(self):
-        self.stop.set()
 
 # ############################## OAUTH ######################################
 
@@ -171,7 +141,7 @@ class Flickr():
         tag = metadata.extra['tag']
         title = metadata.filename
         self.load_base_params().update({
-                'photo_id'        : photo_id, # only used for replacement
+                'photo_id'        : photo_id,  # only used for replacement
                 'title'           : title,
                 'description'     : 'Uploaded by onitu',
                 'tags'            : tag,
@@ -231,6 +201,7 @@ class Flickr():
             plug.logger.warning(
                 "get_tag_id: Cannot find tag id of tag '{}'".format(tag_name))
             return None
+        i = 0
         while (tag[i]):
             if tag[i]['raw'] == tag_name:
                 return tag[i]['id']
@@ -288,7 +259,7 @@ class Flickr():
                 'method'         : 'flickr.photos.setMeta',
                 'photo_id'       : photo_id,
                 'title'          : title,
-                'description'    : 'Uploaded by onitu' # required parameter
+                'description'    : 'Uploaded by onitu'  # required parameter
                 })
         r = self.call('POST', self.rest_url, self.base_params)
         self.check_error('rename_file', r)
@@ -302,7 +273,6 @@ class Flickr():
                 })
 
         return self.call('GET', self.rest_url, self.base_params)
-
 
     def create_photoset(self, title, primary_photo_id, description=None):
         self.load_base_params().update({
@@ -364,11 +334,6 @@ def start():
     global flickr
     flickr = Flickr(onitu_client_id, onitu_client_secret,
                     plug.options['oauth_token'],
-                    plug.options['oauth_token_verifier'], root)
-
-    # Launch the changes detection
-    check = CheckChanges(root, plug.options['changes_timer'])
-    check.daemon = True
-    check.start()
+                    plug.options['oauth_token_secret'], root)
 
     plug.listen()

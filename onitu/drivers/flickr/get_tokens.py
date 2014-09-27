@@ -1,8 +1,4 @@
-import time, uuid, requests, oauthlib
-
 from requests_oauthlib import OAuth1Session
-from requests_oauthlib import OAuth1
-from urlparse import parse_qs
 
 if __name__ == '__main__':
 
@@ -16,7 +12,8 @@ if __name__ == '__main__':
 
     oauth_callback = 'https://api.flickr.com/services/rest/?method=flickr.test.echo&api_key=' + client_key
 
-    oauth = OAuth1Session(client_key, client_secret=client_secret, callback_uri=oauth_callback)
+    oauth = OAuth1Session(client_key, client_secret=client_secret,
+                          callback_uri=oauth_callback)
     fetch_response = oauth.fetch_request_token(request_token_url)
 
     request_token = fetch_response.get('oauth_token')
@@ -24,7 +21,8 @@ if __name__ == '__main__':
 
     # -------
 
-    authorization_url = oauth.authorization_url(base_authorization_url, perms='delete')
+    authorization_url = oauth.authorization_url(base_authorization_url,
+                                                perms='delete')
     print 'Please go here and authorize onitu to access your account'
     print authorization_url
     redirect_response = raw_input('Paste here the full redirect URL: ')
