@@ -153,6 +153,7 @@ class CheckChanges(threading.Thread):
         launches the download if needed'''
 
         global plug
+        global hubic
 
         folder_content = self.list_folder(hubic.get_path(path))
         for f in folder_content:
@@ -161,7 +162,6 @@ class CheckChanges(threading.Thread):
                 continue
 
             filename = f[len(self.root) + 1 if self.root else 0:]
-
             details = hubic.get_object_details(f)
             if details['content-type'] == 'application/directory':
                 self.check_changes(filename)
@@ -373,8 +373,11 @@ def start():
     if root.endswith('/'):
         root = root[:-1]
 
+    onitu_client_id = "api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl"
+    onitu_client_secret = "CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV49e7SpBsHDAKdtm5WeR5KEaDvc"
+
     global hubic
-    hubic = Hubic(plug.options['client_id'], plug.options['client_secret'],
+    hubic = Hubic(onitu_client_id, onitu_client_secret,
                   plug.options['refresh_token'], root)
 
     # Launch the changes detection

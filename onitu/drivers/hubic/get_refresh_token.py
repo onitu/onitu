@@ -11,8 +11,8 @@ except NameError:
 
 if __name__ == '__main__':
 
-    client_id = ""
-    client_secret = ""
+    client_id = "api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl"
+    client_secret = "CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV49e7SpBsHDAKdtm5WeR5KEaDvc"
     hubic_token = "falsetoken"
     redirect_uri = "http://localhost/"
 
@@ -20,13 +20,21 @@ if __name__ == '__main__':
     url += "&redirect_uri=" + urllib.quote_plus(redirect_uri)
     url += "&scope=credentials.r&response_type=code"
 
-    print("Your web browser will be launched and you must accept onitu.")
-    print("Then, you will be redirected to a localhost adress.")
-    print("There is a parameter (in the url) named \"code\".")
-    print("You will need to copy/paste it for the next part of this script.")
+    print
+    print "Your web browser will be launched in order to let Onitu gain access to your Flickr account.."
+    print "Then, you will be redirected to a localhost adress."
+    print "There is a parameter (in the url) named \"code\"."
+    print "You will need to copy/paste it for the next part of this script."
+    print
+    print "If your web browser doesn't start, access this url:"
+    print url
+    print
 
     raw_input("If you are ready press enter.")
     webbrowser.open(url)
+    print
+    print "The code parameter in the redirected url is after 'http://localhost/?code=' and before '&scope=...'"
+    print
     code = raw_input("Accept Onitu and enter your code here : ")
 
     application_token = base64.b64encode(client_id + ":" + client_secret)
@@ -48,4 +56,8 @@ if __name__ == '__main__':
         raise Exception('The provided email address and/or pass are incorrect')
 
     hubic_refresh_token = response.json()["refresh_token"]
-    print("Please copy this code in setup.json:", hubic_refresh_token)
+
+    print
+    print "You can now copy the following refresh token in setup.json"
+    print hubic_refresh_token
+    print
