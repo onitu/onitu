@@ -1,0 +1,50 @@
+{
+  "name": "SFTP",
+  "description": "Store files on a remote machine using SFTP.",
+  "options": {
+    "root": {
+      "name": "Root",
+      "description": "The root of the directories under Onitu's watch",
+      "type": "string"
+    },
+    "hostname": {
+      "name": "Hostname",
+      "description": "The hostname for the SFTP connection",
+      "type": "string"
+    },
+    "username": {
+      "name": "Username",
+      "description": "The username for the SFTP connection",
+      "type": "string"
+    },
+    "password": {
+      "name": "Password",
+      "description": "The password for the SFTP connection (if empty or missing, the private key will be used)",
+      "type": "string",
+      "default": ""
+    },
+    "port": {
+      "name": "Port number",
+      "description": "The port number for the SFTP connection",
+      "type": "integer",
+      "default": 22
+    },
+    "changes_timer": {
+      "name": "Timer for modification check",
+      "description": "Time in seconds between two checks for files modifications",
+      "type": "integer"
+    },
+    "private_key_path": {
+      "name": "Private key path",
+      "description": "The path to your private key file (optionnal)",
+      "type": "string",
+      "default": "~/.ssh/id_rsa"
+    },
+    "private_key_passphrase": {
+      "name": "Private key passphrase",
+      "description": "The passphrase for your private key (optionnal if no private_key_path setted)",
+      "type": "string",
+      "default": ""
+    }
+  }
+}

@@ -1,0 +1,45 @@
+Getting started with the SFTP driver
+====================================
+
+You can use a password or your private key to setup your SFTP Driver.
+
+If you set a password in the setup.json file, the private_key_path and private_key_passphrase will be ignored.
+
+All the defaults variables are optional:
+
+password: ""
+private_key_path: ~/.ssh/id_rsa
+private_key_passphrase: ""
+port: 22
+
+An example of setup.json which use a private key (uses the default value) with an empty password (default value), a default port.
+
+{
+  "name": "example",
+
+  "entries": {
+    "LOC": {
+      "driver": "local_storage",
+      "options": {
+        "root": "example/loc"
+      }
+    },
+    "FTP": {
+      "driver": "sftp",
+      "options": {
+        "root": "/home/myname/sftp/",
+        "hostname": "localhost",
+        "username": "myname",
+        "changes_timer": 10
+      }
+    }
+  },
+
+  "rules": [
+    {
+      "match": {"path": "/"},
+      "sync": ["LOC", "FTP"]
+    }
+  ]
+
+}
