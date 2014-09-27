@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
     print
     print "Your web browser will be launched in order to let Onitu gain access to your Flickr account.."
-    print "Then, you will be redirected to a localhost adress."
+    print "Then, you will be redirected to a localhost address."
     print "There is a parameter (in the url) named \"code\"."
     print "You will need to copy/paste it for the next part of this script."
     print
