@@ -222,7 +222,7 @@ def update_file(metadata, path):
     plug.update_file(metadata)
 
 
-def handle_event(name):
+def handle_event(name, mask):
     plug.logger.debug("handle_event")
     abs_path = path(name)
 
@@ -236,8 +236,14 @@ def handle_event(name):
 
     filename = root.relpathto(abs_path)
     metadata = plug.get_metadata(filename)
-    plug.logger.debug("update file")
-    update_file(metadata, abs_path)
+    update_events = (fsevents.IN_MODIFY, fsevents.IN_CREATE)
+    delete_events = (fsevents.IN_DELETE)
+    if mask in update_events:
+        plug.logger.debug("update file")
+        update_file(metadata, abs_path)
+    elif mask == delete_events:
+        plug.logger.debug("delete file")
+        delete(metadata, abs_path)
 
 
 def file_event_callback(event):
@@ -246,12 +252,12 @@ def file_event_callback(event):
         event.mask, event.cookie, event.name
     )
 
-    events = (fsevents.IN_MODIFY, fsevents.IN_CREATE)
+    events = (fsevents.IN_MODIFY, fsevents.IN_CREATE, fsevents.IN_DELETE)
     if event.mask not in events:
         plug.logger.debug("ignore -> bad event")
         return
 
-    handle_event(event.name)
+    handle_event(event.name, event.mask)
 
 
 def start(*args, **kwargs):
