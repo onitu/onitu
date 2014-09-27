@@ -12,7 +12,8 @@ except NameError:
 if __name__ == '__main__':
 
     client_id = "api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl"
-    client_secret = "CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV49e7SpBsHDAKdtm5WeR5KEaDvc"
+    client_secret = "CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV4"
+    "9e7SpBsHDAKdtm5WeR5KEaDvc"
     hubic_token = "falsetoken"
     redirect_uri = "http://localhost/"
 
@@ -21,7 +22,8 @@ if __name__ == '__main__':
     url += "&scope=credentials.r&response_type=code"
 
     print
-    print "Your web browser will be launched in order to let Onitu gain access to your Flickr account.."
+    print "Your web browser will be launched in order to let Onitu gain "
+    "access to your Hubic account.."
     print "Then, you will be redirected to a localhost address."
     print "There is a parameter (in the url) named \"code\"."
     print "You will need to copy/paste it for the next part of this script."
@@ -33,7 +35,8 @@ if __name__ == '__main__':
     raw_input("If you are ready press enter.")
     webbrowser.open(url)
     print
-    print "The code parameter in the redirected url is after 'http://localhost/?code=' and before '&scope=...'"
+    print "The code parameter in the redirected url is after "
+    "'http://localhost/?code=' and before '&scope=...'"
     print
     code = raw_input("Accept Onitu and enter your code here : ")
 

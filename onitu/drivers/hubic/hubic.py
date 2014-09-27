@@ -374,7 +374,8 @@ def start():
         root = root[:-1]
 
     onitu_client_id = "api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl"
-    onitu_client_secret = "CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV49e7SpBsHDAKdtm5WeR5KEaDvc"
+    onitu_client_secret = "CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV"
+    "49e7SpBsHDAKdtm5WeR5KEaDvc"
 
     global hubic
     hubic = Hubic(onitu_client_id, onitu_client_secret,
