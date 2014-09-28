@@ -291,31 +291,26 @@ class Flickr():
 
 @plug.handler()
 def move_file(old_metadata, new_metadata):
-    global flickr
     flickr.move_file(old_metadata, new_metadata)
 
 
 @plug.handler()
 def get_file(metadata):
-    global flickr
     flickr.get_file(metadata)
 
 
 @plug.handler()
 def start_upload(metadata):
-    global flickr
     metadata.extra['tag'] = flickr.create_tag(metadata)
 
 
 @plug.handler()
 def upload_file(metadata, content):
-    global flickr
     flickr.upload_file(metadata, content)
 
 
 @plug.handler()
 def delete_file(metadata):
-    global flickr
     flickr.delete_file(metadata)
 
 
