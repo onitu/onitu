@@ -9,6 +9,7 @@ from requests_oauthlib import OAuth1
 from onitu.plug import Plug, ServiceError
 
 plug = Plug()
+flickr = None
 
 # ############################## OAUTH ######################################
 
@@ -44,8 +45,8 @@ class Flickr():
 
     def load_base_params(self):
         self.base_params = {
-            'format'         : 'json',
-            "nojsoncallback" : "1"
+            'format': 'json',
+            "nojsoncallback": "1"
             }
         return self.base_params
 
@@ -69,8 +70,8 @@ class Flickr():
                 )
 
     def do_upload(self, url, content, params=None):
-        '''Performs a file upload to the given URL with
-        the given parameters, signed with OAuth.'''
+        """Performs a file upload to the given URL with
+        the given parameters, signed with OAuth."""
 
         # work-around for Flickr expecting 'photo' to be excluded
         # from the oauth signature:
@@ -87,7 +88,7 @@ class Flickr():
 
         m = MultipartEncoder(fields=params)
         auth = {'Authorization': headers.get('Authorization'),
-                'Content-Type' : m.content_type}
+                'Content-Type': m.content_type}
         req = requests.post(url, data=m, headers=auth)
 
         # check the response headers / status code.
@@ -95,15 +96,15 @@ class Flickr():
         return req
 
     def search_file(self, metadata):
-        ''' return None if no file or many files are found.
-        return file id otherwise '''
+        """return None if no file or many files are found.
+        return file id otherwise"""
         tag = self.create_tag(metadata)
 
         self.load_base_params().update({
-                'user_id'        : self.user_id,
-                'method'         : 'flickr.photos.search',
-                'tags'           : tag
-                })
+            'user_id': self.user_id,
+            'method': 'flickr.photos.search',
+            'tags': tag
+        })
 
         r = self.call('GET', self.rest_url, self.base_params)
         self.check_error('search_file', r)
@@ -141,16 +142,16 @@ class Flickr():
         tag = metadata.extra['tag']
         title = metadata.filename
         self.load_base_params().update({
-                'photo_id'        : photo_id,  # only used for replacement
-                'title'           : title,
-                'description'     : 'Uploaded by onitu',
-                'tags'            : tag,
-                'is_public'       : '0',
-                'is_friend'       : '0',
-                'is_family'       : '0',
-                'safety_level'    : '1',
-                'hidden'          : '1'
-                })
+            'photo_id': photo_id,  # only used for replacement
+            'title': title,
+            'description': 'Uploaded by onitu',
+            'tags': tag,
+            'is_public': '0',
+            'is_friend': '0',
+            'is_family': '0',
+            'safety_level': '1',
+            'hidden': '1'
+        })
 
         if photo_id:
             print 'replace'
@@ -164,13 +165,13 @@ class Flickr():
         metadata.write()
 
     def get_file(self, metadata):
-        ''' return nothing '''
+        """return nothing"""
         photo_id = self.load_photo_id(metadata)
         if photo_id:
             self.load_base_params().update({
-                    'method'         : 'flickr.photos.getSizes',
-                    'photo_id'       : photo_id
-                    })
+                'method': 'flickr.photos.getSizes',
+                'photo_id': photo_id
+            })
 
             r = self.call('GET', self.rest_url, self.base_params)
             self.check_error('get_photo', r)
@@ -181,14 +182,14 @@ class Flickr():
             return r.content
 
     def delete_file(self, metadata):
-        ''' return nothing '''
+        """return nothing"""
 
         photo_id = self.load_photo_id(metadata)
         if photo_id:
             self.load_base_params().update({
-                    'method'         : 'flickr.photos.delete',
-                    'photo_id'       : photo_id
-                    })
+                'method': 'flickr.photos.delete',
+                'photo_id': photo_id
+            })
 
             r = self.call('GET', self.rest_url, self.base_params)
             self.check_error('delete_file', r)
@@ -221,46 +222,46 @@ class Flickr():
                 new.write()
 
     def get_file_info(self, photo_id):
-        ''' Return a json with photo infos '''
+        """Return a json with photo infos"""
 
         self.load_base_params().update({
-                'method'         : 'flickr.photos.getInfo',
-                'photo_id'       : photo_id
-                })
+            'method': 'flickr.photos.getInfo',
+            'photo_id': photo_id
+        })
         r = self.call('GET', self.rest_url, self.base_params)
         self.check_error('get_file_info', r)
         return r.json()
 
     def remove_tag(self, tag_id):
-        ''' Return nothing '''
+        """Return nothing"""
 
         self.load_base_params().update({
-                'method'         : 'flickr.photos.removeTag',
-                'tag_id'         : tag_id
-                })
+            'method': 'flickr.photos.removeTag',
+            'tag_id': tag_id
+        })
         r = self.call('POST', self.rest_url, self.base_params)
         self.check_error('remove_tag', r)
 
     def add_tags(self, photo_id, tags):
-        ''' Return nothing '''
+        """Return nothing"""
 
         self.load_base_params().update({
-                'method'         : 'flickr.photos.addTags',
-                'photo_id'       : photo_id,
-                'tags'           : tags
-                })
+            'method': 'flickr.photos.addTags',
+            'photo_id': photo_id,
+            'tags': tags
+        })
         r = self.call('POST', self.rest_url, self.base_params)
         self.check_error('add_tags', r)
 
     def rename_file(self, photo_id, title):
-        ''' Return nothing '''
+        """Return nothing"""
 
         self.load_base_params().update({
-                'method'         : 'flickr.photos.setMeta',
-                'photo_id'       : photo_id,
-                'title'          : title,
-                'description'    : 'Uploaded by onitu'  # required parameter
-                })
+            'method': 'flickr.photos.setMeta',
+            'photo_id': photo_id,
+            'title': title,
+            'description': 'Uploaded by onitu'  # required parameter
+        })
         r = self.call('POST', self.rest_url, self.base_params)
         self.check_error('rename_file', r)
 
@@ -268,19 +269,19 @@ class Flickr():
 
     def list_photosets(self):
         self.load_base_params().update({
-                'user_id'        : self.user_id,
-                'method'         : 'flickr.photosets.getList'
-                })
+            'user_id': self.user_id,
+            'method': 'flickr.photosets.getList'
+        })
 
         return self.call('GET', self.rest_url, self.base_params)
 
     def create_photoset(self, title, primary_photo_id, description=None):
         self.load_base_params().update({
-                'title'           : title,
-                'description'     : description,
-                'method'          : 'flickr.photosets.create',
-                'primary_photo_id': primary_photo_id
-                })
+            'title': title,
+            'description': description,
+            'method': 'flickr.photosets.create',
+            'primary_photo_id': primary_photo_id
+        })
 
         return self.call('GET', self.rest_url, self.base_params)
 

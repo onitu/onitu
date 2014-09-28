@@ -10,7 +10,8 @@ if __name__ == '__main__':
     base_authorization_url = base_url + 'authorize'
     access_token_url = base_url + 'access_token'
 
-    oauth_callback = 'https://api.flickr.com/services/rest/?method=flickr.test.echo&api_key=' + client_key
+    oauth_callback = 'https://api.flickr.com/services/rest/'
+    '?method=flickr.test.echo&api_key=' + client_key
 
     oauth = OAuth1Session(client_key, client_secret=client_secret,
                           callback_uri=oauth_callback)
