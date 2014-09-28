@@ -243,9 +243,16 @@ def handle_event(name, mask, cookie):
 
     filename = root.relpathto(abs_path)
     metadata = plug.get_metadata(filename)
+
+    plug.logger.debug("root    : {}".format(root))
+    plug.logger.debug("name    : {}".format(name))
+    plug.logger.debug("abs_path: {}".format(abs_path))
+    plug.logger.debug("filename: {}".format(filename))
+
     update_events = (fsevents.IN_MODIFY, fsevents.IN_CREATE)
     delete_events = (fsevents.IN_DELETE)
     move_events = (fsevents.IN_MOVED_FROM, fsevents.IN_MOVED_TO)
+
     if mask in update_events:
         plug.logger.debug("update file")
         update_file(metadata, abs_path)

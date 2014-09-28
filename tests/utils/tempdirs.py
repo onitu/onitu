@@ -1,5 +1,6 @@
 import tempfile
 from shutil import rmtree
+from os.path import realpath
 
 
 class TempDirs(object):
@@ -11,6 +12,7 @@ class TempDirs(object):
 
     def create(self):
         d = tempfile.mkdtemp()
+        d = realpath(d)
         self.dirs.add(d)
         return d
 
