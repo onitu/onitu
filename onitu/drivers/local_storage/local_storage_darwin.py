@@ -15,69 +15,14 @@ events_to_ignore = set()
 last_mtime = {}
 last_creation = set()
 last_delete = set()
+last_move = set()
+move_events = {}
 
 root = None
 
 
 def to_tmp(path):
     return path.parent.joinpath('.' + path.name + TMP_EXT)
-
-
-def delete(metadata, _):
-    if metadata.filename in last_delete:
-        plug.logger.debug("ignore -> last delete")
-        last_delete.remove(metadata.filename)
-        return
-
-    if plug.name not in metadata.owners:
-        return
-
-    plug.delete_file(metadata)
-
-
-def move(old_metadata, old_path, new_path):
-    if plug.name not in old_metadata.owners:
-        return
-
-    new_filename = root.relpathto(new_path)
-    plug.move_file(old_metadata, new_filename)
-
-
-def delete_empty_dirs(filename):
-    """Remove all the empty parent directories, stopping at the root
-    """
-
-    parent = filename.parent
-
-    while parent != root:
-        try:
-            parent.rmdir()
-        except OSError:
-            break
-
-        parent = parent.parent
-
-
-def check_changes():
-    for abs_path in root.walkfiles():
-        if abs_path.ext == TMP_EXT:
-            continue
-
-        filename = abs_path.relpath(root).normpath()
-
-        metadata = plug.get_metadata(filename)
-        revision = metadata.extra.get('revision', 0.)
-
-        try:
-            mtime = abs_path.mtime
-        except (IOError, OSError) as e:
-            raise ServiceError(
-                "Error updating file '{}': {}".format(filename, e)
-            )
-            mtime = 0.
-
-        if mtime > revision:
-            update_file(metadata, abs_path, mtime)
 
 
 @plug.handler()
@@ -194,6 +139,80 @@ def move_file(old_metadata, new_metadata):
     delete_empty_dirs(old_filename)
 
 
+def delete_empty_dirs(filename):
+    """Remove all the empty parent directories, stopping at the root
+    """
+
+    parent = filename.parent
+
+    while parent != root:
+        try:
+            parent.rmdir()
+        except OSError:
+            break
+
+        parent = parent.parent
+
+
+def check_changes():
+    for abs_path in root.walkfiles():
+        if abs_path.ext == TMP_EXT:
+            continue
+
+        filename = abs_path.relpath(root).normpath()
+
+        metadata = plug.get_metadata(filename)
+        revision = metadata.extra.get('revision', 0.)
+
+        try:
+            mtime = abs_path.mtime
+        except (IOError, OSError) as e:
+            raise ServiceError(
+                "Error updating file '{}': {}".format(filename, e)
+            )
+            mtime = 0.
+
+        if mtime > revision:
+            update_file(metadata, abs_path, mtime)
+
+
+def delete(metadata, _):
+    if metadata.filename in last_delete:
+        plug.logger.debug("ignore -> last delete")
+        last_delete.remove(metadata.filename)
+        return
+
+    if plug.name not in metadata.owners:
+        return
+
+    plug.delete_file(metadata)
+
+
+def move_final(old_metadata, old_path, new_path):
+    if plug.name not in old_metadata.owners:
+        return
+
+    new_filename = root.relpathto(new_path)
+    plug.move_file(old_metadata, new_filename)
+
+
+def move(metadata, path, cookie, mask):
+    if metadata.filename in last_move:
+        if mask == fsevents.IN_MOVED_FROM:
+            return
+        else:
+            last_move.remove(metadata.filename)
+            return
+
+    if cookie in move_events:
+        m = move_events.pop(cookie)
+        old_metadata = m[0]
+        old_path = m[1]
+        move_final(old_metadata, old_path, path)
+    else:
+        move_events[cookie] = (metadata, path)
+
+
 def update_file(metadata, path, mtime=None):
     if metadata.filename in last_creation:
         plug.logger.debug("ignore -> last creation")
@@ -210,7 +229,7 @@ def update_file(metadata, path, mtime=None):
     plug.update_file(metadata)
 
 
-def handle_event(name, mask):
+def handle_event(name, mask, cookie):
     plug.logger.debug("handle_event")
     abs_path = path(name)
 
@@ -226,12 +245,16 @@ def handle_event(name, mask):
     metadata = plug.get_metadata(filename)
     update_events = (fsevents.IN_MODIFY, fsevents.IN_CREATE)
     delete_events = (fsevents.IN_DELETE)
+    move_events = (fsevents.IN_MOVED_FROM, fsevents.IN_MOVED_TO)
     if mask in update_events:
         plug.logger.debug("update file")
         update_file(metadata, abs_path)
     elif mask == delete_events:
         plug.logger.debug("delete file")
         delete(metadata, abs_path)
+    elif mask in move_events:
+        plug.logger.debug("move event")
+        move(metadata, abs_path, cookie, mask)
 
 
 def file_event_callback(event):
@@ -240,12 +263,11 @@ def file_event_callback(event):
         event.mask, event.cookie, event.name
     )
 
-    events = (fsevents.IN_MODIFY, fsevents.IN_CREATE, fsevents.IN_DELETE)
-    if event.mask not in events:
+    if event.mask == fsevents.IN_ATTRIB:
         plug.logger.debug("ignore -> bad event")
         return
 
-    handle_event(event.name, event.mask)
+    handle_event(event.name, event.mask, event.cookie)
 
 
 def start(*args, **kwargs):
