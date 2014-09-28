@@ -1,0 +1,26 @@
+{
+  "name": "Evernote",
+  "description": "Driver to synchronize files with an Evernote account.",
+  "options": {
+
+    "root": {
+      "name": "Root",
+      "description": "The root of the directories under Onitu's watch",
+      "type": "string",
+      "default": ""
+    },
+
+    "oauth_token": {
+      "name": "Oauth token",
+      "description": "Your oauth token",
+      "type": "string"
+    },
+
+    "changes_timer": {
+      "name": "Changes timer",
+      "description": "The frequency to check changes on the Evernote account (in seconds).",
+      "type": "integer",
+      "default": 10
+    }
+  }
+}
