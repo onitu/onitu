@@ -25,7 +25,8 @@
     "changes_timer": {
       "name": "Changes Timer",
       "description": "Time between two changes check in seconde",
-      "type": "float"
+      "type": "float",
+      "default": 10
     }
   }
 }
