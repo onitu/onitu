@@ -60,11 +60,14 @@ def add_folder(access_token, name, parent_id):
         "Authorization": "Bearer " + access_token,
         "Content-Type": "application/json",
         }
-    data = {
-        "title": name,
-        "parents": [{"id": parent_id}],
-        "mimeType": "application/vnd.google-apps.folder"
-        }
+    
+    data = """
+    {
+       "title": \""""+name+"""\",
+       "parents": [{"id":\""""+parent_id+"""\"}],
+       "mimeType": "application/vnd.google-apps.folder"
+    }
+    """
     url = "https://www.googleapis.com/drive/v2/files"
     return send("post", url, headers, {}, data)
 

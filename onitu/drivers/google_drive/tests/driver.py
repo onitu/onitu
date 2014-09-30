@@ -48,6 +48,22 @@ class Driver(TestDriver):
         access_token = ""
         get_token(options['client_id'], options['client_secret'])
 	self.options = options
+
+        path = options["root"].split("/")
+	path = [p for p in path if p != u""]
+
+        for f in path:
+            ret_val, _, data = libdrive.get_information(access_token, f, root_id)
+            data = json.loads(data)
+            if ret_val == 200:
+                if (data["items"] != []):
+                    root_id = data["items"][0]["id"]
+                else:
+                    ret_val, _, data = libdrive.add_folder(access_token, f, root_id)
+		    data = json.loads(data)
+                    if ret_val == 200:
+                        root_id = data["id"]
+
         super(Driver, self).__init__('google_drive',
                                      *args,
                                      **options)
@@ -68,6 +84,7 @@ class Driver(TestDriver):
 	global root_id
 	global access_token
         path = subdirs.split("/")
+	path = [p for p in path if p != u""]
         tmproot = root_id
         for f in path:
             ret_val, _, data = libdrive.get_information(access_token, f, tmproot)
@@ -87,6 +104,7 @@ class Driver(TestDriver):
 	global root_id
 	global access_token
         path = filename.split("/")
+	path = [p for p in path if p != u""]
         tmproot = root_id
         if len (path) > 1:
             for f in path[:len(path)-1]:
@@ -117,6 +135,8 @@ class Driver(TestDriver):
 	global root_id
 	global access_token
         path = filename.split("/")
+	path = [p for p in path if p != u""]
+        tmproot = root_id
         for f in path[:len(path)-1]:
             ret_val, _, data = libdrive.get_information(access_token, f, tmproot)
             data = json.loads(data)
@@ -138,17 +158,14 @@ class Driver(TestDriver):
 	global root_id
 	global access_token
         path = filename.split("/")
+	path = [p for p in path if p != u""]
+	tmproot = root_id
         for f in path[:len(path)-1]:
             ret_val, _, data = libdrive.get_information(access_token, f, tmproot)
             data = json.loads(data)
             if ret_val == 200:
                 if (data["items"] != []):
                     tmproot = data["items"][0]["id"]
-                else:
-                    ret_val, _, data = libdrive.add_folder(access_token, f, tmproot)
-                    if ret_val == 200:
-                        data = json.loads(data)
-                        tmproot = data["id"]
         id_folder = tmproot
         ret_val, _, info = libdrive.get_information(access_token, path[len(path)-1], id_folder)
         info = json.loads(info)
@@ -158,7 +175,9 @@ class Driver(TestDriver):
         get_token(self.options['client_id'], self.options['client_secret'])
 	global root_id
 	global access_token
+        tmproot = root_id
         path = filename.split("/")
+	path = [p for p in path if p != u""]
         for f in path[:len(path)-1]:
             ret_val, _, data = libdrive.get_information(access_token, f, tmproot)
             data = json.loads(data)

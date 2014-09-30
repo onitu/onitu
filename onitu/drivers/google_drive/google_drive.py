@@ -12,9 +12,7 @@ ft = 'application/vnd.google-apps.folder'
 def get_token():
     global access_token
     global token_expi
-#    global token_expi
-#    humtime = token_expi
-#    print humtime
+
     if time.time() + 20.0 < token_expi:
         return
     ret_val, _, data = libdrive.get_token(plug.options["client_id"],
@@ -49,7 +47,6 @@ def start_upload(metadata):
     path = metadata.filename.split("/")
     path = [p for p in path if p != u""]
     tmproot = root_id
-    print path
     if len (path) > 1 and "parent_id" not in metadata.extra.keys():
         for f in path[:len(path)-1]:
             ret_val, _, data = libdrive.get_information(access_token, f, tmproot)
@@ -228,7 +225,6 @@ class CheckChanges(threading.Thread):
             else:
                 plug.logger.error("Can not get information: " + data["error"]["message"])
             path.append(info["title"])
-	    print tree
             parent_id = tree[parent_id]
         return "/".join(reversed(path))
 
@@ -246,7 +242,7 @@ class CheckChanges(threading.Thread):
             return False
         p = parent["items"][0]
         if self.check_if_path_exist(p["id"]):
-            ret_val, _, data = libdrive.get_information_by_id(access_token, parent_id)
+            ret_val, _, data = libdrive.get_information_by_id(access_token, p["id"])
             data = json.loads(data)
             if ret_val == 200:
                 info = data
@@ -263,7 +259,7 @@ class CheckChanges(threading.Thread):
                 if ret is False:
                     return False
                 else:
-                    ret_val, _, data = libdrive.get_information_by_id(access_token, parent_id)
+                    ret_val, _, data = libdrive.get_information_by_id(access_token, p["id"])
                     data = json.loads(data)
                     if ret_val == 200:
                         i = data
@@ -310,7 +306,7 @@ class CheckChanges(threading.Thread):
                 if not page_token:
                     break
             for id_file in buf.keys():
-                f = buf[id_file] # TODO
+                f = buf[id_file]
                 if self.check_if_path_exist(f["parents"]):
                     path = self.get_path(f["parents"])
                 else:
@@ -354,7 +350,6 @@ def start(*args, **kwargs):
         global tree
         tree = {}
         get_token()
-	print path
         for f in path:
             ret_val, _, data = libdrive.get_information(access_token, f, root_id)
             data = json.loads(data)
