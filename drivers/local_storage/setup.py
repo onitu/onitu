@@ -13,6 +13,7 @@ setup(
     version="0.1",
     url="http://onitu.github.io",
     description="Access your local files with Onitu",
+    license="MIT",
     packages=find_packages(),
     install_requires=install_requires,
     package_data={'': ['manifest.json']},
