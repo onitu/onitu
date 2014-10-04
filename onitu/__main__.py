@@ -29,6 +29,17 @@ from .escalator.client import Escalator
 from .utils import at_exit, get_open_port
 
 
+setup_file = None
+escalator_uri = None
+log_uri = None
+endpoint = None
+session = None
+setup = None
+logger = None
+loop = None
+arbiter = None
+
+
 @gen.coroutine
 def start_setup(*args, **kwargs):
     """Parse the setup JSON file, clean the database,
@@ -142,7 +153,10 @@ def get_setup():
         )
 
 
-if __name__ == '__main__':
+def main():
+    global setup_file, session, escalator_uri
+    global endpoint, setup, logger, loop, log_uri, arbiter
+
     parser = argparse.ArgumentParser("onitu")
     parser.add_argument(
         '--setup', default='setup.json',
@@ -243,3 +257,7 @@ if __name__ == '__main__':
                 # Maybe this should be handled in Escalator, but
                 # it is not easy since it can manage several dbs
                 destroy_db('dbs/{}'.format(session))
+
+
+if __name__ == '__main__':
+    sys.exit(main())
