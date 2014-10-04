@@ -1,9 +1,2 @@
-circus
-pyzmq
-simplejson
-logbook
-path.py
-plyvel
-msgpack-python
-bottle
-git+git://github.com/Scylardor/tinys3#egg=tinys3
+-e drivers/local_storage/
+-e .[dev,tests,bench]
