@@ -1,18 +1,18 @@
 from setuptools import setup, find_packages
 
-from onitu import __version__
+import onitu
 
 with open('README.rst') as f:
     readme = f.read()
 
 setup(
     name="onitu",
-    version=__version__,
+    version=onitu.__version__,
     url='http://onitu.github.io',
-    description="Sync and share your files from various services and backends",
-    author="Onitu Epitech Innovative Project",
-    author_email="onitu_2015@labeip.epitech.eu",
-    license="MIT",
+    description=onitu.__doc__,
+    author=onitu.__author__,
+    author_email=onitu.__email__,
+    license=onitu.__license__,
     long_description=readme,
     packages=find_packages(exclude=['drivers', 'tests', 'docs']),
     install_requires=[
