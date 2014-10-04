@@ -9,6 +9,7 @@ import signal
 import socket
 import tempfile
 import mimetypes
+import pkg_resources
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
@@ -105,3 +106,19 @@ def get_events_uri(session, escalator, name):
             escalator.put(key, uri)
 
         return uri
+
+
+def get_available_drivers():
+    """
+    Return a dict mapping the name of each installed driver with its
+    entry point.
+
+    You can use it like that:
+    ```
+    drivers = get_available_drivers()
+    if 'local_storage' in drivers:
+        local_storage = drivers['local_storage'].load()
+    ```
+    """
+    entry_points = pkg_resources.iter_entry_points('onitu.drivers')
+    return {e.name: e for e in entry_points}
