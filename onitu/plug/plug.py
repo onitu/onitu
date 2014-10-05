@@ -277,6 +277,8 @@ class Plug(object):
             self.publisher.send(b'')
 
     def close(self):
+        self.call('close')
+
         if self.publisher:
             with self.publisher_lock:
                 self.publisher.close(linger=0)

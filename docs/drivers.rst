@@ -115,6 +115,12 @@ At this stage, the list of the handlers that can be defined is the following :
   :type metadata: :class:`.Metadata`
 
 
+.. function:: close()
+
+  Called when Onitu is closing. This gives a chance to the driver to clean its resources. Note that it is called from a sighandler, so
+  some external functionalities might not work as expected. This handler should not take too long to complete or it could cause
+  perturbations.
+
 
 The Plug
 ========
