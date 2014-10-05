@@ -1,2 +1,2 @@
 -e drivers/local_storage/
--e .[dev,tests,bench]
+-e .[dev,doc,tests,bench]

@@ -24,7 +24,8 @@ setup(
         "bottle"
     ],
     extras_require={
-        'dev': ['flake8', 'sphinx', 'tox'],
+        'dev': ['flake8', 'tox'],
+        'doc': ['sphinx', 'sphinxcontrib-httpdomain'],
         'tests': ['pytest', 'requests'],
         'bench': ['codespeed-client']
     },
