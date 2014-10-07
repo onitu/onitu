@@ -98,6 +98,8 @@ def end_upload(metadata):
         metadata.extra["id"] = data["items"][0]["id"]
         metadata.extra["revision"] = data["items"][0]["md5Checksum"]
         metadata.extra["downloadUrl"] =  data["items"][0]["downloadUrl"]
+        db = plug.get_entry_db()
+        db.put('files:{}'.format(metadata.extra["id"]), fid)
     else:
         plug.logger.error("Can not get information: " + data["error"]["message"])
     metadata.write()
@@ -323,13 +325,16 @@ class CheckChanges(threading.Thread):
                 else:
                     filepath = path + "/" + f["title"]
                 self.update_metadata(filepath, f)
-            for id_file in buf.keys():
-                f = buf[id_file]
-                path = self.get_path(f["parents"])
-                if path == "":
-                    filepath = f["title"]
-                else:
-                    filepath = path + "/" + f["title"]
+            for id_file in bufDel.keys():
+                db = plug.get_entry_db()
+                fid = db.get('files:{}'.format(id_file))
+                m = metadata.get_by_id(fid)
+                plug.delete_file(m)
+                # path = self.get_path(f["parents"])
+                # if path == "":
+                #     filepath = f["title"]
+                # else:
+                #     filepath = path + "/" + f["title"]
                 #self.delete_file(filepath)
 
     def run(self):
