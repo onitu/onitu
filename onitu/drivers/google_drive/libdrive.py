@@ -101,6 +101,28 @@ def start_upload(access_token, name, parent_id, self_id):
         return send("put", url, headers, {}, json.dumps(data))
     return send("post", url, headers, {}, json.dumps(data))
 
+def start_upload_empty(access_token, name, parent_id, self_id):
+    headers = {
+        "Authorization": "Bearer " + access_token,
+        "Content-Type": "application/json",
+        "Content-Length": 0
+        }
+    data = {
+        "title": name
+        }
+    if parent_id is not None:
+        data["parents"] = [{
+                "kind": "drive#fileLink",
+                "id": parent_id
+                }]
+    url = "https://www.googleapis.com/drive/v2/files"
+    if self_id is not None:
+        url = url + "/" + self_id
+    #url = url + "?uploadType=media"
+    if self_id is not None:
+        return send("put", url, headers, {}, json.dumps(data))
+    return send("post", url, headers, {}, json.dumps(data))
+
 
 def upload_chunk(access_token, location, offset, chunk, totalsize):
     headers = {
@@ -115,7 +137,7 @@ def upload_chunk(access_token, location, offset, chunk, totalsize):
 
 def get_chunk(access_token, downloadUrl, offset, size):
     headers = {
-        "Authorization": "Bearer " + self.access_token,
+        "Authorization": "Bearer " + access_token,
         "Range": "bytes=" + str(offset) + "-"
         + str(offset + size - 1)
         }

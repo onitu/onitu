@@ -30,11 +30,11 @@ def get_token():
 def get_chunk(metadata, offset, size):
     if size > metadata.size:
         size = metadata.size
-    ret_val, _, content = upload_chunk(access_token, metadata.extra["downloadUrl"],
-                                       offset, size)
-    if ret_val != 200:
-        data = json.loads(content)
-        plug.logger.error("Can not get chunk: " + data["error"]["message"])
+    ret_val, _, content = libdrive.get_chunk(access_token, metadata.extra["downloadUrl"],
+                                             offset, size)
+   # if ret_val != 200:
+   #     data = json.loads(content)
+   #     plug.logger.error("Can not get chunk: " + data["error"]["message"])
     return content
 
 
@@ -44,6 +44,7 @@ def start_upload(metadata):
     global root_id
     metadata.extra["inProcess"] = ""
     metadata.write()
+
     path = metadata.filename.split("/")
     path = [p for p in path if p != u""]
     tmproot = root_id
@@ -70,8 +71,11 @@ def start_upload(metadata):
     self_id = None
     if "id" in metadata.extra.keys():
         self_id = metadata.extra["id"]
-    ret_val, h, data = libdrive.start_upload(access_token, path[len(path)-1], tmproot, self_id)
-    metadata.extra["location"] = h["location"]
+    if metadata.size == 0:
+        ret_val, h, data = libdrive.start_upload_empty(access_token, path[len(path)-1], tmproot, self_id)
+    else:
+        ret_val, h, data = libdrive.start_upload(access_token, path[len(path)-1], tmproot, self_id)
+        metadata.extra["location"] = h["location"]
     metadata.extra["parent_id"] = tmproot
     metadata.write()
     #print json.loads(data),
@@ -84,7 +88,8 @@ def start_upload(metadata):
 @plug.handler()
 def end_upload(metadata):
     del metadata.extra["inProcess"]
-    del metadata.extra["location"]
+    if "location" in metadata.extra.keys():
+        del metadata.extra["location"]
     path = metadata.filename.split("/")
     path = [p for p in path if p != u""]
     ret_val, _, data = libdrive.get_information(access_token, path[len(path)-1], metadata.extra["parent_id"])
@@ -101,7 +106,7 @@ def end_upload(metadata):
 @plug.handler()
 def upload_chunk(metadata, offset, chunk):
     ret_val, _, data = libdrive.upload_chunk(access_token, metadata.extra["location"],
-                                          offset, chunk, metadata.size)
+                                             offset, chunk, metadata.size)
     if ret_val != 200 and ret_val != 308:
         data = json.loads(data)
         plug.logger.error("Can not upload chunk: " + data["error"]["message"])

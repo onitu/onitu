@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import tempfile
 
 from path import path
 
@@ -14,8 +15,10 @@ refresh_token = "1/ezUs-qa0qMRXYDj4x0rcq0ODO_1nG-qiG-3POqzjs8w"
 
 class Driver(TestDriver):
     def __init__(self, *args, **options):
+        tmp = tempfile.NamedTemporaryFile()
+        _, fileName = os.path.split(tmp.name)
         if 'root' not in options:
-            options['root'] = "onitu-test"
+            options['root'] = fileName
         if 'refresh_token' not in options:
             options['refresh_token'] = refresh_token
         if 'client_id' not in options:
