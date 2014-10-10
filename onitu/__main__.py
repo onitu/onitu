@@ -27,6 +27,10 @@ from plyvel import destroy_db
 from .escalator.client import Escalator
 from .utils import get_open_port
 
+# Time given to each process (Drivers, Referee, API...) to
+# exit before being killed. This avoid any hang during
+# shutdown
+GRACEFUL_TIMEOUT = 1.
 
 setup_file = None
 escalator_uri = None
@@ -66,6 +70,7 @@ def start_setup(*args, **kwargs):
         sys.executable,
         args=('-m', 'onitu.referee', log_uri, escalator_uri, session),
         copy_env=True,
+        graceful_timeout=GRACEFUL_TIMEOUT
     )
 
     yield referee.start()
@@ -90,6 +95,7 @@ def start_setup(*args, **kwargs):
             args=('-m', 'onitu.drivers',
                   conf['driver'], escalator_uri, session, name, log_uri),
             copy_env=True,
+            graceful_timeout=GRACEFUL_TIMEOUT
         )
 
         yield watcher.start()
@@ -101,6 +107,7 @@ def start_setup(*args, **kwargs):
         sys.executable,
         args=['-m', 'onitu.api', log_uri, escalator_uri, session, endpoint],
         copy_env=True,
+        graceful_timeout=GRACEFUL_TIMEOUT
     )
     yield api.start()
 
@@ -215,6 +222,7 @@ def main():
                                  '--bind', escalator_uri,
                                  '--log-uri', log_uri),
                         'copy_env': True,
+                        'graceful_timeout': GRACEFUL_TIMEOUT
                     },
                 ),
                 proc_name="Onitu",
