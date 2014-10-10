@@ -25,7 +25,7 @@ from plyvel import destroy_db
 
 
 from .escalator.client import Escalator
-from .utils import get_open_port
+from .utils import get_open_port, IS_WINDOWS
 
 # Time given to each process (Drivers, Referee, API...) to
 # exit before being killed. This avoid any hang during
@@ -49,12 +49,13 @@ def start_setup(*args, **kwargs):
     """
     escalator = Escalator(escalator_uri, session, create_db=True)
 
-    ports = escalator.range(prefix='port:', include_value=False)
+    if IS_WINDOWS:
+        ports = escalator.range(prefix='port:', include_value=False)
 
-    if ports:
-        with escalator.write_batch() as batch:
-            for key in ports:
-                batch.delete(key)
+        if ports:
+            with escalator.write_batch() as batch:
+                for key in ports:
+                    batch.delete(key)
 
     escalator.put('referee:rules', setup.get('rules', []))
 

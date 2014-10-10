@@ -3,6 +3,7 @@ from threading import Thread
 import zmq
 from logbook import Logger
 
+from onitu.utils import get_events_uri
 from onitu.escalator.client import EscalatorClosed
 
 from .metadata import Metadata
@@ -28,6 +29,10 @@ class Router(Thread):
         self.logger = Logger("{} - Router".format(self.name))
         self.context = plug.context
 
+        self.events_uri = get_events_uri(
+            self.plug.session, self.plug.escalator, self.name, 'router'
+        )
+
         self.handlers = {
             CHUNK: self._handle_get_chunk,
             FILE: self._handle_get_file
@@ -36,8 +41,7 @@ class Router(Thread):
     def run(self):
         try:
             self.router = self.context.socket(zmq.ROUTER)
-            port = self.router.bind_to_random_port('tcp://127.0.0.1')
-            self.plug.escalator.put('port:{}'.format(self.name), port)
+            self.router.bind(self.events_uri)
 
             self.logger.info("Started")
 

@@ -86,7 +86,7 @@ def get_open_port():
     return uri
 
 
-def get_events_uri(session, escalator, name):
+def get_events_uri(session, escalator, name, suffix=None):
     """
     Return the URI on which a driver or the Referee should be listening
     to in order to get new events.
@@ -95,8 +95,11 @@ def get_events_uri(session, escalator, name):
     a valid URI is returned and stored.
     On Unix, a Unix socket is used.
     """
+    if suffix:
+        name = "{}:{}".format(name, suffix)
+
     if not IS_WINDOWS:
-        return 'ipc://{}/onitu-{}-events-{}.sock'.format(TMPDIR, session, name)
+        return 'ipc://{}/onitu-{}-{}.sock'.format(TMPDIR, session, name)
     else:
         key = 'port:events:{}'.format(name)
         uri = escalator.get(key, default=None)

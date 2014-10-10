@@ -25,7 +25,8 @@ class Dealer(Thread):
         self.in_progress = {}
         self.pool = ThreadPool()
         self.events_uri = get_events_uri(
-            self.plug.session, self.escalator, self.name)
+            self.plug.session, self.escalator, self.name, 'dealer'
+        )
 
     def run(self):
         try:

@@ -206,7 +206,7 @@ class Referee(object):
                 'entry:{}:event:{}'.format(name, fid), (cmd, args)
             )
 
-            publisher.connect(self.get_events_uri(name))
+            publisher.connect(self.get_events_uri(name, 'dealer'))
         try:
             publisher.send(b'')
         except zmq.ZMQError as e:
