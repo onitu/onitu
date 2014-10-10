@@ -1,4 +1,6 @@
 import os
+import string
+import random
 import hashlib
 from path import path
 
@@ -17,7 +19,9 @@ class Driver(TestDriver):
 
     def __init__(self, *args, **options):
         if 'root' not in options:
-            options['root'] = '/onitu/'
+            rand = ''.join(random.sample(
+                string.ascii_letters + string.digits, 10))
+            options['root'] = "/{}/".format(rand)
         if 'key' not in options:
             options['access_key'] = os.environ['ONITU_DROPBOX_KEY']
         if 'secret' not in options:
