@@ -3,6 +3,7 @@ import os
 from path import path
 
 from onitu.plug import Plug, DriverError, ServiceError
+from onitu.escalator.client import EscalatorClosed
 from onitu.utils import IS_WINDOWS
 
 if IS_WINDOWS:
@@ -254,8 +255,12 @@ if IS_WINDOWS:
                 with file_lock:
                     if actions_names.get(action) == 'write':
                         filename = root.relpathto(abs_path)
-                        metadata = plug.get_metadata(filename)
-                        update(metadata, abs_path)
+
+                        try:
+                            metadata = plug.get_metadata(filename)
+                            update(metadata, abs_path)
+                        except EscalatorClosed:
+                            return
 
     def watch_changes():
         file_lock = threading.Lock()
@@ -286,8 +291,12 @@ else:
                 return
 
             filename = root.relpathto(abs_path)
-            metadata = plug.get_metadata(filename)
-            callback(metadata, abs_path, *args)
+
+            try:
+                metadata = plug.get_metadata(filename)
+                callback(metadata, abs_path, *args)
+            except EscalatorClosed:
+                return
 
     def watch_changes():
         manager = pyinotify.WatchManager()
