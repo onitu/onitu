@@ -6,6 +6,7 @@ from logbook import error
 from logbook.queues import ZeroMQHandler
 
 from onitu.utils import at_exit, get_available_drivers
+from onitu.escalator.client import EscalatorClosed
 
 driver_name = sys.argv[1]
 escalator_uri = sys.argv[2]
@@ -52,12 +53,22 @@ except (IOError, OSError) as e:
     )
     exit(-1)
 
+
+def start():
+    try:
+        driver.start()
+    except EscalatorClosed:
+        return
+    except Exception as e:
+        error("Error in '{}': {}", name, e)
+
+
 with ZeroMQHandler(log_uri, multi=True).applicationbound():
     try:
         driver.plug.initialize(name, escalator_uri, session, manifest)
         del manifest
 
-        thread = Thread(target=driver.start)
+        thread = Thread(target=start)
         thread.start()
 
         while thread.is_alive():
