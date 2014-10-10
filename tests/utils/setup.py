@@ -34,6 +34,8 @@ class Setup(object):
         self.rules = []
         self.filename = None
 
+        self._json = None
+
         if session:
             # Each time the launcher will be started, it will use the
             # same session
@@ -73,12 +75,19 @@ class Setup(object):
 
     @property
     def json(self):
-        return json.dumps(self.dump, indent=2)
+        if not self._json:
+            self._json = json.dumps(self.dump, indent=2)
+
+        return self._json
+
+    @json.setter
+    def json(self, content):
+        self._json = content
 
     def save(self, filename):
         self.filename = filename
-        config = json.dumps(self.dump, indent=2)
-        print('config = """%s"""' % config)
+        print('Setup:')
+        print(self.json)
 
         with open(filename, 'w+') as f:
-            json.dump(self.dump, f, indent=2)
+            f.write(self.json)

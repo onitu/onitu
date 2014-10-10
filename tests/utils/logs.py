@@ -1,4 +1,17 @@
 logs = {
+    'setup_not_existing': (
+        (
+            "Onitu",
+            "Can't process setup file '{setup}' : "
+            "[Errno 2] No such file or directory: '{setup}'"
+        ),
+    ),
+    'setup_invalid': (
+        (
+            "Onitu",
+            "Error parsing '{setup}' : No JSON object could be decoded"
+        ),
+    ),
     'driver_started': (
         ("{driver}", "Started"),
         ("{driver} - Router", "Started"),
