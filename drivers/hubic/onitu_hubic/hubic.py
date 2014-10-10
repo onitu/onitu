@@ -7,6 +7,7 @@ import time
 import datetime
 
 from onitu.plug import Plug, ServiceError
+from onitu.escalator.client import EscalatorClosed
 
 plug = Plug()
 hubic = None
@@ -194,7 +195,11 @@ class CheckChanges(threading.Thread):
 
     def run(self):
         while not self.stop.isSet():
-            self.check_changes()
+            try:
+                self.check_changes()
+            except EscalatorClosed:
+                # We are closing
+                return
             self.stop.wait(self.timer)
 
     def stop(self):
