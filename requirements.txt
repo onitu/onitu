@@ -1,2 +1,5 @@
+# We need some patches so we must use a fork of Circus before they are integrated to the next release
+git+git://github.com/k4nar/circus.git@onitu
+
 -e drivers/local_storage/
 -e .[dev,doc,tests,bench]

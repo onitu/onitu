@@ -9,6 +9,7 @@ This module starts Onitu. It does the following:
 """
 
 import sys
+import time
 import argparse
 import string
 import random
@@ -16,8 +17,6 @@ import random
 import json
 import circus
 
-from circus.exc import ConflictError
-from zmq.eventloop import ioloop
 from logbook import Logger, INFO, DEBUG, NullHandler, NestedSetup
 from logbook.queues import ZeroMQHandler, ZeroMQSubscriber
 from logbook.more import ColorizedStderrHandler
@@ -26,7 +25,7 @@ from plyvel import destroy_db
 
 
 from .escalator.client import Escalator
-from .utils import at_exit, get_open_port
+from .utils import get_open_port
 
 
 setup_file = None
@@ -36,7 +35,6 @@ endpoint = None
 session = None
 setup = None
 logger = None
-loop = None
 arbiter = None
 
 
@@ -56,11 +54,10 @@ def start_setup(*args, **kwargs):
 
     escalator.put('referee:rules', setup.get('rules', []))
 
-    if 'entries' not in setup:
+    entries = setup.get('entries')
+    if not entries:
         logger.warn("No entries specified in '{}'", setup_file)
-        loop.stop()
-
-    entries = setup['entries']
+        yield arbiter.stop()
 
     escalator.put('entries', list(entries.keys()))
 
@@ -71,7 +68,7 @@ def start_setup(*args, **kwargs):
         copy_env=True,
     )
 
-    loop.add_callback(start_watcher, referee)
+    yield referee.start()
 
     for name, conf in entries.items():
         logger.debug("Loading entry {}", name)
@@ -95,7 +92,7 @@ def start_setup(*args, **kwargs):
             copy_env=True,
         )
 
-        loop.add_callback(start_watcher, watcher)
+        yield watcher.start()
 
     logger.debug("Entries loaded")
 
@@ -105,21 +102,7 @@ def start_setup(*args, **kwargs):
         args=['-m', 'onitu.api', log_uri, escalator_uri, session, endpoint],
         copy_env=True,
     )
-    loop.add_callback(start_watcher, api)
-
-
-@gen.coroutine
-def start_watcher(watcher):
-    """Start a Circus Watcher.
-    If a command is already running, we try again.
-    """
-    try:
-        watcher.start()
-    except ConflictError as e:
-        loop.add_callback(start_watcher, watcher)
-    except Exception as e:
-        logger.warning("Can't start entry {} : {}", watcher.name, e)
-        return
+    yield api.start()
 
 
 def get_logs_dispatcher(uri=None, debug=False):
@@ -155,7 +138,7 @@ def get_setup():
 
 def main():
     global setup_file, session, escalator_uri
-    global endpoint, setup, logger, loop, log_uri, arbiter
+    global endpoint, setup, logger, log_uri, arbiter
 
     parser = argparse.ArgumentParser("onitu")
     parser.add_argument(
@@ -190,74 +173,67 @@ def main():
     endpoint = args.endpoint
     pubsub_endpoint = args.pubsub_endpoint
     stats_endpoint = args.stats_endpoint
-    dispatcher = None
 
     if not args.log_uri:
         log_uri, dispatcher = get_logs_dispatcher(
             uri=log_uri, debug=args.debug
         )
+    else:
+        dispatcher = None
 
     with ZeroMQHandler(log_uri, multi=True):
         logger = Logger("Onitu")
 
-        setup = get_setup()
-        session = setup.get('name')
-        tmp_session = session is None
-
-        if tmp_session:
-            # If the current setup does not have a name, we create a random one
-            session = ''.join(
-                random.sample(string.ascii_letters + string.digits, 10)
-            )
-        elif ':' in session:
-            logger.error("Illegal character ':' in name '{}'", session)
-
-        escalator_uri = get_open_port()
-
-        ioloop.install()
-        loop = ioloop.IOLoop.instance()
-
-        arbiter = circus.get_arbiter(
-            [
-                {
-                    'name': 'Escalator',
-                    'cmd': sys.executable,
-                    'args': ('-m', 'onitu.escalator.server',
-                             '--bind', escalator_uri,
-                             '--log-uri', log_uri),
-                    'copy_env': True,
-                },
-            ],
-            proc_name="Onitu",
-            controller=endpoint,
-            pubsub_endpoint=pubsub_endpoint,
-            stats_endpoint=stats_endpoint,
-            loop=loop
-        )
-
-        at_exit(loop.stop)
-
         try:
-            future = arbiter.start()
-            loop.add_future(future, start_setup)
-            arbiter.start_io_loop()
+            setup = get_setup()
+            if not setup:
+                # Give some time to the dispatcher to print
+                # the error before exiting
+                time.sleep(0.1)
+                return 1
+
+            session = setup.get('name')
+            tmp_session = session is None
+
+            if tmp_session:
+                # If the current setup does not have a name, we create
+                # a random one
+                session = ''.join(
+                    random.sample(string.ascii_letters + string.digits, 10)
+                )
+            elif ':' in session:
+                logger.error("Illegal character ':' in name '{}'", session)
+
+            escalator_uri = get_open_port()
+
+            arbiter = circus.get_arbiter(
+                (
+                    {
+                        'name': 'Escalator',
+                        'cmd': sys.executable,
+                        'args': ('-m', 'onitu.escalator.server',
+                                 '--bind', escalator_uri,
+                                 '--log-uri', log_uri),
+                        'copy_env': True,
+                    },
+                ),
+                proc_name="Onitu",
+                controller=endpoint,
+                pubsub_endpoint=pubsub_endpoint,
+                stats_endpoint=stats_endpoint,
+            )
+
+            arbiter.start(cb=start_setup)
         except (KeyboardInterrupt, SystemExit):
             pass
         finally:
-            logger.info("Exiting...")
-
-            # We wait for all the processes
-            # to be killed.
-            loop.run_sync(arbiter.stop)
-
-            if dispatcher:
+            if dispatcher and dispatcher.running:
                 dispatcher.stop()
 
-            if tmp_session:
+            if 'tmp_session' in locals() and tmp_session:
                 # Maybe this should be handled in Escalator, but
                 # it is not easy since it can manage several dbs
                 destroy_db('dbs/{}'.format(session))
-
 
 if __name__ == '__main__':
     sys.exit(main())
