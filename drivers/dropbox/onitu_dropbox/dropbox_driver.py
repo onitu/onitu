@@ -7,6 +7,7 @@ from dropbox.client import DropboxClient
 
 from onitu.plug import Plug
 from onitu.plug import DriverError, ServiceError
+from onitu.escalator.client import EscalatorClosed
 
 # Onitu has a unique set of App key and secret to identify it.
 ONITU_APP_KEY = "6towoytqygvexx3"
@@ -268,6 +269,9 @@ class CheckChanges(threading.Thread):
             except urllib3.exceptions.MaxRetryError as mre:
                 plug.logger.error("Cannot poll changes on Dropbox - {}"
                                   .format(mre))
+            except EscalatorClosed:
+                # We are closing
+                return
             self.stop.wait(self.timer)
 
     def stop(self):
