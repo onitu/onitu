@@ -14,6 +14,7 @@ import requests
 import tinys3
 
 from onitu.plug import Plug, DriverError, ServiceError
+from onitu.escalator.client import EscalatorClosed
 
 plug = Plug()
 
@@ -440,6 +441,9 @@ class CheckChanges(threading.Thread):
                 plug.logger.warning("Network problem, trying to reconnect. "
                                     "{}".format(serr))
                 get_conn()
+            except EscalatorClosed:
+                # We are closing
+                return
             self.stop.wait(self.timer)
 
     def stop(self):
