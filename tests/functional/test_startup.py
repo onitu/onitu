@@ -1,3 +1,5 @@
+import json
+
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
@@ -55,7 +57,12 @@ def test_invalid_setup():
     loop = BooleanLoop()
 
     try:
-        launcher.on_setup_invalid(loop.stop, setup=json_file)
+        json.loads(setup.json)
+    except ValueError as e:
+        error = str(e)
+
+    try:
+        launcher.on_setup_invalid(loop.stop, setup=json_file, error=error)
         launcher()
         launcher.wait()  # We should add a timeout
 

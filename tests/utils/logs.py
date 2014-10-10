@@ -9,7 +9,7 @@ logs = {
     'setup_invalid': (
         (
             "Onitu",
-            "Error parsing '{setup}' : No JSON object could be decoded"
+            "Error parsing '{setup}' : {error}"
         ),
     ),
     'driver_started': (
