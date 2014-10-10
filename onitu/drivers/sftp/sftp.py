@@ -14,35 +14,46 @@ events_to_ignore = set()
 
 
 def create_dirs(sftp, path):
-    dirs = path.split('/')
+    parent_exists = True
+    tmp_path = '.' + os.sep
+    dirs = path.split(os.sep)
 
-    tmp_path = "./"
     for d in dirs:
-        tmp_path += d + "/"
-        try:
-            sftp.stat(tmp_path)
-        except IOError:
+        tmp_path = os.path.join(tmp_path, d)
+
+        # If the parent exists, we check if the current path exists
+        if parent_exists is True:
+            try:
+                sftp.stat(tmp_path)
+            # The current path doesn't exists, so we create it
+            except IOError:
+                try:
+                    parent_exists = False
+                    sftp.mkdir(tmp_path)
+                except IOError as e:
+                    raise ServiceError(
+                        "Error creating dir '{}': {}".format(tmp_path, e)
+                        )
+        # If the parent doesn't exist, we can create the current dir without
+        # check if it exists
+        else:
             try:
                 sftp.mkdir(tmp_path)
             except IOError as e:
                 raise ServiceError(
                     "Error creating dir '{}': {}".format(tmp_path, e)
-                )
+                    )
 
 
 @plug.handler()
 def get_file(metadata):
-    full_path = get_full_path(metadata.filename)
 
     try:
-        stats = sftp.stat(full_path)
-        f = sftp.open(full_path, 'r')
-        data = f.readv([(0, stats.st_size)])
+        f = sftp.open(metadata.filename, 'r')
+        data = f.read()
+        return data
 
-        for d in data:
-            return d
-
-    except (IOError) as e:
+    except IOError as e:
         raise ServiceError(
             "Error getting file '{}': {}".format(metadata.filename, e)
         )
@@ -50,26 +61,14 @@ def get_file(metadata):
 
 @plug.handler()
 def start_upload(metadata):
-    full_path = get_full_path(metadata.filename)
-
-    events_to_ignore.add(full_path)
-    create_dirs(sftp, str(os.path.dirname(metadata.filename)))
-
-    try:
-        sftp.open(full_path, 'w+').close()
-    except IOError as e:
-        raise ServiceError(
-            "Error creating file '{}': {}".format(metadata.filename, e)
-        )
+    events_to_ignore.add(metadata.filename)
+    create_dirs(sftp, os.path.dirname(metadata.filename))
 
 
 @plug.handler()
 def end_upload(metadata):
-    full_path = get_full_path(metadata.filename)
-
     try:
-        stat_res = sftp.stat(full_path)
-        metadata.size = stat_res.st_size
+        stat_res = sftp.stat(metadata.filename)
         metadata.extra['revision'] = stat_res.st_mtime
         metadata.write()
 
@@ -78,17 +77,15 @@ def end_upload(metadata):
             "Error while updating metadata on file '{}': {}".format(
                 metadata.filename, e)
         )
-
-    if metadata.filename in events_to_ignore:
-        events_to_ignore.remove(full_path)
+    finally:
+        if metadata.filename in events_to_ignore:
+            events_to_ignore.remove(metadata.filename)
 
 
 @plug.handler()
 def upload_file(metadata, content):
-    full_path = get_full_path(metadata.filename)
-
     try:
-        f = sftp.open(full_path, 'w')
+        f = sftp.open(metadata.filename, 'w+')
         f.write(content)
         f.close()
     except (IOError, OSError) as e:
@@ -99,11 +96,10 @@ def upload_file(metadata, content):
 
 @plug.handler()
 def abort_upload(metadata):
-    full_path = get_full_path(metadata.filename)
 
     # Temporary solution to avoid problems
     try:
-        sftp.remove(full_path)
+        sftp.remove(metadata.filename)
     except (IOError, OSError) as e:
         raise ServiceError(
             "Error deleting file '{}': {}".format(metadata.filename, e)
@@ -123,15 +119,10 @@ def update_file(metadata, stat_res):
         )
 
 
-def get_full_path(filename):
-    global root
-    return root + '/' + filename
-
-
 class CheckChanges(threading.Thread):
 
     def __init__(self, timer, sftp):
-        threading.Thread.__init__(self)
+        super(CheckChanges, self).__init__()
         self.stop = threading.Event()
         self.timer = timer
         self.sftp = sftp
@@ -147,7 +138,7 @@ class CheckChanges(threading.Thread):
         for f in filelist:
             filepath = os.path.join(path, f)
             try:
-                stat_res = sftp.stat(str(filepath))
+                stat_res = sftp.stat(filepath)
 
             except IOError as e:
                 plug.logger.warn("Cant find file `{}` : {}",
@@ -173,7 +164,6 @@ class CheckChanges(threading.Thread):
 
 
 def start():
-    global plug
     global root
 
     # Clean the root
@@ -184,8 +174,8 @@ def start():
     hostname = plug.options['hostname']
     username = plug.options['username']
     password = plug.options['password']
-    port = int(plug.options['port'])
-    timer = int(plug.options['changes_timer'])
+    port = plug.options['port']
+    timer = plug.options['changes_timer']
     private_key_passphrase = plug.options['private_key_passphrase']
     private_key_path = plug.options.get('private_key_path', '~/.ssh/id_rsa')
     private_key_file = os.path.expanduser(private_key_path)
@@ -226,6 +216,5 @@ def start():
 
     plug.listen()
 
-    check_changes.stop()
     sftp.close()
     transport.close()
