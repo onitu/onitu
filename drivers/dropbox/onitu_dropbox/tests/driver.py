@@ -7,9 +7,9 @@ from dropbox.client import DropboxClient
 from dropbox.rest import ErrorResponse
 
 from tests.utils.testdriver import TestDriver
-from onitu.drivers.dropbox.dropbox_driver import (ONITU_APP_KEY,
-                                                  ONITU_APP_SECRET,
-                                                  ONITU_ACCESS_TYPE)
+from onitu_dropbox.dropbox_driver import (ONITU_APP_KEY,
+                                          ONITU_APP_SECRET,
+                                          ONITU_ACCESS_TYPE)
 
 
 class Driver(TestDriver):
