@@ -17,12 +17,10 @@ class WriteBatch(object):
             try:
                 self.db.socket.send_multipart(self.requests)
                 protocol.msg.extract_response(self.db.socket.recv())
-            except zmq.ZMQError as e:
-                if e.errno == zmq.ETERM:
-                    self.db.socket.close()
-                    raise protocol.status.EscalatorClosed()
-                else:
-                    raise
+            except zmq.ZMQError:
+                self.db.socket.close()
+                raise protocol.status.EscalatorClosed()
+
         self.requests = []
 
     def __enter__(self):

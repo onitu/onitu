@@ -28,12 +28,9 @@ class Escalator(object):
                                                              self.db_uid,
                                                              *args))
                 return protocol.msg.extract_response(self.socket.recv())
-            except zmq.ZMQError as e:
-                if e.errno == zmq.ETERM:
-                    self.socket.close()
-                    raise protocol.status.EscalatorClosed()
-                else:
-                    raise
+            except zmq.ZMQError:
+                self.socket.close()
+                raise protocol.status.EscalatorClosed()
 
     def _request_multi(self, cmd, *args):
         with self.lock:
@@ -46,10 +43,9 @@ class Escalator(object):
                 while self.socket.get(zmq.RCVMORE):
                     l.append(protocol.msg.unpack_msg(self.socket.recv()))
                 return l
-            except zmq.ZMQError as e:
-                if e.errno == zmq.ETERM:
-                    self.socket.close()
-                    raise protocol.status.EscalatorClosed()
+            except zmq.ZMQError:
+                self.socket.close()
+                raise protocol.status.EscalatorClosed()
 
     def close(self, blocking=False):
         if self.lock.acquire(blocking):
