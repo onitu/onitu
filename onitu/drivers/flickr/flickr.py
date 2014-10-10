@@ -1,4 +1,4 @@
-import cStringIO
+import io
 import requests
 import hashlib
 
@@ -33,22 +33,19 @@ class Flickr():
         self.replace_url = 'https://up.flickr.com/services/replace/'
         self.onitu_tag = 'ONITU_TAG_DO_NOT_REMOVE/'
 
-        self.load_base_params().update({'method': 'flickr.test.login'})
-        self.user_id = self.call('GET', self.rest_url,
-                                 self.base_params).json()['user']['id']
+        params = {
+            'format': 'json',
+            'nojsoncallback': '1',
+            'method': 'flickr.test.login'
+            }
+        r = self.call(requests.get, self.rest_url, params)
+        self.user_id = r.json()['user']['id']
 
 # ############################## UTILS ######################################
 
     def create_tag(self, metadata):
         return self.onitu_tag + self.root + '/' + hashlib.md5(
             metadata.filename + str(metadata.size)).hexdigest()
-
-    def load_base_params(self):
-        self.base_params = {
-            'format': 'json',
-            "nojsoncallback": "1"
-            }
-        return self.base_params
 
     def load_tag_id(self, metadata):
         if 'tag_id' in metadata.extra:
@@ -61,13 +58,19 @@ class Flickr():
             return metadata.extra['id']
         return self.search_file(metadata)
 
-    def check_error(self, func_name, req):
-        if req.status_code != 200:
+    def call(self, func, url, params=None):
+        try:
+            r = func(url, params=params, auth=self.oauth)
+        except requests.exceptions.RequestException:
+            raise ServiceError('Impossible to join Flickr api')
+
+        if r.status_code // 100 != 2:
             raise ServiceError(
-                '{}: Status code {} received'.format(
-                    func_name, req.status_code
+                'Call: Status code {} received.'.format(
+                    r.status_code
                     )
                 )
+        return r
 
     def do_upload(self, url, content, params=None):
         """Performs a file upload to the given URL with
@@ -83,31 +86,41 @@ class Flickr():
         prepared = dummy_req.prepare()
         headers = prepared.headers
 
-        fileobj = cStringIO.StringIO(content)
+        fileobj = io.BytesIO(content)
         params['photo'] = (params['title'], fileobj)
 
         m = MultipartEncoder(fields=params)
         auth = {'Authorization': headers.get('Authorization'),
                 'Content-Type': m.content_type}
-        req = requests.post(url, data=m, headers=auth)
+
+        try:
+            r = requests.post(url, data=m, headers=auth)
+        except requests.exceptions.RequestException:
+            raise ServiceError('Impossible to join Flickr api.')
 
         # check the response headers / status code.
-        self.check_error('do_upload', req)
-        return req
+        if r.status_code // 100 != 2:
+            raise ServiceError(
+                'do_upload: Status code {} received.'.format(
+                    r.status_code
+                    )
+                )
+        return r
 
     def search_file(self, metadata):
-        """return None if no file or many files are found.
-        return file id otherwise"""
+        """ Return None if no file or many files are found.
+        return file id otherwise """
         tag = self.create_tag(metadata)
 
-        self.load_base_params().update({
+        params = {
+            'format': 'json',
+            'nojsoncallback': '1',
             'user_id': self.user_id,
             'method': 'flickr.photos.search',
             'tags': tag
-        })
+            }
 
-        r = self.call('GET', self.rest_url, self.base_params)
-        self.check_error('search_file', r)
+        r = self.call(requests.get, self.rest_url, params)
         json = r.json()
 
         res_nb = len(json['photos']['photo'])
@@ -116,24 +129,6 @@ class Flickr():
         else:
             return json['photos']['photo'][0]['id']
 
-    def call(self, method, url, params, content=None):
-        # Clean params
-        for k in params.keys():
-            if params[k] is None:
-                del params[k]
-
-        if method.lower() == 'get':
-            r = requests.get(url, params=params, auth=self.oauth)
-        elif method.lower() == 'upload':
-            r = self.do_upload(url, content, params=params)
-        else:
-            r = requests.post(url, params=params, auth=self.oauth)
-
-        # clean base_params
-        self.load_base_params()
-
-        return r
-
 # ############################## FLICKR ######################################
 
     def upload_file(self, metadata, content):
@@ -141,7 +136,10 @@ class Flickr():
         photo_id = self.load_photo_id(metadata)
         tag = metadata.extra['tag']
         title = metadata.filename
-        self.load_base_params().update({
+
+        params = {
+            'format': 'json',
+            'nojsoncallback': '1',
             'photo_id': photo_id,  # only used for replacement
             'title': title,
             'description': 'Uploaded by onitu',
@@ -151,12 +149,12 @@ class Flickr():
             'is_family': '0',
             'safety_level': '1',
             'hidden': '1'
-        })
+            }
 
-        if photo_id:
-            print 'replace'
+        params = {k: v for k, v in params.items() if v is not None}
+
         url = self.replace_url if photo_id else self.upload_url
-        r = self.call('UPLOAD', url, self.base_params, content).content
+        r = self.do_upload(url, content, params=params).content
 
         tree = ElementTree(fromstring(r)).getroot()
         photo_id = tree.find('photoid').text
@@ -165,53 +163,54 @@ class Flickr():
         metadata.write()
 
     def get_file(self, metadata):
-        """return nothing"""
+        """ Return the file content """
+
         photo_id = self.load_photo_id(metadata)
         if photo_id:
-            self.load_base_params().update({
+            params = {
+                'format': 'json',
+                'nojsoncallback': '1',
                 'method': 'flickr.photos.getSizes',
                 'photo_id': photo_id
-            })
+                }
 
-            r = self.call('GET', self.rest_url, self.base_params)
-            self.check_error('get_photo', r)
+            r = self.call(requests.get, self.rest_url, params)
+
             # 5 = Original size
             url = r.json()['sizes']['size'][5]['source']
-            r = requests.get(url, auth=self.oauth)
-            self.check_error('get_photo', r)
+            r = self.call(requests.get, url)
             return r.content
 
     def delete_file(self, metadata):
-        """return nothing"""
 
         photo_id = self.load_photo_id(metadata)
         if photo_id:
-            self.load_base_params().update({
+            params = {
+                'format': 'json',
+                'nojsoncallback': '1',
                 'method': 'flickr.photos.delete',
                 'photo_id': photo_id
-            })
+                }
 
-            r = self.call('GET', self.rest_url, self.base_params)
-            self.check_error('delete_file', r)
+            self.call(requests.get, self.rest_url, params)
 
     def get_tag_id(self, photo_id, tag_name):
         try:
-            tag = self.get_file_info(photo_id)['photo']['tags']['tag']
+            tags = self.get_file_info(photo_id)['photo']['tags']['tag']
         except KeyError:
-            global plug
             plug.logger.warning(
                 "get_tag_id: Cannot find tag id of tag '{}'".format(tag_name))
             return None
-        i = 0
-        while (tag[i]):
-            if tag[i]['raw'] == tag_name:
-                return tag[i]['id']
-            i += 1
+        for tag in tags:
+            if tag['raw'] == tag_name:
+                return tag['id']
         return None
 
     def move_file(self, old, new):
+
         photo_id = self.load_photo_id(old)
         new_tag = self.create_tag(new)
+
         if photo_id:
             self.rename_file(photo_id, new.filename)
             tag_id = self.load_tag_id(old)
@@ -221,69 +220,83 @@ class Flickr():
                 new.extra['tag'] = new_tag
                 new.write()
 
-    def get_file_info(self, photo_id):
-        """Return a json with photo infos"""
+        if not photo_id or not tag_id:
+            plug.logger.warning(
+                "move_file: Cannot move file '{}'".format(old.filename))
 
-        self.load_base_params().update({
+    def get_file_info(self, photo_id):
+        """ Return a json with photo infos """
+
+        params = {
+            'format': 'json',
+            'nojsoncallback': '1',
             'method': 'flickr.photos.getInfo',
             'photo_id': photo_id
-        })
-        r = self.call('GET', self.rest_url, self.base_params)
-        self.check_error('get_file_info', r)
+            }
+
+        r = self.call(requests.get, self.rest_url, params)
         return r.json()
 
     def remove_tag(self, tag_id):
-        """Return nothing"""
 
-        self.load_base_params().update({
+        params = {
+            'format': 'json',
+            'nojsoncallback': '1',
             'method': 'flickr.photos.removeTag',
             'tag_id': tag_id
-        })
-        r = self.call('POST', self.rest_url, self.base_params)
-        self.check_error('remove_tag', r)
+            }
+
+        self.call(requests.post, self.rest_url, params)
 
     def add_tags(self, photo_id, tags):
-        """Return nothing"""
 
-        self.load_base_params().update({
+        params = {
+            'format': 'json',
+            'nojsoncallback': '1',
             'method': 'flickr.photos.addTags',
             'photo_id': photo_id,
             'tags': tags
-        })
-        r = self.call('POST', self.rest_url, self.base_params)
-        self.check_error('add_tags', r)
+            }
+
+        self.call(requests.post, self.rest_url, params)
 
     def rename_file(self, photo_id, title):
-        """Return nothing"""
 
-        self.load_base_params().update({
+        params = {
+            'format': 'json',
+            'nojsoncallback': '1',
             'method': 'flickr.photos.setMeta',
             'photo_id': photo_id,
             'title': title,
             'description': 'Uploaded by onitu'  # required parameter
-        })
-        r = self.call('POST', self.rest_url, self.base_params)
-        self.check_error('rename_file', r)
+            }
+
+        self.call(requests.post, self.rest_url, params)
 
 # ############################# PHOTOSETS ###################################
 
     def list_photosets(self):
-        self.load_base_params().update({
+        params = {
+            'format': 'json',
+            'nojsoncallback': '1',
             'user_id': self.user_id,
             'method': 'flickr.photosets.getList'
-        })
+            }
 
-        return self.call('GET', self.rest_url, self.base_params)
+        return self.call(requests.get, self.rest_url, params)
 
     def create_photoset(self, title, primary_photo_id, description=None):
-        self.load_base_params().update({
+        params = {
+            'format': 'json',
+            'nojsoncallback': '1',
             'title': title,
             'description': description,
             'method': 'flickr.photosets.create',
             'primary_photo_id': primary_photo_id
-        })
+            }
 
-        return self.call('GET', self.rest_url, self.base_params)
+        params = {k: v for k, v in params.items() if v is not None}
+        return self.call(requests.get, self.rest_url, params)
 
 
 # ############################# ONITU BASIC ###################################
@@ -315,8 +328,6 @@ def delete_file(metadata):
 
 
 def start():
-    global plug
-
     # Clean the root
     root = plug.options['root']
     if root.startswith('/'):

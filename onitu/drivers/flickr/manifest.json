@@ -1,6 +1,6 @@
 {
   "name": "Flickr",
-  "description": "Driver to synchronize files with a Flickr account.",
+  "description": "A Driver to synchronize your photos and videos with a Flickr account. This driver works only from onitu to Flickr (If you add some photos via your flickr web interface, they not be downloaded on onitu)",
   "options": {
 
     "root": {
