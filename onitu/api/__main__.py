@@ -1,5 +1,7 @@
 import sys
 
+import zmq
+
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
 from bottle import Bottle, run, response, abort, redirect
@@ -104,6 +106,24 @@ def timeout():
         error_code=408,
         error_message="timed out"
     )
+
+
+def call_handler(entry, cmd, *args):
+    context = zmq.Context.instance()
+
+    dealer = context.socket(zmq.DEALER)
+    port = escalator.get('port:{}'.format(entry))
+
+    if not port:
+        return
+
+    dealer.connect('tcp://127.0.0.1:{}'.format(port))
+
+    try:
+        dealer.send_multipart([cmd] + list(args))
+        return dealer.recv_multipart()
+    finally:
+        dealer.close()
 
 
 @app.route('/api', method='GET')
