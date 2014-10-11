@@ -122,6 +122,22 @@ At this stage, the list of the handlers that can be defined is the following :
   perturbations.
 
 
+.. function:: get_oauth_url()
+
+  Return the URL which should be called in order to start OAuth authentication.
+
+
+.. function:: set_oauth_token(auth_key, token):
+
+  Set the OAuth Authorization Key and Token for the current user, as retrieved by a call to the URL returned by `get_oauth_url`.
+
+  :param auth_key: The Authorization Key for the current user.
+  :type auth_key: string
+
+  :param token: The Token for the current user.
+  :type token: string
+
+
 The Plug
 ========
 
