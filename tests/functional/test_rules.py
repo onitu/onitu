@@ -1,30 +1,7 @@
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
-from tests.utils.loop import BooleanLoop, CounterLoop, TimeoutError
-
-launcher = None
-json_file = 'test_rules.json'
-
-
-def setup_module(module):
-    global launcher
-    launcher = Launcher(json_file)
-
-
-def teardown_module(module):
-    launcher.kill()
-
-
-def launcher_startup():
-    loop = CounterLoop(3)
-    launcher.unset_all_events()
-    launcher.on_referee_started(loop.check)
-    launcher.on_driver_started(loop.check, driver='rep1')
-    launcher.on_driver_started(loop.check, driver='rep2')
-    launcher()
-    loop.run(timeout=10)
-    launcher.unset_all_events()
+from tests.utils.loop import BooleanLoop, TimeoutError
 
 
 class ShouldNotCopy(BaseException):
@@ -38,8 +15,8 @@ def test_no_rule():
         setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
-        setup.save(json_file)
-        launcher_startup()
+        launcher = Launcher(setup)
+        launcher()
 
         try:
             loop = BooleanLoop()
@@ -53,8 +30,7 @@ def test_no_rule():
         else:
             raise ShouldNotCopy
     finally:
-        launcher.kill()
-        setup.clean()
+        launcher.close()
 
 
 def test_path():
@@ -66,8 +42,8 @@ def test_path():
         setup.add(rep1)
         setup.add(rep2)
         setup.add_rule(Rule().match_path('/{}'.format(directory)).sync('rep2'))
-        setup.save(json_file)
-        launcher_startup()
+        launcher = Launcher(setup)
+        launcher()
 
         loop = BooleanLoop()
         launcher.on_transfer_ended(
@@ -78,8 +54,7 @@ def test_path():
         loop.run(timeout=5)
         assert rep1.checksum(filename) == rep2.checksum(filename)
     finally:
-        launcher.kill()
-        setup.clean()
+        launcher.close()
 
 
 def test_not_mime():
@@ -90,8 +65,8 @@ def test_not_mime():
         setup.add(rep1)
         setup.add(rep2)
         setup.add_rule(Rule().match_mime('image/png').sync('rep2'))
-        setup.save(json_file)
-        launcher_startup()
+        launcher = Launcher(setup)
+        launcher()
 
         try:
             loop = BooleanLoop()
@@ -105,8 +80,7 @@ def test_not_mime():
         else:
             raise ShouldNotCopy
     finally:
-        launcher.kill()
-        setup.clean()
+        launcher.close()
 
 
 def test_simple_mime():
@@ -117,8 +91,8 @@ def test_simple_mime():
         setup.add(rep1)
         setup.add(rep2)
         setup.add_rule(Rule().match_mime('image/png').sync('rep2'))
-        setup.save(json_file)
-        launcher_startup()
+        launcher = Launcher(setup)
+        launcher()
 
         loop = BooleanLoop()
         launcher.on_transfer_ended(
@@ -128,8 +102,7 @@ def test_simple_mime():
         loop.run(timeout=5)
         assert rep1.checksum(filename) == rep2.checksum(filename)
     finally:
-        launcher.kill()
-        setup.clean()
+        launcher.close()
 
 
 def test_multi_mime():
@@ -141,8 +114,8 @@ def test_multi_mime():
         setup.add(rep2)
         setup.add_rule(Rule().match_mime('image/png', 'text/plain')
                        .sync('rep2'))
-        setup.save(json_file)
-        launcher_startup()
+        launcher = Launcher(setup)
+        launcher()
 
         for filename in filenames:
             loop = BooleanLoop()
@@ -153,8 +126,7 @@ def test_multi_mime():
             loop.run(timeout=5)
             assert rep1.checksum(filename) == rep2.checksum(filename)
     finally:
-        launcher.kill()
-        setup.clean()
+        launcher.close()
 
 
 def test_path_mime():
@@ -166,8 +138,8 @@ def test_path_mime():
         setup.add(rep2)
         setup.add_rule(Rule().match_path('/{}'.format(directory))
                        .match_mime('image/png').sync('rep2'))
-        setup.save(json_file)
-        launcher_startup()
+        launcher = Launcher(setup)
+        launcher()
 
         rep1.mkdir(directory)
 
@@ -194,5 +166,4 @@ def test_path_mime():
             else:
                 raise ShouldNotCopy
     finally:
-        launcher.kill()
-        setup.clean()
+        launcher.close()

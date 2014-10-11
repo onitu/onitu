@@ -5,7 +5,6 @@ from tests.utils.loop import BooleanLoop, CounterLoop
 
 launcher, setup = None, None
 rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
-json_file = 'test_deletion.json'
 
 
 def setup_module(module):
@@ -14,23 +13,12 @@ def setup_module(module):
     setup.add(rep1)
     setup.add(rep2)
     setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
-    setup.save(json_file)
-    loop = CounterLoop(3)
-    launcher = Launcher(json_file)
-    launcher.on_referee_started(loop.check)
-    launcher.on_driver_started(loop.check, driver='rep1')
-    launcher.on_driver_started(loop.check, driver='rep2')
+    launcher = Launcher(setup)
     launcher()
-    try:
-        loop.run(timeout=5)
-    except:
-        teardown_module(module)
-        raise
 
 
 def teardown_module(module):
-    launcher.kill()
-    setup.clean()
+    launcher.close()
 
 
 def copy_file(filename, size):
