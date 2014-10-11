@@ -111,6 +111,10 @@ def get_events_uri(session, escalator, name, suffix=None):
         return uri
 
 
+def get_logs_uri(session):
+    return 'ipc://{}/onitu-{}-logs.sock'.format(TMPDIR, session)
+
+
 def get_available_drivers():
     """
     Return a dict mapping the name of each installed driver with its

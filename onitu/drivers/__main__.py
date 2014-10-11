@@ -5,14 +5,13 @@ from threading import Thread
 from logbook import error
 from logbook.queues import ZeroMQHandler
 
-from onitu.utils import at_exit, get_available_drivers
+from onitu.utils import at_exit, get_available_drivers, get_logs_uri
 from onitu.escalator.client import EscalatorClosed
 
 driver_name = sys.argv[1]
 escalator_uri = sys.argv[2]
 session = sys.argv[3]
 name = sys.argv[4]
-log_uri = sys.argv[5]
 
 drivers = get_available_drivers()
 
@@ -63,7 +62,7 @@ def start():
         error("Error in '{}': {}", name, e)
 
 
-with ZeroMQHandler(log_uri, multi=True).applicationbound():
+with ZeroMQHandler(get_logs_uri(session), multi=True).applicationbound():
     try:
         driver.plug.initialize(name, escalator_uri, session, manifest)
         del manifest
