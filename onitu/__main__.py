@@ -22,6 +22,8 @@ from tornado import gen
 
 from .escalator.client import Escalator
 from .utils import get_logs_uri, get_open_port, IS_WINDOWS
+from .utils import get_circusctl_endpoint, get_pubsub_endpoint
+from .utils import get_stats_endpoint
 
 # Time given to each process (Drivers, Referee, API...) to
 # exit before being killed. This avoid any hang during
@@ -30,7 +32,6 @@ GRACEFUL_TIMEOUT = 1.
 
 setup_file = None
 escalator_uri = None
-endpoint = None
 session = None
 setup = None
 logger = None
@@ -101,7 +102,7 @@ def start_setup(*args, **kwargs):
     api = arbiter.add_watcher(
         "Rest API",
         sys.executable,
-        args=['-m', 'onitu.api', escalator_uri, session, endpoint],
+        args=['-m', 'onitu.api', escalator_uri, session],
         copy_env=True,
         graceful_timeout=GRACEFUL_TIMEOUT
     )
@@ -137,7 +138,7 @@ def get_setup():
 
 def main():
     global setup_file, session, escalator_uri
-    global endpoint, setup, logger, arbiter
+    global setup, logger, arbiter
 
     logger = Logger("Onitu")
 
@@ -151,29 +152,11 @@ def main():
         help="Use this flag to disable the log dispatcher"
     )
     parser.add_argument(
-        '--endpoint', help="The ZMQ socket used to manage Onitu"
-        "via circusctl. (defaults to tcp://127.0.0.1:5555)",
-        default='tcp://127.0.0.1:5555'
-    )
-    parser.add_argument(
-        '--pubsub_endpoint', help="The ZMQ PUB/SUB socket receiving"
-        "publications of events. (defaults to tcp://127.0.0.1:5556)",
-        default='tcp://127.0.0.1:5556'
-    )
-    parser.add_argument(
-        '--stats_endpoint', help="The ZMQ PUB/SUB socket receiving"
-        "publications of stats. (defaults to tcp://127.0.0.1:5557)",
-        default='tcp://127.0.0.1:5557'
-    )
-    parser.add_argument(
         '--debug', action='store_true', help="Enable debugging logging"
     )
     args = parser.parse_args()
 
     setup_file = args.setup
-    endpoint = args.endpoint
-    pubsub_endpoint = args.pubsub_endpoint
-    stats_endpoint = args.stats_endpoint
 
     setup = get_setup()
     if not setup:
@@ -204,9 +187,9 @@ def main():
                     },
                 ),
                 proc_name="Onitu",
-                controller=endpoint,
-                pubsub_endpoint=pubsub_endpoint,
-                stats_endpoint=stats_endpoint,
+                controller=get_circusctl_endpoint(session),
+                pubsub_endpoint=get_pubsub_endpoint(session),
+                stats_endpoint=get_stats_endpoint(session),
             )
 
             arbiter.start(cb=start_setup)

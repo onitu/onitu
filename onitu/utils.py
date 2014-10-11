@@ -115,6 +115,18 @@ def get_logs_uri(session):
     return 'ipc://{}/onitu-{}-logs.sock'.format(TMPDIR, session)
 
 
+def get_circusctl_endpoint(session):
+    return 'ipc://{}/onitu-{}-circusctl.sock'.format(TMPDIR, session)
+
+
+def get_pubsub_endpoint(session):
+    return 'ipc://{}/onitu-{}-pubsub.sock'.format(TMPDIR, session)
+
+
+def get_stats_endpoint(session):
+    return 'ipc://{}/onitu-{}-stats.sock'.format(TMPDIR, session)
+
+
 def get_available_drivers():
     """
     Return a dict mapping the name of each installed driver with its

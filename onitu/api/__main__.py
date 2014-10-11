@@ -11,7 +11,7 @@ from bottle import Bottle, run, response, abort, redirect
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
-from onitu.utils import get_fid, get_logs_uri
+from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint
 
 host = 'localhost'
 port = 3862
@@ -19,7 +19,7 @@ port = 3862
 app = Bottle()
 
 session = sys.argv[2]
-circus_client = CircusClient(endpoint=sys.argv[3])
+circus_client = CircusClient(endpoint=get_circusctl_endpoint(session))
 escalator = Escalator(sys.argv[1], session)
 logger = Logger("REST API")
 

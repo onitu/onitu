@@ -14,14 +14,14 @@ from tests.utils.driver import LocalStorageDriver, TargetDriver
 from tests.utils.loop import BooleanLoop
 from tests.utils.files import KB
 
-from onitu.utils import get_fid
+from onitu.utils import get_fid, get_circusctl_endpoint
 
 api_addr = "http://localhost:3862"
 monitoring_path = "/api/v1.0/entries/{}/{}"
 files_path = "/api/v1.0/files/{}/metadata"
 entries_path = "/api/v1.0/entries"
 
-circus_client = CircusClient()
+circus_client = None
 launcher, setup = None, None
 rep1, rep2 = LocalStorageDriver("rep1"), TargetDriver("rep2")
 
@@ -97,11 +97,13 @@ def create_file(filename, size):
 
 
 def setup_module(module):
-    global launcher, setup
+    global launcher, setup, circus_client
     setup = Setup()
     setup.add(rep1)
     setup.add(rep2)
     setup.add_rule(Rule().match_path("/").sync(rep1.name, rep2.name))
+
+    circus_client = CircusClient(endpoint=get_circusctl_endpoint(setup.name))
 
     launcher = Launcher(setup)
     launcher()
