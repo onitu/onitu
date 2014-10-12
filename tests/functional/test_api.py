@@ -187,7 +187,7 @@ def test_list_files():
 
 
 def test_file_fail():
-    create_file("test_file.txt", 10 * KB)
+    create_file("test_file_fail.txt", 10 * KB)
 
     file_path = files_path.format("non-valid-id")
     url = "{}{}".format(api_addr, file_path)
