@@ -25,6 +25,8 @@ def to_tmp(path):
     return path.parent.joinpath('.' + path.name + TMP_EXT)
 
 
+# ########################### handlers ########################################
+
 @plug.handler()
 def get_chunk(metadata, offset, size):
     filename = root / metadata.filename
@@ -137,6 +139,9 @@ def move_file(old_metadata, new_metadata):
         )
 
     delete_empty_dirs(old_filename)
+
+
+# ########################### detect events ###################################
 
 
 def delete_empty_dirs(filename):
@@ -278,8 +283,6 @@ def file_event_callback(event):
 
 
 def start(*args, **kwargs):
-    # plug.initialize(*args, **kwargs)
-
     global root
     root = path(plug.options['root'])
 

@@ -2,6 +2,7 @@
 This module provides a set of classes and functions useful in several
 parts of Onitu.
 """
+import os
 import sys
 import uuid
 import signal
@@ -9,6 +10,8 @@ import socket
 import tempfile
 import mimetypes
 import pkg_resources
+import resource
+import fcntl
 
 from sys import platform as _platform
 
@@ -149,3 +152,15 @@ def get_available_drivers():
     """
     entry_points = pkg_resources.iter_entry_points('onitu.drivers')
     return {e.name: e for e in entry_points}
+
+
+def get_open_fds():
+    fds = []
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    for fd in range(0, soft):
+        try:
+            fcntl.fcntl(fd, fcntl.F_GETFD)
+        except IOError:
+            continue
+        fds.append(fd)
+    return fds
