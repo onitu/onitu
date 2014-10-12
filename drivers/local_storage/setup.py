@@ -7,6 +7,8 @@ if sys.platform.startswith('linux'):
     install_requires.append('pyinotify')
 elif sys.platform.startswith('win'):
     install_requires.append('pywin32')
+elif sys.platform.startswith('darwin'):
+    install_requires.append('MacFSEvents')
 
 setup(
     name="onitu-local-storage",
