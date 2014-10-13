@@ -12,6 +12,40 @@ mutex = threading.Lock()
 plug = Plug()
 ft = 'application/vnd.google-apps.folder'
 
+def check_and_add_folder(metadata):
+    mutex.acquire()
+    global access_token
+    global root_id
+    global tree
+    try:
+        path = metadata.filename.split("/")
+        path = [p for p in path if p != u""]
+        tmproot = root_id
+        if len (path) > 1:
+            for f in path[:len(path)-1]:
+                ret_val, _, data = libdrive.get_information(access_token, f, tmproot)
+                data = json.loads(data)
+                if ret_val == 200:
+                    if (data["items"] != []):
+                        prev_id = tmproot
+                        tmproot = data["items"][0]["id"]
+                        tree[tmproot] = prev_id
+                    else:
+                        ret_val, _, data = libdrive.add_folder(access_token, f, tmproot)
+                        data = json.loads(data)
+                        if ret_val == 200:
+                            prev_id = tmproot
+                            tmproot = data["id"]
+                            tree[tmproot] = prev_id
+                        else:
+                            plug.logger.error("Can not add folder: " + data["error"]["message"])
+                else:
+                    plug.logger.error("Can not get information: " + data["error"]["message"])
+    finally:
+        mutex.release()
+    return tmproot, path
+
+
 def get_token():
     global access_token
     global token_expi
@@ -44,34 +78,12 @@ def get_chunk(metadata, offset, size):
 @plug.handler()
 def start_upload(metadata):
     global access_token
-    global tree
-    global root_id
+
     metadata.extra["inProcess"] = ""
     metadata.write()
 
-    path = metadata.filename.split("/")
-    path = [p for p in path if p != u""]
-    tmproot = root_id
-    if len (path) > 1 and "parent_id" not in metadata.extra.keys():
-        for f in path[:len(path)-1]:
-            ret_val, _, data = libdrive.get_information(access_token, f, tmproot)
-            data = json.loads(data)
-            if ret_val == 200:
-                if (data["items"] != []):
-                    prev_id = tmproot
-                    tmproot = data["items"][0]["id"]
-		    tree[tmproot] = prev_id
-                else:
-                    ret_val, _, data = libdrive.add_folder(access_token, f, tmproot)
-                    data = json.loads(data)
-                    if ret_val == 200:
-                        prev_id = tmproot
-                        tmproot = data["id"]
-			tree[tmproot] = prev_id
-                    else:
-                        plug.logger.error("Can not add folder: " + data["error"]["message"])
-            else:
-                plug.logger.error("Can not get information: " + data["error"]["message"])
+    tmproot, path = check_and_add_folder(metadata)
+
     self_id = None
     if "id" in metadata.extra.keys():
         self_id = metadata.extra["id"]
@@ -153,33 +165,10 @@ def delete_file(metadata):
 
 @plug.handler()
 def move_file(old_metadata, new_metadata):
-    mutex.acquire()
     global access_token
-    global root_id
-    global tree
-    path = new_metadata.filename.split("/")
-    path = [p for p in path if p != u""]
-    tmproot = root_id
-    if len (path) > 1:
-        for f in path[:len(path)-1]:
-            ret_val, _, data = libdrive.get_information(access_token, f, tmproot)
-            data = json.loads(data)
-            if ret_val == 200:
-                print data
-                if (data["items"] != []):
-                    prev_id = tmproot
-                    tmproot = data["items"][0]["id"]
-		    tree[tmproot] = prev_id
-                else:
-                    ret_val, _, data = libdrive.add_folder(access_token, f, tmproot)
-                    if ret_val == 200:
-                        prev_id = tmproot
-                        tmproot = data["id"]
-			tree[tmproot] = prev_id
-                    else:
-                        plug.logger.error("Can not add folder: " + data["error"]["message"])
-            else:
-                plug.logger.error("Can not get information: " + data["error"]["message"])
+
+    tmproot, path = check_and_add_folder(new_metadata)
+    
     params = {
         "addParents": [tmproot],
         "removeParents":  [old_metadata.extra["parent_id"]]
@@ -197,7 +186,7 @@ def move_file(old_metadata, new_metadata):
     else:
         plug.logger.error("Can not send metadata: " + data["error"]["message"])
     new_metadata.write()
-    mutex.release()
+
 
 
 class CheckChanges(threading.Thread):
