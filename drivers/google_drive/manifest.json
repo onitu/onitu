@@ -1,0 +1,32 @@
+{
+  "name": "Google Drive",
+  "description": "Store files on your Google Drive.",
+  "options": {
+    "root": {
+      "name": "Root",
+      "description": "The root of the directories under Onitu's watch",
+      "type": "string"
+    },
+    "refresh_token": {
+      "name": "Refresh token",
+      "description": "Token use to have authentification by Google Drive API",
+      "type": "string"
+    },
+    "client_id": {
+      "name": "Client ID",
+      "description": "API client key use to have authentification by Google Drive API",
+      "type": "string"
+    },
+    "client_secret": {
+      "name": "Client Secret",
+      "description": "API client key's secret",
+      "type": "string"
+    },
+    "changes_timer": {
+      "name": "Changes Timer",
+      "description": "Time between two changes check in seconde",
+      "type": "float",
+      "default": 10
+    }
+  }
+}
