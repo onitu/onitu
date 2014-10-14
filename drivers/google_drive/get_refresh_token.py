@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import requests
-from urllib import urlencode
 import json
+import sys
+if sys.version_info[:2] <= (2, 7):
+    from urllib import urlencode
+else:
+    from urllib.parse import urlencode
 
 client_id = "6155769202.apps.googleusercontent.com"
 client_secret = "ZcxluuTcGL2WkurnYSJgJvbN"
@@ -24,12 +28,16 @@ def retrieve_authorization_code():
         "redirect_uri": redirect_uri,
         "scope": (r"https://www.googleapis.com/auth/drive")
         }
-    r = requests.get(base_url + "auth?%s" % urlencode(authorization_code_req),
+    r = requests.get(base_url
+                     + "auth?{}".format(urlencode(authorization_code_req)),
                      allow_redirects=False)
-    print "Please go to this url and accept the application."
+    print("Please go to this url and accept the application.")
     url = r.headers.get('location')
-    print url
-    authorization_code = raw_input("\nAuthorization Code >>> ")
+    print(url)
+    if sys.version_info[:2] <= (2, 7):
+        authorization_code = raw_input("\nAuthorization Code >>> ")
+    else:
+        authorization_code = input("\nAuthorization Code >>> ")
     return authorization_code
 
 
@@ -69,8 +77,8 @@ def main():
     authorization_code = retrieve_authorization_code()
     tokens = retrieve_tokens(authorization_code)
     refresh_token = tokens['refresh_token']
-    print "Refresh Token:"
-    print refresh_token
+    print("Refresh Token:")
+    print(refresh_token)
 
 
 if __name__ == '__main__':

@@ -211,14 +211,12 @@ class Driver(TestDriver):
                 data = json.loads(data)
                 if ret_val == 200:
                     if (data["items"] != []):
-                        prev_id = tmproot
                         tmproot = data["items"][0]["id"]
                     else:
                         ret_val, _, d = libdrive.add_folder(self.access_token,
                                                             f, tmproot)
                         if ret_val == 200:
                             data = json.loads(d)
-                            prev_id = tmproot
                             tmproot = data["id"]
         _, _, data = libdrive.get_information(self.access_token,
                                               path[len(path)-1], tmproot)
@@ -235,14 +233,12 @@ class Driver(TestDriver):
                 data = json.loads(data)
                 if ret_val == 200:
                     if (data["items"] != []):
-                        prev_id = tmproot
                         tmproot = data["items"][0]["id"]
                     else:
                         ret_val, _, d = libdrive.add_folder(self.access_token,
                                                             f, tmproot)
                         if ret_val == 200:
                             data = json.loads(d)
-                            prev_id = tmproot
                             tmproot = data["id"]
         ret_v, _, _ = libdrive.send_metadata(self.access_token,
                                              path[len(path)-1],

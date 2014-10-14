@@ -5,7 +5,10 @@ import time
 import json
 from onitu.plug.metadata import Metadata
 
-global tree
+tree = None
+access_token = None
+root_id = None
+token_expi = None
 
 
 mutex = threading.Lock()
