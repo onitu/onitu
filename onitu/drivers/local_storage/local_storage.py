@@ -11,6 +11,14 @@ if IS_WINDOWS:
     import win32api
     import win32file
     import win32con
+    from pywintypes import OVERLAPPED
+    from time import time
+    from win32event import (
+    CreateEvent,
+    WaitForMultipleObjects,
+    INFINITE,
+    WAIT_TIMEOUT,
+    WAIT_OBJECT_0)
 else:
     import pyinotify
 
@@ -19,6 +27,8 @@ TMP_EXT = '.onitu-tmp'
 plug = Plug()
 root = None
 
+if IS_WINDOWS:
+	ignoreNotif = dict()
 
 def to_tmp(filename):
     return filename.parent / ('.' + filename.name + TMP_EXT)
@@ -41,7 +51,6 @@ def update(metadata, abs_path, mtime=None):
 def delete(metadata, _):
     if plug.name not in metadata.owners:
         return
-    plug.logger.debug("test1")
     plug.delete_file(metadata)
 
 
@@ -94,7 +103,6 @@ def check_changes():
 @plug.handler()
 def get_chunk(metadata, offset, size):
     filename = root / metadata.filename
-
     try:
         with open(filename, 'rb') as f:
             f.seek(offset)
@@ -109,7 +117,8 @@ def get_chunk(metadata, offset, size):
 def start_upload(metadata):
     filename = root / metadata.filename
     tmp_file = to_tmp(filename)
-
+    if IS_WINDOWS:
+        ignoreNotif[metadata.filename] = 1
     try:
         if not tmp_file.exists():
             tmp_file.dirname().makedirs_p()
@@ -162,12 +171,18 @@ def end_upload(metadata):
 
     metadata.extra['revision'] = mtime
     metadata.write()
+    if IS_WINDOWS:
+        if metadata.filename in ignoreNotif and ignoreNotif[metadata.filename] == 1:
+            ignoreNotif[metadata.filename] = 2
 
 
 @plug.handler()
 def abort_upload(metadata):
     filename = root / metadata.filename
     tmp_file = to_tmp(filename)
+    if IS_WINDOWS:
+        if metadata.filename in ignoreNotif:
+            del ignoreNotif[metadata.filename]
     try:
         tmp_file.unlink()
     except (IOError, OSError) as e:
@@ -179,7 +194,6 @@ def abort_upload(metadata):
 @plug.handler()
 def delete_file(metadata):
     filename = root / metadata.filename
-
     try:
         filename.unlink()
     except (IOError, OSError) as e:
@@ -208,10 +222,23 @@ def move_file(old_metadata, new_metadata):
 
     delete_empty_dirs(old_filename)
 
-
 if IS_WINDOWS:
     FILE_LIST_DIRECTORY = 0x0001
 
+    def verifDictModifFile(writingDict, Rtime):
+        for i, j in list(writingDict.items()):
+            if Rtime - j >= 0.0:
+                try:
+                    fd = os.open(i, os.O_RDONLY)
+                except(IOError, OSError) as e:
+                    continue
+                else:
+                    os.close(fd)
+                    filename = root.relpathto(i)
+                    metadata = plug.get_metadata(filename)
+                    update(metadata, i)
+                    del writingDict[i]
+        return writingDict
     def win32watcherThread(root, file_lock):
         dirHandle = win32file.CreateFile(
             root,
@@ -219,7 +246,7 @@ if IS_WINDOWS:
             win32con.FILE_SHARE_READ | win32con.FILE_SHARE_WRITE,
             None,
             win32con.OPEN_EXISTING,
-            win32con.FILE_FLAG_BACKUP_SEMANTICS,
+            win32con.FILE_FLAG_BACKUP_SEMANTICS | win32con.FILE_FLAG_OVERLAPPED,
             None
         )
 
@@ -233,10 +260,15 @@ if IS_WINDOWS:
         moving = False
         old_path = None
         old_metadata = None
+        writingDict = dict()
+        overlapped = OVERLAPPED()
+        overlapped.hEvent = CreateEvent(None, 0, 0, None)
+        stop = CreateEvent(None, 0, 0, None)
         while True:
+            buf = win32file.AllocateReadBuffer(16384)
             results = win32file.ReadDirectoryChangesW(
                 dirHandle,
-                1024,
+                buf,
                 True,
                 win32con.FILE_NOTIFY_CHANGE_FILE_NAME |
                 win32con.FILE_NOTIFY_CHANGE_DIR_NAME |
@@ -244,22 +276,31 @@ if IS_WINDOWS:
                 win32con.FILE_NOTIFY_CHANGE_SIZE |
                 win32con.FILE_NOTIFY_CHANGE_LAST_WRITE |
                 win32con.FILE_NOTIFY_CHANGE_SECURITY,
-                None
+                overlapped
             )
-            for action, file_ in results:
+            rc = WAIT_TIMEOUT
+            while rc == WAIT_TIMEOUT:
+                rc = WaitForMultipleObjects((stop, overlapped.hEvent), 0, 200)
+                if rc == WAIT_TIMEOUT:
+                    writingDict = verifDictModifFile(writingDict, time())
+                if rc == WAIT_OBJECT_0:
+                    break
+            data = win32file.GetOverlappedResult(dirHandle, overlapped, True)
+            events = win32file.FILE_NOTIFY_INFORMATION(buf, data)
+            Rtime = time()
+            transferDict = dict()
+            for action, file_ in events:
                 abs_path = root / file_
-                plug.logger.debug("line 247 enter")
                 if (abs_path.isdir() or abs_path.ext == TMP_EXT or
                     os.path.exists(abs_path) and (not (win32api.GetFileAttributes(abs_path)
                          & win32con.FILE_ATTRIBUTE_NORMAL) and not (win32api.GetFileAttributes(abs_path)
                          & win32con.FILE_ATTRIBUTE_ARCHIVE))):
                     continue
                 with file_lock:
-                    if actions_names.get(action) == 'write' or actions_names.get(action) == 'create':
-                        filename = root.relpathto(abs_path)
-                        metadata = plug.get_metadata(filename)
-                        update(metadata, abs_path)
-                    elif actions_names.get(action) == 'delete':
+                    if (actions_names.get(action) == 'write' or actions_names.get(action) == 'create') and root.relpathto(abs_path) not in ignoreNotif:
+                        if os.access(abs_path, os.R_OK):
+                            writingDict[abs_path] =  Rtime
+                    elif actions_names.get(action) == 'delete' and root.relpathto(abs_path) not in ignoreNotif:
                         filename = root.relpathto(abs_path)
                         metadata = plug.get_metadata(filename)
                         delete(metadata, abs_path)
@@ -267,9 +308,20 @@ if IS_WINDOWS:
                         old_path = root.relpathto(abs_path)
                         old_metadata = plug.get_metadata(old_path)
                         moving = True
+                        if old_path.endswith(TMP_EXT):
+                            ignoreNotif[rold_path[:len(TMP_EXT)]] = Rtime
                     elif actions_names.get(action) == 'moveTo' and moving == True:
-                        move(old_metadata, old_path, abs_path)
+                        move(old_metadata, old_path, root.relpathto(abs_path))
                         moving = False
+                        if old_path[:len(TMP_EXT)] in ignoreNotif :
+                            del ignoreNotif[old_path[:len(TMP_EXT)]]
+                if actions_names.get(action) == 'write' and root.relpathto(abs_path) not in transferDict and root.relpathto(abs_path) in ignoreNotif:
+                    if ignoreNotif[root.relpathto(abs_path)] == 2:
+                       transferDict[root.relpathto(abs_path)] = 1
+            for i, _ in list(transferDict.items()):
+                del ignoreNotif[i]
+            transferDict.clear()
+            writingDict = verifDictModifFile(writingDict, Rtime)
  
     def watch_changes():
         file_lock = threading.Lock()
