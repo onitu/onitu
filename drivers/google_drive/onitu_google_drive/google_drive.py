@@ -12,6 +12,7 @@ mutex = threading.Lock()
 plug = Plug()
 ft = 'application/vnd.google-apps.folder'
 
+
 def check_and_add_folder(metadata):
     mutex.acquire()
     global access_token
@@ -21,9 +22,10 @@ def check_and_add_folder(metadata):
         path = metadata.filename.split("/")
         path = [p for p in path if p != u""]
         tmproot = root_id
-        if len (path) > 1:
+        if len(path) > 1:
             for f in path[:len(path)-1]:
-                ret_val, _, data = libdrive.get_information(access_token, f, tmproot)
+                ret_val, _, data = libdrive.get_information(access_token,
+                                                            f, tmproot)
                 data = json.loads(data)
                 if ret_val == 200:
                     if (data["items"] != []):
@@ -31,16 +33,19 @@ def check_and_add_folder(metadata):
                         tmproot = data["items"][0]["id"]
                         tree[tmproot] = prev_id
                     else:
-                        ret_val, _, data = libdrive.add_folder(access_token, f, tmproot)
+                        ret_val, _, data = libdrive.add_folder(access_token,
+                                                               f, tmproot)
                         data = json.loads(data)
                         if ret_val == 200:
                             prev_id = tmproot
                             tmproot = data["id"]
                             tree[tmproot] = prev_id
                         else:
-                            plug.logger.error("Can not add folder: " + data["error"]["message"])
+                            plug.logger.error("Can not add folder: "
+                                              + data["error"]["message"])
                 else:
-                    plug.logger.error("Can not get information: " + data["error"]["message"])
+                    plug.logger.error("Can not get information: "
+                                      + data["error"]["message"])
     finally:
         mutex.release()
     return tmproot, path
@@ -67,11 +72,9 @@ def get_token():
 def get_chunk(metadata, offset, size):
     if size > metadata.size:
         size = metadata.size
-    ret_val, _, content = libdrive.get_chunk(access_token, metadata.extra["downloadUrl"],
+    ret_val, _, content = libdrive.get_chunk(access_token,
+                                             metadata.extra["downloadUrl"],
                                              offset, size)
-   # if ret_val != 200:
-   #     data = json.loads(content)
-   #     plug.logger.error("Can not get chunk: " + data["error"]["message"])
     return content
 
 
@@ -88,17 +91,16 @@ def start_upload(metadata):
     if "id" in metadata.extra.keys():
         self_id = metadata.extra["id"]
     if metadata.size == 0:
-        ret_val, h, data = libdrive.send_metadata(access_token, path[len(path)-1], tmproot, self_id, 0)
+        ret_val, h, data = libdrive.send_metadata(access_token,
+                                                  path[len(path)-1],
+                                                  tmproot, self_id, 0)
     else:
-        ret_val, h, data = libdrive.start_upload(access_token, path[len(path)-1], tmproot, self_id)
+        ret_val, h, data = libdrive.start_upload(access_token,
+                                                 path[len(path)-1],
+                                                 tmproot, self_id)
         metadata.extra["location"] = h["location"]
     metadata.extra["parent_id"] = tmproot
     metadata.write()
-    #print json.loads(data),
-    # if metadata.size == 0:
-    #     drive.start_upload_empty(metadata.filename)
-    # else:
-    #     drive.start_upload(metadata.filename, metadata.size)
 
 
 @plug.handler()
@@ -109,23 +111,27 @@ def end_upload(metadata):
         del metadata.extra["location"]
     path = metadata.filename.split("/")
     path = [p for p in path if p != u""]
-    ret_val, _, data = libdrive.get_information(access_token, path[len(path)-1], metadata.extra["parent_id"])
+    ret_val, _, data = libdrive.get_information(access_token,
+                                                path[len(path)-1],
+                                                metadata.extra["parent_id"])
     data = json.loads(data)
     if ret_val == 200:
         metadata.extra["id"] = data["items"][0]["id"]
         metadata.extra["revision"] = data["items"][0]["md5Checksum"]
-        metadata.extra["downloadUrl"] =  data["items"][0]["downloadUrl"]
+        metadata.extra["downloadUrl"] = data["items"][0]["downloadUrl"]
         db = plug.entry_db
         db.put('listes:{}'.format(metadata.extra["id"]), metadata.fid)
     else:
-        plug.logger.error("Can not get information: " + data["error"]["message"])
+        plug.logger.error("Can not get information: "
+                          + data["error"]["message"])
     metadata.write()
 
 
 @plug.handler()
 def upload_chunk(metadata, offset, chunk):
     global access_token
-    ret_val, _, data = libdrive.upload_chunk(access_token, metadata.extra["location"],
+    ret_val, _, data = libdrive.upload_chunk(access_token,
+                                             metadata.extra["location"],
                                              offset, chunk, metadata.size)
     if ret_val != 200 and ret_val != 308:
         data = json.loads(data)
@@ -140,9 +146,9 @@ def restart_upload(metadata, offset):
 @plug.handler()
 def abort_upload(metadata):
     global tree
-    if "id" in metadata.extra.keys(): 
+    if "id" in metadata.extra.keys():
         id_d = metadata.extra["id"]
-        tree = {k:v for k,v in tree.items() if v == id_d or k == id_d}
+        tree = {k: v for k, v in tree.items() if v == id_d or k == id_d}
         libdrive.delete_by_id(access_token, metadata.extra["id"])
 
 
@@ -159,7 +165,7 @@ def delete_file(metadata):
     global access_token
     global tree
     id_d = metadata.extra["id"]
-    tree = {k:v for k,v in tree.items() if v == id_d or k == id_d}
+    tree = {k: v for k, v in tree.items() if v == id_d or k == id_d}
     libdrive.delete_by_id(access_token, id_d)
 
 
@@ -168,7 +174,7 @@ def move_file(old_metadata, new_metadata):
     global access_token
 
     tmproot, path = check_and_add_folder(new_metadata)
-    
+
     params = {
         "addParents": [tmproot],
         "removeParents":  [old_metadata.extra["parent_id"]]
@@ -176,7 +182,7 @@ def move_file(old_metadata, new_metadata):
     ret_val, _, data = libdrive.send_metadata(access_token, path[len(path)-1],
                                               None, old_metadata.extra["id"],
                                               new_metadata.size, params)
-    data = json.loads(data)                
+    data = json.loads(data)
     if ret_val == 200:
         new_metadata.size = int(data["fileSize"])
         new_metadata.extra["revision"] = data["md5Checksum"]
@@ -186,7 +192,6 @@ def move_file(old_metadata, new_metadata):
     else:
         plug.logger.error("Can not send metadata: " + data["error"]["message"])
     new_metadata.write()
-
 
 
 class CheckChanges(threading.Thread):
@@ -215,7 +220,8 @@ class CheckChanges(threading.Thread):
         if ret_val == 200:
             filelist = data
         else:
-            plug.logger.error("Can not get file list: " + data["error"]["message"])
+            plug.logger.error("Can not get file list: "
+                              + data["error"]["message"])
             filelist = {"items": []}
         for f in filelist["items"]:
             if f["mimeType"] == "application/vnd.google-apps.folder":
@@ -271,12 +277,14 @@ class CheckChanges(threading.Thread):
         global access_token
         global tree
         while parent_id != root_id and parent_id != "root":
-            ret_val, _, data = libdrive.get_information_by_id(access_token, parent_id)
+            ret_val, _, data = libdrive.get_information_by_id(access_token,
+                                                              parent_id)
             data = json.loads(data)
             if ret_val == 200:
                 info = data
             else:
-                plug.logger.error("Can not get information: " + data["error"]["message"])
+                plug.logger.error("Can not get information: "
+                                  + data["error"]["message"])
             path.append(info["title"])
             parent_id = tree[parent_id]
         return "/".join(reversed(path))
@@ -288,17 +296,20 @@ class CheckChanges(threading.Thread):
         ret_val, _, data = libdrive.get_parent(access_token, file_id)
         parent = json.loads(data)
         if ret_val != 200:
-            plug.logger.error("Can not get parent: " + parent["error"]["message"])
+            plug.logger.error("Can not get parent: "
+                              + parent["error"]["message"])
         if "items" not in parent.keys():
             return False
         p = parent["items"][0]
         if self.check_if_path_exist(p["id"]):
-            ret_val, _, data = libdrive.get_information_by_id(access_token, p["id"])
+            ret_val, _, data = libdrive.get_information_by_id(access_token,
+                                                              p["id"])
             data = json.loads(data)
             if ret_val == 200:
                 info = data
             else:
-                plug.logger.error("Can not get information: " + data["error"]["message"])
+                plug.logger.error("Can not get information: "
+                                  + data["error"]["message"])
             if info["mimeType"] == "application/vnd.google-apps.folder":
                 tree[file_id] = p["id"]
             return True
@@ -310,12 +321,14 @@ class CheckChanges(threading.Thread):
                 if ret is False:
                     return False
                 else:
-                    ret_val, _, data = libdrive.get_information_by_id(access_token, p["id"])
-                    data = json.loads(data)
-                    if ret_val == 200:
+                    ret_v, _, d = libdrive.get_information_by_id(access_token,
+                                                                 p["id"])
+                    data = json.loads(d)
+                    if ret_v == 200:
                         i = data
                     else:
-                        plug.logger.error("Can not get information: " + data["error"]["message"])
+                        plug.logger.error("Can not get information: "
+                                          + data["error"]["message"])
                     if i["mimeType"] == "application/vnd.google-apps.folder":
                         tree[file_id] = p["id"]
                     return True
@@ -323,24 +336,27 @@ class CheckChanges(threading.Thread):
     def check_folder(self, path, path_id):
         global access_token
         global root_id
-	global tree
+        global tree
         if self.lasterChangeId == 0:
             ret_val, _, data = libdrive.get_change(access_token, 1, 1)
             data = json.loads(data)
             if ret_val == 200:
                 self.lasterChangeId = data["largestChangeId"]
             else:
-                plug.logger.error("Can not get change: " + data["error"]["message"])
+                plug.logger.error("Can not get change: "
+                                  + data["error"]["message"])
             self.check_folder_list_file("", root_id)
         else:
             buf = {}
             bufDel = {}
             page_token = None
             while True:
-                ret_val, _, data = libdrive.get_change(access_token, 1000, self.lasterChangeId)
+                ret_val, _, data = libdrive.get_change(access_token, 1000,
+                                                       self.lasterChangeId)
                 data = json.loads(data)
                 if ret_val != 200:
-                    plug.logger.error("Can not get change: " + data["error"]["message"])
+                    plug.logger.error("Can not get change: "
+                                      + data["error"]["message"])
                 if self.lasterChangeId == data["largestChangeId"]:
                     return
                 for change in data["items"]:
@@ -379,12 +395,6 @@ class CheckChanges(threading.Thread):
                     m = Metadata.get_by_id(plug, fid)
                     if m is not None:
                         plug.delete_file(m)
-                # path = self.get_path(f["parents"])
-                # if path == "":
-                #     filepath = f["title"]
-                # else:
-                #     filepath = path + "/" + f["title"]
-                #self.delete_file(filepath)
 
     def run(self):
         while not self.stop.isSet():
@@ -399,7 +409,7 @@ class CheckChanges(threading.Thread):
 def start(*args, **kwargs):
     if plug.options["refresh_token"] != "":
         path = plug.options["root"].split("/")
-	path = [p for p in path if p != u""]
+        path = [p for p in path if p != u""]
         global access_token
         access_token = ""
         global token_expi
@@ -410,24 +420,28 @@ def start(*args, **kwargs):
         tree = {}
         get_token()
         for f in path:
-            ret_val, _, data = libdrive.get_information(access_token, f, root_id)
+            ret_val, _, data = libdrive.get_information(access_token,
+                                                        f, root_id)
             data = json.loads(data)
             if ret_val == 200:
                 if (data["items"] != []):
                     prev_id = root_id
                     root_id = data["items"][0]["id"]
-		    tree[root_id] = prev_id
+                    tree[root_id] = prev_id
                 else:
-                    ret_val, _, data = libdrive.add_folder(access_token, f, root_id)
-		    data = json.loads(data)
+                    ret_val, _, data = libdrive.add_folder(access_token,
+                                                           f, root_id)
+                    data = json.loads(data)
                     if ret_val == 200:
                         prev_id = root_id
                         root_id = data["id"]
-			tree[root_id] = prev_id
+                        tree[root_id] = prev_id
                     else:
-                        plug.logger.error("Can not add folder: " + data["error"]["message"])                
+                        plug.logger.error("Can not add folder: "
+                                          + data["error"]["message"])
             else:
-                plug.logger.error("Can not get information: " + data["error"]["message"])
+                plug.logger.error("Can not get information: "
+                                  + data["error"]["message"])
         check = CheckChanges(int(plug.options['changes_timer']))
         check.setDaemon(True)
         check.start()

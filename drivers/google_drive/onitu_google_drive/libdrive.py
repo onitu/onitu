@@ -1,7 +1,5 @@
 import requests
 import json
-import os
-import time
 
 redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
 
@@ -11,6 +9,7 @@ r_url = "https://www.googleapis.com/upload/drive/v2/files?uploadType=resumable"
 file_url = "https://www.googleapis.com/upload/drive/v2/files"
 file_url_basic = "https://www.googleapis.com/drive/v2/files"
 scope = ["https://www.googleapis.com/auth/drive"]
+
 
 def send(kind, url, h, p, d):
     if kind == "get":
@@ -60,7 +59,7 @@ def add_folder(access_token, name, parent_id):
         "Authorization": "Bearer " + access_token,
         "Content-Type": "application/json",
         }
-    
+
     data = """
     {
        "title": \""""+name+"""\",
@@ -90,9 +89,9 @@ def start_upload(access_token, name, parent_id, self_id):
         }
     if parent_id is not None:
         data["parents"] = [{
-                "kind": "drive#fileLink",
-                "id": parent_id
-                }]
+            "kind": "drive#fileLink",
+            "id": parent_id
+            }]
     url = "https://www.googleapis.com/upload/drive/v2/files"
     if self_id is not None:
         url = url + "/" + self_id
@@ -102,7 +101,7 @@ def start_upload(access_token, name, parent_id, self_id):
     return send("post", url, headers, {}, json.dumps(data))
 
 
-def send_metadata(access_token, name, parent_id, self_id, size, params = {}):
+def send_metadata(access_token, name, parent_id, self_id, size, params={}):
     headers = {
         "Authorization": "Bearer " + access_token,
         "Content-Type": "application/json",
@@ -113,9 +112,9 @@ def send_metadata(access_token, name, parent_id, self_id, size, params = {}):
         }
     if parent_id is not None:
         data["parents"] = [{
-                "kind": "drive#fileLink",
-                "id": parent_id
-                }]
+            "kind": "drive#fileLink",
+            "id": parent_id
+            }]
     url = "https://www.googleapis.com/drive/v2/files"
     if self_id is not None:
         url = url + "/" + self_id
@@ -163,7 +162,7 @@ def get_change(access_token, maxResult, lasterChangeId):
         }
     url = "https://www.googleapis.com/drive/v2/changes"
     return send("get", url, headers, params, {})
-    
+
 
 def get_parent(access_token, file_id):
     headers = {
@@ -171,4 +170,3 @@ def get_parent(access_token, file_id):
         }
     url = "https://www.googleapis.com/drive/v2/files"
     return send("get", url + "/" + file_id + "/parents", headers, {}, {})
-
