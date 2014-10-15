@@ -11,7 +11,7 @@ file_url_basic = "https://www.googleapis.com/drive/v2/files"
 scope = ["https://www.googleapis.com/auth/drive"]
 
 
-def send(kind, url, h, p, d):
+def send(kind, url, h, p, d, f="json"):
     if kind == "get":
         r = requests.get(url, headers=h, params=p, data=d)
     if kind == "post":
@@ -20,7 +20,11 @@ def send(kind, url, h, p, d):
         r = requests.put(url, headers=h, params=p, data=d)
     if kind == "delete":
         r = requests.delete(url, headers=h, params=p, data=d)
-    return (r.status_code, r.headers, r.content)
+    if f == "json":
+        ret = r.json()
+    else:
+        ret = r.content
+    return (r.status_code, r.headers, ret)
 
 
 def get_token(c_id, c_se, r_to):
@@ -76,7 +80,7 @@ def delete_by_id(access_token, id_d):
         "Authorization": "Bearer " + access_token,
         }
     url = "https://www.googleapis.com/drive/v2/files"
-    return send("delete", url + "/" + id_d, headers, {}, {})
+    return send("delete", url + "/" + id_d, headers, {}, {}, "chunk")
 
 
 def start_upload(access_token, name, parent_id, self_id):
@@ -97,8 +101,8 @@ def start_upload(access_token, name, parent_id, self_id):
         url = url + "/" + self_id
     url = url + "?uploadType=resumable"
     if self_id is not None:
-        return send("put", url, headers, {}, json.dumps(data))
-    return send("post", url, headers, {}, json.dumps(data))
+        return send("put", url, headers, {}, json.dumps(data), "chunk")
+    return send("post", url, headers, {}, json.dumps(data), "chunk")
 
 
 def send_metadata(access_token, name, parent_id, self_id, size, params={}):
@@ -130,7 +134,7 @@ def upload_chunk(access_token, location, offset, chunk, totalsize):
         + str(offset + len(chunk) - 1)
         + "/" + str(totalsize),
         }
-    return send("put", location, headers, {}, chunk)
+    return send("put", location, headers, {}, chunk, "chunk")
 
 
 def get_chunk(access_token, downloadUrl, offset, size):
@@ -139,7 +143,7 @@ def get_chunk(access_token, downloadUrl, offset, size):
         "Range": "bytes=" + str(offset) + "-"
         + str(offset + size - 1)
         }
-    return send("get", downloadUrl, headers, {}, {})
+    return send("get", downloadUrl, headers, {}, {}, "chunk")
 
 
 def get_files_by_path(access_token, parent_id):

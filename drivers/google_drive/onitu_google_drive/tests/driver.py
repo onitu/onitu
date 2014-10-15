@@ -6,7 +6,7 @@ import tempfile
 from path import path
 
 from tests.utils.testdriver import TestDriver
-import onitu_google_drive.libdrive as libdrive
+from onitu_google_drive import libdrive
 
 
 refresh_token = "1/ezUs-qa0qMRXYDj4x0rcq0ODO_1nG-qiG-3POqzjs8w"
@@ -29,8 +29,8 @@ class Driver(TestDriver):
         self.root_id = "root"
         self.token_expi = 0
         self.access_token = ""
-        self.get_token(options['client_id'], options['client_secret'])
         self.options = options
+        self.get_token(options['client_id'], options['client_secret'])
 
         path = options["root"].split("/")
         path = [p for p in path if p != u""]
@@ -38,14 +38,12 @@ class Driver(TestDriver):
         for f in path:
             ret_val, _, data = libdrive.get_information(self.access_token, f,
                                                         self.root_id)
-            data = json.loads(data)
             if ret_val == 200:
                 if (data["items"] != []):
                     self.root_id = data["items"][0]["id"]
                 else:
                     ret_val, _, data = libdrive.add_folder(self.access_token,
                                                            f, self.root_id)
-                    data = json.loads(data)
                     if ret_val == 200:
                         self.root_id = data["id"]
 
@@ -59,7 +57,6 @@ class Driver(TestDriver):
         ret_val, _, data = libdrive.get_token(self.options['client_id'],
                                               self.options['client_secret'],
                                               refresh_token)
-        data = json.loads(data)
         if ret_val == 200:
             self.access_token = data["access_token"]
             self.token_expi = time.time() + data["expires_in"]
@@ -82,7 +79,6 @@ class Driver(TestDriver):
         for f in path:
             ret_val, _, data = libdrive.get_information(self.access_token,
                                                         f, tmproot)
-            data = json.loads(data)
             if ret_val == 200:
                 if (data["items"] != []):
                     tmproot = data["items"][0]["id"]
@@ -90,7 +86,6 @@ class Driver(TestDriver):
                     ret_val, _, data = libdrive.add_folder(self.access_token,
                                                            f, tmproot)
                     if ret_val == 200:
-                        data = json.loads(data)
                         tmproot = data["id"]
 
     def write(self, filename, content):
@@ -103,7 +98,6 @@ class Driver(TestDriver):
             for f in path[:len(path)-1]:
                 ret_val, _, data = libdrive.get_information(self.access_token,
                                                             f, tmproot)
-                data = json.loads(data)
                 if ret_val == 200:
                     if (data["items"] != []):
                         tmproot = data["items"][0]["id"]
@@ -111,8 +105,7 @@ class Driver(TestDriver):
                         ret_val, _, d = libdrive.add_folder(self.access_token,
                                                             f, tmproot)
                         if ret_val == 200:
-                            data = json.loads(d)
-                            tmproot = data["id"]
+                            tmproot = d["id"]
         self_id = None
         ret_val, h, data = libdrive.start_upload(self.access_token,
                                                  path[len(path)-1],
@@ -134,7 +127,6 @@ class Driver(TestDriver):
         for f in path[:len(path)-1]:
             ret_val, _, data = libdrive.get_information(self.access_token,
                                                         f, tmproot)
-            data = json.loads(data)
             if ret_val == 200:
                 if (data["items"] != []):
                     tmproot = data["items"][0]["id"]
@@ -142,13 +134,11 @@ class Driver(TestDriver):
                     ret_val, _, data = libdrive.add_folder(self.access_token,
                                                            f, tmproot)
                     if ret_val == 200:
-                        data = json.loads(data)
                         tmproot = data["id"]
         id_folder = tmproot
         ret_val, _, info = libdrive.get_information(self.access_token,
                                                     path[len(path)-1],
                                                     id_folder)
-        info = json.loads(info)
         libdrive.delete_by_id(self.access_token, info["items"][0]["id"])
 
     def checksum(self, filename):
@@ -160,7 +150,6 @@ class Driver(TestDriver):
         for f in path[:len(path)-1]:
             ret_val, _, data = libdrive.get_information(self.access_token,
                                                         f, tmproot)
-            data = json.loads(data)
             if ret_val == 200:
                 if (data["items"] != []):
                     tmproot = data["items"][0]["id"]
@@ -168,7 +157,6 @@ class Driver(TestDriver):
         ret_val, _, info = libdrive.get_information(self.access_token,
                                                     path[len(path)-1],
                                                     id_folder)
-        info = json.loads(info)
         return info["items"][0]["md5Checksum"]
 
     def exists(self, filename):
@@ -181,7 +169,6 @@ class Driver(TestDriver):
             ret_val, _, data = libdrive.get_information(self.access_token,
                                                         f,
                                                         tmproot)
-            data = json.loads(data)
             if ret_val == 200:
                 if (data["items"] != []):
                     tmproot = data["items"][0]["id"]
@@ -189,13 +176,11 @@ class Driver(TestDriver):
                     ret_val, _, data = libdrive.add_folder(self.access_token,
                                                            f, tmproot)
                     if ret_val == 200:
-                        data = json.loads(data)
                         tmproot = data["id"]
         id_folder = tmproot
         ret_val, _, info = libdrive.get_information(self.access_token,
                                                     path[len(path)-1],
                                                     id_folder)
-        info = json.loads(info)
         if info["items"] != []:
             return True
         return False
@@ -208,7 +193,6 @@ class Driver(TestDriver):
             for f in path[:len(path)-1]:
                 ret_val, _, data = libdrive.get_information(self.access_token,
                                                             f, tmproot)
-                data = json.loads(data)
                 if ret_val == 200:
                     if (data["items"] != []):
                         tmproot = data["items"][0]["id"]
@@ -216,12 +200,9 @@ class Driver(TestDriver):
                         ret_val, _, d = libdrive.add_folder(self.access_token,
                                                             f, tmproot)
                         if ret_val == 200:
-                            data = json.loads(d)
-                            tmproot = data["id"]
-        _, _, data = libdrive.get_information(self.access_token,
+                            tmproot = d["id"]
+        _, _, old_data = libdrive.get_information(self.access_token,
                                               path[len(path)-1], tmproot)
-
-        old_data = json.loads(data)
 
         path = new.split("/")
         path = [p for p in path if p != u""]
@@ -230,7 +211,6 @@ class Driver(TestDriver):
             for f in path[:len(path)-1]:
                 ret_val, _, data = libdrive.get_information(self.access_token,
                                                             f, tmproot)
-                data = json.loads(data)
                 if ret_val == 200:
                     if (data["items"] != []):
                         tmproot = data["items"][0]["id"]
@@ -238,8 +218,7 @@ class Driver(TestDriver):
                         ret_val, _, d = libdrive.add_folder(self.access_token,
                                                             f, tmproot)
                         if ret_val == 200:
-                            data = json.loads(d)
-                            tmproot = data["id"]
+                            tmproot = d["id"]
         ret_v, _, _ = libdrive.send_metadata(self.access_token,
                                              path[len(path)-1],
                                              tmproot,
