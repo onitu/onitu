@@ -72,49 +72,65 @@ def get_mimetype(filename):
     return mimetype
 
 
-def get_open_port():
-    """
-    Return an URI which can be used to bind a socket to an open port.
+if IS_WINDOWS:
+    # We can't use IPC sockets on Windows as they are not supported
+    # by ZeroMQ at the moment, so we implement a fallback by creating
+    # a temporary file containing an URI corresponding to an open port.
+    def _get_uri(session, name):
+        sock_file = os.path.join(
+            TMPDIR, 'onitu-{}-{}.txt'
+        ).format(session, name)
 
-    The port might be in use between the call to the function and its
-    usage, so this function should be used with care.
-    """
-    tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tmpsock.bind(('127.0.0.1', 0))
-    uri = 'tcp://{}:{}'.format(*tmpsock.getsockname())
-    tmpsock.close()
-    return uri
+        if os.path.exists(sock_file):
+            with open(sock_file) as f:
+                return f.read()
+
+        tmpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        tmpsock.bind(('127.0.0.1', 0))
+        uri = 'tcp://{}:{}'.format(*tmpsock.getsockname())
+        tmpsock.close()
+
+        with open(sock_file, 'w+') as f:
+            f.write(uri)
+
+        return uri
+
+    def delete_sock_files():
+        import glob
+
+        for sock_file in glob.glob(os.path.join(TMPDIR, 'onitu-*.txt')):
+            os.unlink(sock_file)
+else:
+    # On Unix-like systems we use an IPC socket (AF_UNIX)
+    def _get_uri(session, name):
+        return 'ipc://{}/onitu-{}-{}.sock'.format(TMPDIR, session, name)
 
 
 def get_escalator_uri(session):
-    return 'ipc://{}/onitu-{}-escalator.sock'.format(TMPDIR, session)
+    return _get_uri(session, 'escalator')
 
 
 def get_events_uri(session, name, suffix=None):
-    """
-    Return the URI on which a driver or the Referee should be listening
-    to in order to get new events.
-    """
     if suffix:
         name = "{}:{}".format(name, suffix)
 
-    return 'ipc://{}/onitu-{}-{}.sock'.format(TMPDIR, session, name)
+    return _get_uri(session, name)
 
 
 def get_logs_uri(session):
-    return 'ipc://{}/onitu-{}-logs.sock'.format(TMPDIR, session)
+    return _get_uri(session, 'logs')
 
 
 def get_circusctl_endpoint(session):
-    return 'ipc://{}/onitu-{}-circusctl.sock'.format(TMPDIR, session)
+    return _get_uri(session, 'circusctl')
 
 
 def get_pubsub_endpoint(session):
-    return 'ipc://{}/onitu-{}-pubsub.sock'.format(TMPDIR, session)
+    return _get_uri(session, 'pubsub')
 
 
 def get_stats_endpoint(session):
-    return 'ipc://{}/onitu-{}-stats.sock'.format(TMPDIR, session)
+    return _get_uri(session, 'stats')
 
 
 def get_available_drivers():

@@ -43,14 +43,6 @@ def start_setup(*args, **kwargs):
     """
     escalator = Escalator(session, create_db=True)
 
-    if IS_WINDOWS:
-        ports = escalator.range(prefix='port:', include_value=False)
-
-        if ports:
-            with escalator.write_batch() as batch:
-                for key in ports:
-                    batch.delete(key)
-
     escalator.put('referee:rules', setup.get('rules', []))
 
     entries = setup.get('entries')
@@ -192,6 +184,10 @@ def main():
         finally:
             if dispatcher and dispatcher.running:
                 dispatcher.stop()
+
+            if IS_WINDOWS:
+                from .utils import delete_sock_files
+                delete_sock_files()
 
 
 if __name__ == '__main__':
