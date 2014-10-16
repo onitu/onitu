@@ -3,71 +3,60 @@ import json
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
-from tests.utils.loop import CounterLoop, BooleanLoop
 
 
 def test_startup():
-    json_file = 'test_startup.json'
-
     rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
 
     setup = Setup()
     setup.add(rep1)
     setup.add(rep2)
     setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
-    setup.save(json_file)
-
-    launcher = Launcher(json_file)
-    loop = CounterLoop(3)
 
     try:
-        launcher.on_referee_started(loop.check)
-        launcher.on_driver_started(loop.check, driver='rep1')
-        launcher.on_driver_started(loop.check, driver='rep2')
+        launcher = Launcher(setup)
         launcher()
 
-        loop.run(timeout=2)
+        assert not launcher.process.poll()
     finally:
-        launcher.quit()
-        setup.clean()
+        launcher.close()
 
 
 def test_no_setup():
-    json_file = 'non_existing_setup.json'
-    launcher = Launcher(json_file)
-    loop = BooleanLoop()
+    setup = Setup()
+    launcher = Launcher(setup)
+
+    error = (
+        "Can't process setup file '{setup}' : "
+        "[Errno 2] No such file or directory: '{setup}'"
+        .format(setup=setup.filename)
+    )
 
     try:
-        launcher.on_setup_not_existing(loop.stop, setup=json_file)
-        launcher()
-        launcher.wait()  # We should add a timeout
+        launcher(wait=False, stderr=True, save_setup=False)
+        launcher.wait()
 
         assert launcher.process.returncode == 1
-        assert not loop.condition()
+        assert error in launcher.process.stderr.read().decode()
     finally:
-        launcher.quit()
+        launcher.close()
 
 
 def test_invalid_setup():
-    json_file = 'invalid_setup.json'
     setup = Setup()
     setup.json = '{"foo": bar}'
-    setup.save(json_file)
-    launcher = Launcher(json_file)
-    loop = BooleanLoop()
+    launcher = Launcher(setup)
 
     try:
         json.loads(setup.json)
     except ValueError as e:
-        error = str(e)
+        error = "Error parsing '{}' : {}".format(setup.filename, e)
 
     try:
-        launcher.on_setup_invalid(loop.stop, setup=json_file, error=error)
-        launcher()
-        launcher.wait()  # We should add a timeout
+        launcher(wait=False, stderr=True)
+        launcher.wait()
 
         assert launcher.process.returncode == 1
-        assert not loop.condition()
+        assert error in launcher.process.stderr.read().decode()
     finally:
-        launcher.quit()
-        setup.clean()
+        launcher.close()

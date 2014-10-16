@@ -33,14 +33,13 @@ class Referee(object):
     - The id of the file
     """
 
-    def __init__(self, escalator_uri, session):
+    def __init__(self, session):
         super(Referee, self).__init__()
 
         self.logger = Logger("Referee")
         self.context = zmq.Context.instance()
-        self.escalator = Escalator(escalator_uri, session)
-        self.get_events_uri = functools.partial(
-            get_events_uri, session, self.escalator)
+        self.escalator = Escalator(session)
+        self.get_events_uri = functools.partial(get_events_uri, session)
 
         self.entries = self.escalator.get('entries')
         self.rules = self.escalator.get('referee:rules')
@@ -206,7 +205,7 @@ class Referee(object):
                 'entry:{}:event:{}'.format(name, fid), (cmd, args)
             )
 
-            publisher.connect(self.get_events_uri(name))
+            publisher.connect(self.get_events_uri(name, 'dealer'))
         try:
             publisher.send(b'')
         except zmq.ZMQError as e:

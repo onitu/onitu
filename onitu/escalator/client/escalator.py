@@ -3,22 +3,23 @@ from threading import Lock
 import zmq
 
 from onitu.escalator import protocol
+from onitu.utils import get_escalator_uri
 
 from .batch import WriteBatch
 
 
 class Escalator(object):
-    def __init__(self, uri, session, prefix=None, create_db=False,
+    def __init__(self, session, prefix=None, create_db=False,
                  context=None):
         super(Escalator, self).__init__()
-        self.uri = uri
+        self.uri = get_escalator_uri(session)
         self.session = session
         self.db_uid = None
         self.context = context or zmq.Context().instance()
         self.socket = self.context.socket(zmq.REQ)
         self.socket.linger = 0  # don't wait for data to be sent when closing
         self.lock = Lock()
-        self.socket.connect(uri)
+        self.socket.connect(self.uri)
         self.connect(session, prefix, create_db)
 
     def _request(self, cmd, *args):
@@ -55,7 +56,7 @@ class Escalator(object):
                 self.lock.release()
 
     def clone(self, *args, **kwargs):
-        return Escalator(self.uri, self.session, *args, **kwargs)
+        return Escalator(self.session, *args, **kwargs)
 
     def create(self, name):
         self._request(protocol.cmd.CREATE, name)

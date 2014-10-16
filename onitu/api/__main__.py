@@ -11,15 +11,16 @@ from bottle import Bottle, run, response, abort, redirect
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
-from onitu.utils import get_fid
+from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint
 
 host = 'localhost'
 port = 3862
 
 app = Bottle()
 
-circus_client = CircusClient(endpoint=sys.argv[4])
-escalator = Escalator(sys.argv[2], sys.argv[3])
+session = sys.argv[1]
+circus_client = CircusClient(endpoint=get_circusctl_endpoint(session))
+escalator = Escalator(session)
 logger = Logger("REST API")
 
 
@@ -290,6 +291,6 @@ def restart_entry(name):
 
 
 if __name__ == '__main__':
-    with ZeroMQHandler(sys.argv[1], multi=True).applicationbound():
+    with ZeroMQHandler(get_logs_uri(session), multi=True).applicationbound():
         logger.info("Starting on {}:{}".format(host, port))
         run(app, host=host, port=port, quiet=True)

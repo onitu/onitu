@@ -10,13 +10,15 @@ from threading import Thread
 
 from logbook.queues import ZeroMQHandler
 
-from onitu.utils import at_exit
+from onitu.utils import at_exit, get_logs_uri
 
 from .referee import Referee
 
 if __name__ == '__main__':
-    with ZeroMQHandler(sys.argv[1], multi=True).applicationbound():
-        referee = Referee(sys.argv[2], sys.argv[3])
+    session = sys.argv[1]
+
+    with ZeroMQHandler(get_logs_uri(session), multi=True).applicationbound():
+        referee = Referee(session)
 
         at_exit(referee.close)
 

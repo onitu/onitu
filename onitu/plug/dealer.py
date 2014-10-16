@@ -24,13 +24,12 @@ class Dealer(Thread):
         self.context = plug.context
         self.in_progress = {}
         self.pool = ThreadPool()
-        self.events_uri = get_events_uri(
-            self.plug.session, self.escalator, self.name)
 
     def run(self):
         try:
+            uri = get_events_uri(self.plug.session, self.name, 'dealer')
             listener = self.context.socket(zmq.PULL)
-            listener.bind(self.events_uri)
+            listener.bind(uri)
 
             self.logger.info("Started")
 

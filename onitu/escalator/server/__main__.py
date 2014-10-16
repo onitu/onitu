@@ -1,12 +1,11 @@
-import argparse
+import sys
 
 import zmq
 
 from logbook import Logger
-from logbook import StderrHandler
 from logbook.queues import ZeroMQHandler
 
-from onitu.utils import at_exit
+from onitu.utils import at_exit, get_escalator_uri, get_logs_uri
 
 from .databases import Databases
 from .worker import Worker
@@ -20,11 +19,9 @@ def main(logger):
     proxy = zmq.devices.ThreadDevice(
         device_type=zmq.QUEUE, in_type=zmq.DEALER, out_type=zmq.ROUTER
     )
-    proxy.bind_out(bind_uri)
+    proxy.bind_out(get_escalator_uri(session))
     proxy.bind_in(back_uri)
     proxy.start()
-
-    logger.info("Starting on '{}'", args.bind)
 
     nb_workers = 8
     workers = []
@@ -34,6 +31,8 @@ def main(logger):
         worker.daemon = True
         worker.start()
         workers.append(worker)
+
+    logger.info("Started")
 
     while proxy.launcher.is_alive():
         try:
@@ -46,33 +45,18 @@ def main(logger):
 
 def cleanup():
     databases.close()
+    zmq.Context.instance().term()
 
     logger.info("Exited")
 
     exit()
 
-parser = argparse.ArgumentParser("escalator")
-parser.add_argument(
-    '--bind', default='tcp://127.0.0.1:4224',
-    help="Address to bind escalator server"
-)
-parser.add_argument(
-    '--log-uri',
-    help="The URI of the ZMQ handler listening to the logs"
-)
 
-args = parser.parse_args()
-
-bind_uri = args.bind
+session = sys.argv[1]
 databases = Databases('dbs')
 
 at_exit(cleanup)
 
-if args.log_uri:
-    handler = ZeroMQHandler(args.log_uri, multi=True)
-else:
-    handler = StderrHandler()
 
-with handler.applicationbound():
+with ZeroMQHandler(get_logs_uri(session), multi=True).applicationbound():
     main(logger)
-    cleanup()

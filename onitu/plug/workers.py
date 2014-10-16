@@ -1,10 +1,9 @@
-import time
-
 from threading import Event
 
 import zmq
 
 from onitu.referee import UP, DEL, MOV
+from onitu.utils import get_events_uri
 
 from .metadata import Metadata
 from .exceptions import AbortOperation
@@ -19,6 +18,7 @@ class Worker(object):
         self.fid = fid
         self.logger = dealer.logger
         self.call = dealer.plug.call
+        self.session = dealer.plug.session
         self._stop = Event()
 
         self.context = zmq.Context()
@@ -64,7 +64,8 @@ class TransferWorker(Worker):
 
         try:
             self.start_transfer()
-            dealer = self.get_dealer()
+            dealer = self.context.socket(zmq.DEALER)
+            dealer.connect(get_events_uri(self.session, self.driver, 'router'))
             if 'upload_chunk' in self.dealer.plug._handlers:
                 self.get_file_multipart(dealer)
             else:
@@ -77,21 +78,6 @@ class TransferWorker(Worker):
             dealer.close()
 
         self.end_transfer(success)
-
-    def get_dealer(self):
-        dealer = self.context.socket(zmq.DEALER)
-
-        self.logger.debug("Waiting for ROUTER port for {}", self.driver)
-
-        while True:
-            try:
-                port = self.escalator.get('port:{}'.format(self.driver))
-                self.logger.debug("Got ROUTER port for {}", self.driver)
-                dealer.connect('tcp://127.0.0.1:{}'.format(port))
-                self.logger.debug("Connected")
-                return dealer
-            except KeyError:
-                time.sleep(0.1)
 
     def start_transfer(self):
         if self.restart:
