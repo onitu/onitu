@@ -37,7 +37,7 @@ def test_no_setup():
         launcher.wait()
 
         assert launcher.process.returncode == 1
-        assert error in launcher.process.stderr.read()
+        assert error in launcher.process.stderr.read().decode()
     finally:
         launcher.close()
 
@@ -57,6 +57,6 @@ def test_invalid_setup():
         launcher.wait()
 
         assert launcher.process.returncode == 1
-        assert error in launcher.process.stderr.read()
+        assert error in launcher.process.stderr.read().decode()
     finally:
         launcher.close()
