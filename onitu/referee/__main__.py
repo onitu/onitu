@@ -15,11 +15,10 @@ from onitu.utils import at_exit, get_logs_uri
 from .referee import Referee
 
 if __name__ == '__main__':
-    escalator_uri = sys.argv[1]
-    session = sys.argv[2]
+    session = sys.argv[1]
 
     with ZeroMQHandler(get_logs_uri(session), multi=True).applicationbound():
-        referee = Referee(escalator_uri, session)
+        referee = Referee(session)
 
         at_exit(referee.close)
 

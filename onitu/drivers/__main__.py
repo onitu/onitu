@@ -9,9 +9,8 @@ from onitu.utils import at_exit, get_available_drivers, get_logs_uri
 from onitu.escalator.client import EscalatorClosed
 
 driver_name = sys.argv[1]
-escalator_uri = sys.argv[2]
-session = sys.argv[3]
-name = sys.argv[4]
+session = sys.argv[2]
+name = sys.argv[3]
 
 drivers = get_available_drivers()
 
@@ -64,7 +63,7 @@ def start():
 
 with ZeroMQHandler(get_logs_uri(session), multi=True).applicationbound():
     try:
-        driver.plug.initialize(name, escalator_uri, session, manifest)
+        driver.plug.initialize(name, session, manifest)
         del manifest
 
         thread = Thread(target=start)

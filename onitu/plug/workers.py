@@ -65,9 +65,7 @@ class TransferWorker(Worker):
         try:
             self.start_transfer()
             dealer = self.context.socket(zmq.DEALER)
-            dealer.connect(get_events_uri(
-                self.session, self.escalator, self.driver, 'router'
-            ))
+            dealer.connect(get_events_uri(self.session, self.driver, 'router'))
             if 'upload_chunk' in self.dealer.plug._handlers:
                 self.get_file_multipart(dealer)
             else:

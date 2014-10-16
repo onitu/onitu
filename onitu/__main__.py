@@ -21,9 +21,8 @@ from tornado import gen
 
 
 from .escalator.client import Escalator
-from .utils import get_logs_uri, get_open_port, IS_WINDOWS
+from .utils import get_logs_uri, IS_WINDOWS, get_stats_endpoint
 from .utils import get_circusctl_endpoint, get_pubsub_endpoint
-from .utils import get_stats_endpoint
 
 # Time given to each process (Drivers, Referee, API...) to
 # exit before being killed. This avoid any hang during
@@ -31,7 +30,6 @@ from .utils import get_stats_endpoint
 GRACEFUL_TIMEOUT = 1.
 
 setup_file = None
-escalator_uri = None
 session = None
 setup = None
 logger = None
@@ -43,7 +41,7 @@ def start_setup(*args, **kwargs):
     """Parse the setup JSON file, clean the database,
     and start the :class:`.Referee` and the drivers.
     """
-    escalator = Escalator(escalator_uri, session, create_db=True)
+    escalator = Escalator(session, create_db=True)
 
     if IS_WINDOWS:
         ports = escalator.range(prefix='port:', include_value=False)
@@ -65,7 +63,7 @@ def start_setup(*args, **kwargs):
     referee = arbiter.add_watcher(
         "Referee",
         sys.executable,
-        args=('-m', 'onitu.referee', escalator_uri, session),
+        args=('-m', 'onitu.referee', session),
         copy_env=True,
         graceful_timeout=GRACEFUL_TIMEOUT
     )
@@ -90,7 +88,7 @@ def start_setup(*args, **kwargs):
             name,
             sys.executable,
             args=('-m', 'onitu.drivers',
-                  conf['driver'], escalator_uri, session, name),
+                  conf['driver'], session, name),
             copy_env=True,
             graceful_timeout=GRACEFUL_TIMEOUT
         )
@@ -102,7 +100,7 @@ def start_setup(*args, **kwargs):
     api = arbiter.add_watcher(
         "Rest API",
         sys.executable,
-        args=['-m', 'onitu.api', escalator_uri, session],
+        args=['-m', 'onitu.api', session],
         copy_env=True,
         graceful_timeout=GRACEFUL_TIMEOUT
     )
@@ -137,8 +135,7 @@ def get_setup():
 
 
 def main():
-    global setup_file, session, escalator_uri
-    global setup, logger, arbiter
+    global setup_file, session, setup, logger, arbiter
 
     logger = Logger("Onitu")
 
@@ -172,16 +169,12 @@ def main():
 
     with ZeroMQHandler(logs_uri, multi=True):
         try:
-            escalator_uri = get_open_port()
-
             arbiter = circus.get_arbiter(
                 (
                     {
                         'name': 'Escalator',
                         'cmd': sys.executable,
-                        'args': ('-m', 'onitu.escalator.server',
-                                 '--bind', escalator_uri,
-                                 '--log-uri', logs_uri),
+                        'args': ('-m', 'onitu.escalator.server', session),
                         'copy_env': True,
                         'graceful_timeout': GRACEFUL_TIMEOUT
                     },
@@ -190,6 +183,7 @@ def main():
                 controller=get_circusctl_endpoint(session),
                 pubsub_endpoint=get_pubsub_endpoint(session),
                 stats_endpoint=get_stats_endpoint(session),
+                statsd=True
             )
 
             arbiter.start(cb=start_setup)

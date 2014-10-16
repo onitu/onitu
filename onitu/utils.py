@@ -86,29 +86,19 @@ def get_open_port():
     return uri
 
 
-def get_events_uri(session, escalator, name, suffix=None):
+def get_escalator_uri(session):
+    return 'ipc://{}/onitu-{}-escalator.sock'.format(TMPDIR, session)
+
+
+def get_events_uri(session, name, suffix=None):
     """
     Return the URI on which a driver or the Referee should be listening
     to in order to get new events.
-
-    On Windows, the URI is stored in the database. If it's not present,
-    a valid URI is returned and stored.
-    On Unix, a Unix socket is used.
     """
     if suffix:
         name = "{}:{}".format(name, suffix)
 
-    if not IS_WINDOWS:
-        return 'ipc://{}/onitu-{}-{}.sock'.format(TMPDIR, session, name)
-    else:
-        key = 'port:events:{}'.format(name)
-        uri = escalator.get(key, default=None)
-
-        if not uri:
-            uri = get_open_port()
-            escalator.put(key, uri)
-
-        return uri
+    return 'ipc://{}/onitu-{}-{}.sock'.format(TMPDIR, session, name)
 
 
 def get_logs_uri(session):

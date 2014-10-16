@@ -18,9 +18,9 @@ port = 3862
 
 app = Bottle()
 
-session = sys.argv[2]
+session = sys.argv[1]
 circus_client = CircusClient(endpoint=get_circusctl_endpoint(session))
-escalator = Escalator(sys.argv[1], session)
+escalator = Escalator(session)
 logger = Logger("REST API")
 
 

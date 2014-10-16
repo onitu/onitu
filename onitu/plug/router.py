@@ -29,10 +29,6 @@ class Router(Thread):
         self.logger = Logger("{} - Router".format(self.name))
         self.context = plug.context
 
-        self.events_uri = get_events_uri(
-            self.plug.session, self.plug.escalator, self.name, 'router'
-        )
-
         self.handlers = {
             CHUNK: self._handle_get_chunk,
             FILE: self._handle_get_file
@@ -40,8 +36,9 @@ class Router(Thread):
 
     def run(self):
         try:
+            uri = get_events_uri(self.plug.session, self.name, 'router')
             self.router = self.context.socket(zmq.ROUTER)
-            self.router.bind(self.events_uri)
+            self.router.bind(uri)
 
             self.logger.info("Started")
 

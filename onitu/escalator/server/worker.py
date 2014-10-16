@@ -44,25 +44,32 @@ class Worker(Thread):
         self.socket = self.context.socket(zmq.REP)
         self.socket.connect(self.uri)
 
-        while True:
-            cmd, uid, args = protocol.msg.extract_request(self.socket.recv())
-            try:
-                if cmd in self.db_commands:
-                    db = None
+        try:
+            while True:
+                cmd, uid, args = protocol.msg.extract_request(
+                    self.socket.recv()
+                )
+                try:
+                    if cmd in self.db_commands:
+                        db = None
+                    else:
+                        db = self.databases.get(uid)
+                except:
+                    resp = protocol.msg.format_response(
+                        uid, status=protocol.status.NO_DB)
                 else:
-                    db = self.databases.get(uid)
-            except:
-                resp = protocol.msg.format_response(
-                    uid, status=protocol.status.NO_DB)
-            else:
-                if db:
-                    resp = self.handle_cmd(db, self.commands, cmd, args)
+                    if db:
+                        resp = self.handle_cmd(db, self.commands, cmd, args)
+                    else:
+                        resp = self.handle_cmd(
+                            None, self.db_commands, cmd, args
+                        )
+                if isinstance(resp, Multipart):
+                    self.socket.send_multipart(resp)
                 else:
-                    resp = self.handle_cmd(None, self.db_commands, cmd, args)
-            if isinstance(resp, Multipart):
-                self.socket.send_multipart(resp)
-            else:
-                self.socket.send(resp)
+                    self.socket.send(resp)
+        except zmq.ZMQError:
+            self.socket.close(linger=0)
 
     def handle_cmd(self, db, commands, cmd, args):
         cb = commands.get(cmd)

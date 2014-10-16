@@ -49,7 +49,7 @@ class Plug(object):
 
         self.context = zmq.Context.instance()
 
-    def initialize(self, name, escalator_uri, session, manifest):
+    def initialize(self, name, session, manifest):
         """Initialize the different components of the Plug.
 
         You should never have to call this function directly
@@ -57,11 +57,10 @@ class Plug(object):
         """
         self.name = name
         self.session = session
-        self.escalator = Escalator(escalator_uri, session)
+        self.escalator = Escalator(session)
         self.logger = Logger(self.name)
         self.publisher = self.context.socket(zmq.PUSH)
-        self.publisher.connect(get_events_uri(
-            session, self.escalator, 'referee'))
+        self.publisher.connect(get_events_uri(session, 'referee'))
 
         self.options = self.escalator.get(
             'entry:{}:options'.format(name), default={}
