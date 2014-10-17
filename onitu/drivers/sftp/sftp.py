@@ -5,18 +5,18 @@ import paramiko
 
 from stat import S_ISDIR
 from onitu.plug import Plug, ServiceError
+from onitu.escalator.client import EscalatorClosed
 
 plug = Plug()
 root = None
 sftp = None
-terminated = False
 events_to_ignore = set()
 
 
 def create_dirs(sftp, path):
     parent_exists = True
-    tmp_path = '.' + os.sep
-    dirs = path.split(os.sep)
+    tmp_path = './'
+    dirs = path.split('/')
 
     for d in dirs:
         tmp_path = os.path.join(tmp_path, d)
@@ -156,7 +156,11 @@ class CheckChanges(threading.Thread):
 
     def run(self):
         while not self.stop.isSet():
-            self.check_folder()
+            try:
+                self.check_folder()
+            except EscalatorClosed:
+                # We are closing
+                return
             self.stop.wait(self.timer)
 
     def stop(self):
@@ -211,7 +215,9 @@ def start():
     except IOError as e:
         plug.logger.error("{}: {}", root, e)
 
+    # Launch the changes detection
     check_changes = CheckChanges(timer, sftp)
+    check_changes.daemon = True
     check_changes.start()
 
     plug.listen()
