@@ -32,7 +32,8 @@
     "changes_timer": {
       "name": "Timer for modification check",
       "description": "Time in seconds between two checks for files modifications",
-      "type": "integer"
+      "type": "integer",
+      "default": 60
     },
     "private_key_path": {
       "name": "Private key path",
