@@ -76,7 +76,8 @@ def conflicting_filename(filename, value=False):
     instead of Onitu ones."""
     conflicts = plug.entry_db.range('conflict:')
     # Remove the leading 'conflict:' substring
-    conflicts = [(o_fn.split(':', 1)[1], d_fn) for (o_fn, d_fn) in conflicts]
+    # do str(o_fn) to manage Python 3
+    conflicts = [(str(o_fn).split(':', 1)[1], d_fn) for (o_fn, d_fn) in conflicts]
     conflict_name = None
     # 0 = Onitu filename; 1 = Dropbox filename
     if value:
@@ -112,9 +113,9 @@ def get_chunk(metadata, offset, size):
     plug.logger.debug("Getting chunk of size {} from file {}"
                       " from offset {} to {}"
                       .format(size, filename, offset, offset+(size-1)))
-    # content_server = True is required to let us access to file contents,
-    # not only metadata
     try:
+        # content_server = True is required to let us access to file contents,
+        # not only metadata
         url, params, headers = dropbox_client.request("/files/dropbox/{}"
                                                       .format(filename),
                                                       method="GET",
@@ -225,25 +226,34 @@ def move_file(old_metadata, new_metadata):
     old_filename = get_dropbox_filename(old_metadata)
     new_filename = get_dropbox_filename(new_metadata)
     plug.logger.debug("Moving '{}' to '{}'".format(old_filename, new_filename))
+    # while is to manage cases where we have to try again.
+    for attempt in range(10):
+        try:
+            new_db_metadata = dropbox_client.file_move(from_path=old_filename,
+                                                       to_path=new_filename)
+        except dropbox.rest.ErrorResponse as err:
+            if err.status is 503 and "please re-issue request" in err.error:
+                # If we didn't exceed retry limit
+                if attempt != 9:
+                    plug.logger.info("Retrying to move file {} to {}"
+                                     .format(old_filename, new_filename))
+                    continue  # as requested, try again
+            if err.status is 403 and err.error.startswith(
+                    "A file with that name already exists"
+            ):
+                # In case of already existing file or case conflict, when moving,
+                # Dropbox doesn't rename and always throws an error.
+                # So if an error arised, tell the database Onitu new file is still
+                # in conflict with the old Dropbox one (hasn't been removed)
+                plug.entry_db.put('conflict:{}'.format(new_filename),
+                                  old_filename)
+                plug.logger.warning("Case conflict on Dropbox!! Onitu file {} is "
+                                    "mapped to Dropbox file {}, please rename it!"
+                                    .format(new_filename, old_filename))
+            raise ServiceError("Cannot move file {} - {}"
+                               .format(old_filename, err))
+        break
     remove_conflict(old_filename)
-    try:
-        new_db_metadata = dropbox_client.file_move(from_path=old_filename,
-                                                   to_path=new_filename)
-    except dropbox.rest.ErrorResponse as err:
-        if err.status is 403 and err.error.startswith(
-                "A file with that name already exists"
-        ):
-            # In case of already existing file or case conflict, when moving,
-            # Dropbox doesn't rename and always throws an error.
-            # So if an error arised, tell the database Onitu new file is still
-            # in conflict with the old Dropbox one (hasn't been removed)
-            plug.entry_db.put('conflict:{}'.format(new_filename),
-                              old_filename)
-            plug.logger.warning("Case conflict on Dropbox!! Onitu file {} is "
-                                "mapped to Dropbox file {}, please rename it!"
-                                .format(new_filename, old_filename))
-        raise ServiceError("Cannot move file {} - {}"
-                           .format(old_filename, err))
     # Don't forget to update infos of the new metadata to avoid an useless
     # transfer the other way around
     update_metadata_info(new_metadata, new_db_metadata)
