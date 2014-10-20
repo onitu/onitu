@@ -34,6 +34,10 @@ session = None
 setup = None
 logger = None
 arbiter = None
+majordomo_req_uri = None
+majordomo_rep_uri = None
+majordomo_keys_dir = None
+majordomo_server_key = None
 
 
 @gen.coroutine
@@ -65,11 +69,14 @@ def start_setup(*args, **kwargs):
     majordomo = arbiter.add_watcher(
         "Majordomo",
         sys.executable,
-        args=('-m', 'onitu.majordomo', log_uri, escalator_uri, session),
+        args=('-m', 'onitu.majordomo', session,
+              majordomo_req_uri, majordomo_rep_uri,
+              majordomo_keys_dir, majordomo_server_key),
         copy_env=True,
+        graceful_timeout=GRACEFUL_TIMEOUT
     )
 
-    loop.add_callback(start_watcher, majordomo)
+    yield majordomo.start()
 
     for name, conf in entries.items():
         logger.debug("Loading entry {}", name)
@@ -137,6 +144,8 @@ def get_setup():
 
 def main():
     global setup_file, session, setup, logger, arbiter
+    global majordomo_req_uri, majordomo_rep_uri
+    global majordomo_keys_dir, majordomo_server_key
 
     logger = Logger("Onitu")
 
@@ -150,11 +159,35 @@ def main():
         help="Use this flag to disable the log dispatcher"
     )
     parser.add_argument(
+        '--majordomo_req_uri',
+        help="The ZMQ REQ socket where clients should connect",
+        default='tcp://*:20001'
+    )
+    parser.add_argument(
+        '--majordomo_rep_uri',
+        help="The ZMQ REP socket where clients should connect",
+        default='tcp://*:20003'
+    )
+    parser.add_argument(
+        '--majordomo_keys_dir',
+        help="Directory where clients' public keys are stored",
+        default='authorized_keys'
+    )
+    parser.add_argument(
+        '--majordomo_server_key',
+        help="Server's secret key file",
+        default='server.key_secret'
+    )
+    parser.add_argument(
         '--debug', action='store_true', help="Enable debugging logging"
     )
     args = parser.parse_args()
 
     setup_file = args.setup
+    majordomo_req_uri = args.majordomo_req_uri
+    majordomo_rep_uri = args.majordomo_rep_uri
+    majordomo_keys_dir = args.majordomo_keys_dir
+    majordomo_server_key = args.majordomo_server_key
 
     setup = get_setup()
     if not setup:
