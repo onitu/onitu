@@ -285,7 +285,7 @@ class CheckChanges(threading.Thread):
         global access_token
         global root_id
         global tree
-        ret_val, _, data = libdrive.get_parent(access_token, file_id)
+        ret_val, _, parent = libdrive.get_parent(access_token, file_id)
         if ret_val != 200:
             plug.logger.error("Can not get parent: "
                               + parent["error"]["message"])

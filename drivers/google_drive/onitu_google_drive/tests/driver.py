@@ -1,6 +1,5 @@
 import os
 import time
-import json
 import tempfile
 
 from path import path
@@ -202,7 +201,7 @@ class Driver(TestDriver):
                         if ret_val == 200:
                             tmproot = d["id"]
         _, _, old_data = libdrive.get_information(self.access_token,
-                                              path[len(path)-1], tmproot)
+                                                  path[len(path)-1], tmproot)
 
         path = new.split("/")
         path = [p for p in path if p != u""]
