@@ -2,7 +2,6 @@ from onitu.plug import Plug
 from onitu_google_drive import libdrive
 import threading
 import time
-import json
 from onitu.plug.metadata import Metadata
 
 tree = None
