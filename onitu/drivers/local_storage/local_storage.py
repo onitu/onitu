@@ -118,7 +118,7 @@ def start_upload(metadata):
     filename = root / metadata.filename
     tmp_file = to_tmp(filename)
     if IS_WINDOWS:
-        ignoreNotif[metadata.filename] = 1
+        ignoreNotif[metadata.filename] = False
     try:
         if not tmp_file.exists():
             tmp_file.dirname().makedirs_p()
@@ -172,8 +172,8 @@ def end_upload(metadata):
     metadata.extra['revision'] = mtime
     metadata.write()
     if IS_WINDOWS:
-        if metadata.filename in ignoreNotif and ignoreNotif[metadata.filename] == 1:
-            ignoreNotif[metadata.filename] = 2
+        if metadata.filename in ignoreNotif and ignoreNotif[metadata.filename] == False:
+            ignoreNotif[metadata.filename] = True
 
 
 @plug.handler()
@@ -288,7 +288,7 @@ if IS_WINDOWS:
             data = win32file.GetOverlappedResult(dirHandle, overlapped, True)
             events = win32file.FILE_NOTIFY_INFORMATION(buf, data)
             Rtime = time()
-            transferDict = dict()
+            transferSet = set()
             for action, file_ in events:
                 abs_path = root / file_
                 if (abs_path.isdir() or abs_path.ext == TMP_EXT or
@@ -296,31 +296,31 @@ if IS_WINDOWS:
                          & win32con.FILE_ATTRIBUTE_NORMAL) and not (win32api.GetFileAttributes(abs_path)
                          & win32con.FILE_ATTRIBUTE_ARCHIVE))):
                     continue
+	            filename = root.relpathto(abs_path)
                 with file_lock:
-                    if (actions_names.get(action) == 'write' or actions_names.get(action) == 'create') and root.relpathto(abs_path) not in ignoreNotif:
+                    if (actions_names.get(action) == 'write' or actions_names.get(action) == 'create') and filename not in ignoreNotif:
                         if os.access(abs_path, os.R_OK):
                             writingDict[abs_path] =  Rtime
-                    elif actions_names.get(action) == 'delete' and root.relpathto(abs_path) not in ignoreNotif:
-                        filename = root.relpathto(abs_path)
+                    elif actions_names.get(action) == 'delete' and filename not in ignoreNotif:
                         metadata = plug.get_metadata(filename)
                         delete(metadata, abs_path)
                     elif actions_names.get(action) == 'moveFrom':
-                        old_path = root.relpathto(abs_path)
+                        old_path = filename
                         old_metadata = plug.get_metadata(old_path)
                         moving = True
                         if old_path.endswith(TMP_EXT):
                             ignoreNotif[rold_path[:len(TMP_EXT)]] = Rtime
                     elif actions_names.get(action) == 'moveTo' and moving == True:
-                        move(old_metadata, old_path, root.relpathto(abs_path))
+                        move(old_metadata, old_path, filename)
                         moving = False
                         if old_path[:len(TMP_EXT)] in ignoreNotif :
                             del ignoreNotif[old_path[:len(TMP_EXT)]]
-                if actions_names.get(action) == 'write' and root.relpathto(abs_path) not in transferDict and root.relpathto(abs_path) in ignoreNotif:
-                    if ignoreNotif[root.relpathto(abs_path)] == 2:
-                       transferDict[root.relpathto(abs_path)] = 1
-            for i, _ in list(transferDict.items()):
-                del ignoreNotif[i]
-            transferDict.clear()
+                if actions_names.get(action) == 'write' and filename not in transferSet and filename in ignoreNotif:
+                    if ignoreNotif[filename] == True:
+                       transferSet.add(filename)
+            for file in transferSet:
+                del ignoreNotif[file]
+            transferSet.clear()
             writingDict = verifDictModifFile(writingDict, Rtime)
  
     def watch_changes():
