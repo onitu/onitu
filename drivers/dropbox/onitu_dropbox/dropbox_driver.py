@@ -74,17 +74,17 @@ def conflicting_filename(filename, value=False):
     """Check for name conflicts in the DB.
     If value is True, search in values (Dropbox filenames)
     instead of Onitu ones."""
-    conflicts = plug.entry_db.range('conflict:')
+    confs = plug.entry_db.range('conflict:')
     # Remove the leading 'conflict:' substring
     # do str(o_fn) to manage Python 3
-    conflicts = [(str(o_fn).split(':', 1)[1], d_fn) for (o_fn, d_fn) in conflicts]
+    confs = [(str(o_fn).split(':', 1)[1], d_fn) for (o_fn, d_fn) in confs]
     conflict_name = None
     # 0 = Onitu filename; 1 = Dropbox filename
     if value:
         searched = 1
     else:
         searched = 0
-    for filenames in conflicts:
+    for filenames in confs:
         if filenames[searched] == filename:
             conflict_name = filenames[int(not searched)]
             plug.logger.warning("Case conflict on Dropbox, mapping "
@@ -241,14 +241,16 @@ def move_file(old_metadata, new_metadata):
             if err.status is 403 and err.error.startswith(
                     "A file with that name already exists"
             ):
-                # In case of already existing file or case conflict, when moving,
-                # Dropbox doesn't rename and always throws an error.
-                # So if an error arised, tell the database Onitu new file is still
-                # in conflict with the old Dropbox one (hasn't been removed)
+                # In case of already existing file or case conflict,
+                # when moving, Dropbox doesn't rename and always throws an
+                # error. So if an error arised, tell the database Onitu new
+                # file is still in conflict with the old Dropbox one
+                # (hasn't been removed)
                 plug.entry_db.put('conflict:{}'.format(new_filename),
                                   old_filename)
-                plug.logger.warning("Case conflict on Dropbox!! Onitu file {} is "
-                                    "mapped to Dropbox file {}, please rename it!"
+                plug.logger.warning("Case conflict on Dropbox!! Onitu file {}"
+                                    " is mapped to Dropbox file {}, "
+                                    "please rename it!"
                                     .format(new_filename, old_filename))
             raise ServiceError("Cannot move file {} - {}"
                                .format(old_filename, err))
