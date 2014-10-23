@@ -145,6 +145,7 @@ class Launcher(object):
                 loop.run(timeout=5)
             except:
                 self.close()
+                raise
 
         return self.process
 
