@@ -72,3 +72,38 @@ def metadata_write(plug, remote_socket, m):
     metadata = metadata_unserialize(plug, m)
     metadata.write()
     remote_socket.send_multipart((plug.options['remote_id'], b''))
+
+
+@remote_command()
+def escalator(plug, remote_socket, method, args, kwargs):
+    actions = {
+        'get': plug.entry_db.get,
+        'exists': plug.entry_db.exists,
+        'put': plug.entry_db.put,
+        'delete': plug.entry_db.delete,
+        'range': plug.entry_db.range
+    }
+    if method == 'batch':
+        transaction = kwargs.get('transaction')
+        requests = kwargs.get('requests')
+        with plug.entry_db.write_batch(transaction) as batch:
+            for (cmd, args, kwargs) in requests:
+                if cmd == 'put':
+                    batch.put(*args, **kwargs)
+                elif cmd == 'delete':
+                    batch.delete(*args, **kwargs)
+        remote_socket.send_multipart((plug.options['remote_id'],
+                                      msgpack.packb(None)))
+        return
+    action = actions.get(method)
+    if action is None:
+        remote_socket.send_multipart((plug.options['remote_id'], b''))
+    else:
+        try:
+            resp = action(*args, **kwargs)
+        except Exception as e:
+            remote_socket.send_multipart((plug.options['remote_id'],
+                                          msgpack.packb((0, e.args))))
+        else:
+            remote_socket.send_multipart((plug.options['remote_id'],
+                                          msgpack.packb((1, resp))))
