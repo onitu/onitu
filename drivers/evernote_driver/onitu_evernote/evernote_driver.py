@@ -2,7 +2,7 @@ import evernote.edam.userstore.constants as UserStoreConstants
 import evernote.edam.type.ttypes as Types
 
 from datetime import timedelta
-from evernote.edam.error.ttypes import EDAMUserException
+from evernote.edam.error.ttypes import EDAMUserException, EDAMSystemException
 from evernote.api.client import EvernoteClient
 from evernote.edam.notestore.ttypes import NoteFilter, NotesMetadataResultSpec
 from evernote.edam.type.ttypes import NoteSortOrder
@@ -62,7 +62,7 @@ class CheckChanges(threading.Thread):
         dt = datetime.datetime.strptime(self.last_check, "%Y%m%dT%H%M%SZ")
         dt -= timedelta(seconds=self.timer)
         check_time = dt.strftime("%Y%m%dT%H%M%SZ")
-        check_time = self.last_check 
+        check_time = self.last_check
 
         self.last_check = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
         escalator = plug.escalator
@@ -255,8 +255,6 @@ def create_main_notebook(name):
                 return n
 
 def start():
-    global plug
-
     global changes_timer
     changes_timer = plug.options['changes_timer']
 
@@ -269,10 +267,15 @@ def start():
         root = root[:-1]
 
     global dev_token
-    dev_token = ""
-    client = EvernoteClient(token=dev_token)
     global note_store
-    note_store = client.get_note_store()
+    dev_token = ""
+    try:
+        client = EvernoteClient(token=dev_token)
+        note_store = client.get_note_store()
+    except (EDAMUserException, EDAMSystemException) as e:
+        raise ServiceError(
+            "Cannot connect to evernote: {}".format(e)
+            )
 
     # Try to create the onitu notebook
     global notebook_onitu
