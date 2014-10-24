@@ -10,7 +10,7 @@ from circus.client import CircusClient
 
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
-from tests.utils.driver import LocalStorageDriver, TargetDriver
+from tests.utils.driver import TestingDriver, TargetDriver
 from tests.utils.loop import BooleanLoop
 from tests.utils.files import KB
 
@@ -23,7 +23,7 @@ entries_path = "/api/v1.0/entries"
 
 circus_client = None
 launcher, setup = None, None
-rep1, rep2 = LocalStorageDriver("rep1"), TargetDriver("rep2")
+rep1, rep2 = TestingDriver("rep1"), TargetDriver("rep2")
 
 STOP = ("stopped", "stopping")
 

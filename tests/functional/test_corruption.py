@@ -2,13 +2,13 @@ import hashlib
 
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
-from tests.utils.driver import LocalStorageDriver, TargetDriver
+from tests.utils.driver import TestingDriver, TargetDriver
 from tests.utils.loop import BooleanLoop
 
 launcher, setup = None, None
 # We use chunks of size 1 to slow down the transfers. This way, we have
 # more chances to stop a transfer before its completion
-rep1 = LocalStorageDriver('rep1')
+rep1 = TestingDriver('rep1')
 rep2 = TargetDriver('rep2', speed_bump=True)
 
 

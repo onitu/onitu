@@ -1,6 +1,6 @@
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
-from tests.utils.driver import LocalStorageDriver, TargetDriver
+from tests.utils.driver import TestingDriver, TargetDriver
 from tests.utils.loop import BooleanLoop, TimeoutError
 
 
@@ -11,7 +11,7 @@ class ShouldNotCopy(BaseException):
 def test_no_rule():
     try:
         filename = 'bar'
-        rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
+        rep1, rep2 = TestingDriver('rep1'), TargetDriver('rep2')
         setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
@@ -37,7 +37,7 @@ def test_path():
     try:
         directory = 'foo'
         filename = '{}/bar'.format(directory)
-        rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
+        rep1, rep2 = TestingDriver('rep1'), TargetDriver('rep2')
         setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
@@ -60,7 +60,7 @@ def test_path():
 def test_not_mime():
     try:
         filename = 'bar.txt'
-        rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
+        rep1, rep2 = TestingDriver('rep1'), TargetDriver('rep2')
         setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
@@ -86,7 +86,7 @@ def test_not_mime():
 def test_simple_mime():
     try:
         filename = 'bar.png'
-        rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
+        rep1, rep2 = TestingDriver('rep1'), TargetDriver('rep2')
         setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
@@ -108,7 +108,7 @@ def test_simple_mime():
 def test_multi_mime():
     try:
         filenames = 'bar.png', 'foo.txt'
-        rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
+        rep1, rep2 = TestingDriver('rep1'), TargetDriver('rep2')
         setup = Setup()
         setup.add(rep1)
         setup.add(rep2)
@@ -132,7 +132,7 @@ def test_multi_mime():
 def test_path_mime():
     try:
         directory = 'foo'
-        rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
+        rep1, rep2 = TestingDriver('rep1'), TargetDriver('rep2')
         setup = Setup()
         setup.add(rep1)
         setup.add(rep2)

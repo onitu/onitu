@@ -35,12 +35,12 @@ class Driver(TestDriver):
         return driver(*args, **kwargs)
 
 
-class LocalStorageDriver(TestDriver):
+class TestingDriver(Driver):
     def __new__(cls, *args, **kwargs):
-        return Driver('local_storage', *args, **kwargs)
+        return Driver('test', *args, **kwargs)
 
 
 class TargetDriver(Driver):
     def __new__(cls, *args, **kwargs):
-        type = os.environ.get('ONITU_TEST_DRIVER', 'local_storage')
-        return Driver(type, *args, **kwargs)
+        name = os.environ.get('ONITU_TEST_DRIVER', 'test')
+        return Driver(name, *args, **kwargs)
