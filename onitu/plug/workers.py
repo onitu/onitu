@@ -163,9 +163,9 @@ class TransferWorker(Worker):
                 # much about it
                 pass
 
-        self.escalator.delete(self.transfer_key)
-
         if success:
+            self.escalator.delete(self.transfer_key)
+
             self.metadata.uptodate += (self.dealer.name,)
             self.metadata.write()
 
