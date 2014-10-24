@@ -24,7 +24,7 @@
     },
     "changes_timer": {
       "name": "Changes Timer",
-      "description": "Time between two changes check in seconde",
+      "description": "Time (in seconds) between each check for changes. Set it to a lower value if you want to detect checks quicker, or to a higher value if you want to make less requests.",
       "type": "float",
       "default": 10
     }
