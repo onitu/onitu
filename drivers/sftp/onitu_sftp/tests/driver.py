@@ -6,9 +6,9 @@ from tests.utils.testdriver import TestDriver
 
 
 class Driver(TestDriver):
-    SPEED_BUMP = 1
 
     def __init__(self, *args, **options):
+        super(Driver, self).__init__('sftp', *args, **options)
 
         # Clean the root
         root = options['root']
@@ -36,14 +36,19 @@ class Driver(TestDriver):
                 transport.connect(username=username, password=password)
             else:
                 if private_key_error is not None:
-                    print "SFTP driver connection failed : {}".format(
-                        private_key_error
+                    raise RuntimeError(
+                        "SFTP driver connection failed : {}".format(
+                            private_key_error
                         )
+                    )
                     transport.close()
                     return
+
                 transport.connect(username=username, pkey=private_key)
         except paramiko.AuthenticationException as e:
-            print "SFTP driver connection failed : {}".format(e)
+            raise RuntimeError(
+                "SFTP driver connection failed : {}".format(e)
+            )
             transport.close()
             return
 
@@ -52,11 +57,43 @@ class Driver(TestDriver):
         try:
             sftp.chdir(root)
         except IOError as e:
-            print "{}: {}".format(root, e)
+            raise RuntimeError(
+                "{}: {}".format(root, e)
+            )
 
-        super(Driver, self).__init__('sftp',
-                                     *args,
-                                     **options)
+
+    def create_dirs(self, path):
+        parent_exists = True
+        tmp_path = './'
+        dirs = path.split('/')
+
+        for d in dirs:
+            tmp_path = os.path.join(tmp_path, d)
+
+            # If the parent exists, we check if the current path exists
+            if parent_exists is True:
+                try:
+                    self.sftp.stat(tmp_path)
+                # The current path doesn't exists, so we create it
+                except IOError:
+                    try:
+                        parent_exists = False
+                        self.sftp.mkdir(tmp_path)
+                    except IOError as e:
+                        raise RuntimeError(
+                            "Error creating dir '{}': {}".format(tmp_path, e)
+                            )
+
+            # If the parent doesn't exist, we can create the current dir without
+            # check if it exists
+            else:
+                try:
+                    sftp.mkdir(tmp_path)
+                except IOError as e:
+                    raise RuntimeError(
+                        "Error creating dir '{}': {}".format(tmp_path, e)
+                    )
+
 
     def prefix_root(self, filename):
         root = str(self.root)
@@ -73,10 +110,10 @@ class Driver(TestDriver):
     """
 
     def close(self):
-        self.sftp.rmdir(str(self.root))
+        self.sftp.rmdir('.')
 
     def mkdir(self, subdirs):
-        self.sftp.mkdir(subdirs)
+        create_dirs(subdirs)
 
     def rmdir(self, path):
         self.sftp.rmdir(path)

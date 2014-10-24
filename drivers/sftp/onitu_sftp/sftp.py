@@ -10,6 +10,7 @@ from onitu.escalator.client import EscalatorClosed
 plug = Plug()
 root = None
 sftp = None
+transport = None
 events_to_ignore = set()
 
 
@@ -106,8 +107,13 @@ def abort_upload(metadata):
         )
 
 
-def update_file(metadata, stat_res):
+@plug.handler()
+def close():
+    sftp.close()
+    transport.close()
 
+
+def update_file(metadata, stat_res):
     try:
         metadata.size = stat_res.st_size
         metadata.extra['revision'] = stat_res.st_mtime
@@ -191,6 +197,7 @@ def start():
     except IOError as e:
         private_key_error = e
 
+    global transport
     transport = paramiko.Transport((hostname, port))
     try:
         if password != '':
@@ -221,6 +228,3 @@ def start():
     check_changes.start()
 
     plug.listen()
-
-    sftp.close()
-    transport.close()
