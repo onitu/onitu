@@ -1,3 +1,3 @@
-include README
+include README.md
 include LICENSE
 include get_refresh_token.py
