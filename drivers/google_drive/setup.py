@@ -4,7 +4,7 @@ setup(
     name="onitu-google-drive",
     version="0.1",
     url="http://onitu.github.io",
-    description="Access your Google Drive files with Onitu",
+    description="Access your Google Drive account with Onitu",
     license="MIT",
     packages=find_packages(),
     install_requires=["requests"],
