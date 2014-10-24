@@ -122,10 +122,10 @@ def test_entries():
     j = json['entries']
     entries = sorted(j, key=lambda x: x['name'])
     assert len(entries) == 2
-    for i in range(len(entries)):
-        assert entries[i]['driver'] == "local_storage"
-        assert entries[i]['name'] == "rep{}".format(i + 1)
-        assert "root" in entries[i]['options']
+    for (entry, rep) in zip(entries, (rep1, rep2)):
+        assert entry['driver'] == rep.type
+        assert entry['name'] == rep.name
+        assert entry['options'] == rep.options
 
 
 def test_entry_fail():
@@ -144,9 +144,9 @@ def test_entry():
     r = get(url)
     json = extract_json(r)
     assert r.status_code == 200
-    assert json['driver'] == "local_storage"
+    assert json['driver'] == rep1.type
     assert json['name'] == "rep1"
-    assert "root" in json['options']
+    assert json['options'] == rep1.options
 
 
 def test_file_id():
