@@ -43,6 +43,7 @@ class Setup(object):
         self.filename = os.path.join(TMPDIR, "{}.json".format(self.name))
 
     def add(self, driver):
+        driver.connect(self.name)
         self.entries.add(driver)
         return self
 
