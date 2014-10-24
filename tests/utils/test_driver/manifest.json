@@ -1,0 +1,6 @@
+{
+  "name": "Test driver",
+  "description": "This driver is for testing purpose only. It should never be used outside the tests.",
+  "options": {
+  }
+}
