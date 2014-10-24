@@ -31,25 +31,30 @@ class Flickr():
         self.rest_url = 'https://api.flickr.com/services/rest/'
         self.upload_url = 'https://up.flickr.com/services/upload/'
         self.replace_url = 'https://up.flickr.com/services/replace/'
-        self.onitu_tag = 'ONITU_TAG_DO_NOT_REMOVE/'
+        # Used as tag to found onitu files on the flickr account
+        # (Do not remove it from your files)
+        self.onitu_tag = 'ONITU_TAG/'
 
         params = {
             'format': 'json',
             'nojsoncallback': '1',
             'method': 'flickr.test.login'
-            }
-        r = self.call(requests.get, self.rest_url, params)
+        }
+
+        kwargs = dict(params=params, auth=self.oauth)
+        r = self.call(requests.get, self.rest_url, kwargs)
         self.user_id = r.json()['user']['id']
 
 # ############################## UTILS ######################################
 
     def create_tag(self, metadata):
-        return self.onitu_tag + self.root + '/' + hashlib.md5(
-            metadata.filename + str(metadata.size)).hexdigest()
+        return '{}{}/{}'.format(
+            self.onitu_tag, self.root, hashlib.md5(
+                metadata.filename + str(metadata.size)
+            ).hexdigest()
+        )
 
     def load_tag_id(self, metadata):
-        if 'tag_id' in metadata.extra:
-            return metadata.extra['tag_id']
         return self.get_tag_id(self.load_photo_id(metadata),
                                metadata.extra['tag'])
 
@@ -58,18 +63,16 @@ class Flickr():
             return metadata.extra['id']
         return self.search_file(metadata)
 
-    def call(self, func, url, params=None):
+    def call(self, func, url, kwargs):
         try:
-            r = func(url, params=params, auth=self.oauth)
+            r = func(url, **kwargs)
         except requests.exceptions.RequestException:
             raise ServiceError('Impossible to join Flickr api')
 
         if r.status_code // 100 != 2:
             raise ServiceError(
-                'Call: Status code {} received.'.format(
-                    r.status_code
-                    )
-                )
+                'Call: Status code {} received.'.format(r.status_code)
+            )
         return r
 
     def do_upload(self, url, content, params=None):
@@ -93,19 +96,8 @@ class Flickr():
         auth = {'Authorization': headers.get('Authorization'),
                 'Content-Type': m.content_type}
 
-        try:
-            r = requests.post(url, data=m, headers=auth)
-        except requests.exceptions.RequestException:
-            raise ServiceError('Impossible to join Flickr api.')
-
-        # check the response headers / status code.
-        if r.status_code // 100 != 2:
-            raise ServiceError(
-                'do_upload: Status code {} received.'.format(
-                    r.status_code
-                    )
-                )
-        return r
+        kwargs = dict(data=m, headers=auth)
+        return self.call(requests.post, url, kwargs)
 
     def search_file(self, metadata):
         """ Return None if no file or many files are found.
@@ -118,9 +110,10 @@ class Flickr():
             'user_id': self.user_id,
             'method': 'flickr.photos.search',
             'tags': tag
-            }
+        }
 
-        r = self.call(requests.get, self.rest_url, params)
+        kwargs = dict(params=params, auth=self.oauth)
+        r = self.call(requests.get, self.rest_url, kwargs)
         json = r.json()
 
         res_nb = len(json['photos']['photo'])
@@ -149,7 +142,7 @@ class Flickr():
             'is_family': '0',
             'safety_level': '1',
             'hidden': '1'
-            }
+        }
 
         params = {k: v for k, v in params.items() if v is not None}
 
@@ -172,9 +165,10 @@ class Flickr():
                 'nojsoncallback': '1',
                 'method': 'flickr.photos.getSizes',
                 'photo_id': photo_id
-                }
+            }
 
-            r = self.call(requests.get, self.rest_url, params)
+            kwargs = dict(params=params, auth=self.oauth)
+            r = self.call(requests.get, self.rest_url, kwargs)
 
             # 5 = Original size
             url = r.json()['sizes']['size'][5]['source']
@@ -190,9 +184,10 @@ class Flickr():
                 'nojsoncallback': '1',
                 'method': 'flickr.photos.delete',
                 'photo_id': photo_id
-                }
+            }
 
-            self.call(requests.get, self.rest_url, params)
+            kwargs = dict(params=params, auth=self.oauth)
+            self.call(requests.get, self.rest_url, kwargs)
 
     def get_tag_id(self, photo_id, tag_name):
         try:
@@ -232,9 +227,10 @@ class Flickr():
             'nojsoncallback': '1',
             'method': 'flickr.photos.getInfo',
             'photo_id': photo_id
-            }
+        }
 
-        r = self.call(requests.get, self.rest_url, params)
+        kwargs = dict(params=params, auth=self.oauth)
+        r = self.call(requests.get, self.rest_url, kwargs)
         return r.json()
 
     def remove_tag(self, tag_id):
@@ -244,9 +240,10 @@ class Flickr():
             'nojsoncallback': '1',
             'method': 'flickr.photos.removeTag',
             'tag_id': tag_id
-            }
+        }
 
-        self.call(requests.post, self.rest_url, params)
+        kwargs = dict(params=params, auth=self.oauth)
+        self.call(requests.post, self.rest_url, kwargs)
 
     def add_tags(self, photo_id, tags):
 
@@ -256,9 +253,10 @@ class Flickr():
             'method': 'flickr.photos.addTags',
             'photo_id': photo_id,
             'tags': tags
-            }
+        }
 
-        self.call(requests.post, self.rest_url, params)
+        kwargs = dict(params=params, auth=self.oauth)
+        self.call(requests.post, self.rest_url, kwargs)
 
     def rename_file(self, photo_id, title):
 
@@ -269,9 +267,10 @@ class Flickr():
             'photo_id': photo_id,
             'title': title,
             'description': 'Uploaded by onitu'  # required parameter
-            }
+        }
 
-        self.call(requests.post, self.rest_url, params)
+        kwargs = dict(params=params, auth=self.oauth)
+        self.call(requests.post, self.rest_url, kwargs)
 
 # ############################# PHOTOSETS ###################################
 
@@ -281,9 +280,10 @@ class Flickr():
             'nojsoncallback': '1',
             'user_id': self.user_id,
             'method': 'flickr.photosets.getList'
-            }
+        }
 
-        return self.call(requests.get, self.rest_url, params)
+        kwargs = dict(params=params, auth=self.oauth)
+        return self.call(requests.get, self.rest_url, kwargs)
 
     def create_photoset(self, title, primary_photo_id, description=None):
         params = {
@@ -293,10 +293,12 @@ class Flickr():
             'description': description,
             'method': 'flickr.photosets.create',
             'primary_photo_id': primary_photo_id
-            }
+        }
 
         params = {k: v for k, v in params.items() if v is not None}
-        return self.call(requests.get, self.rest_url, params)
+
+        kwargs = dict(params=params, auth=self.oauth)
+        return self.call(requests.get, self.rest_url, kwargs)
 
 
 # ############################# ONITU BASIC ###################################
