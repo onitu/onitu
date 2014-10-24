@@ -1,6 +1,6 @@
 {
   "name": "Flickr",
-  "description": "A Driver to synchronize your photos and videos with a Flickr account. This driver works only from onitu to Flickr (If you add some photos via your flickr web interface, they not be downloaded on onitu)",
+  "description": "A Driver to synchronize your photos and videos with a Flickr account. This driver works only from onitu to Flickr (If you add some photos via your flickr web interface, they not be downloaded on onitu). Onitu add a tag to your file ('ONITU_TAG'), you musn't remove it, it's used to retrieve your files.",
   "options": {
 
     "root": {
