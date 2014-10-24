@@ -69,6 +69,10 @@ class Worker(Thread):
                 else:
                     self.socket.send(resp)
         except zmq.ZMQError:
+            pass
+        except RuntimeError:
+            pass
+        finally:
             self.socket.close(linger=0)
 
     def handle_cmd(self, db, commands, cmd, args):
