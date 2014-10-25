@@ -12,8 +12,8 @@ except NameError:
 if __name__ == '__main__':
 
     client_id = "api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl"
-    client_secret = "CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV4"
-    "9e7SpBsHDAKdtm5WeR5KEaDvc"
+    client_secret = ("CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV4"
+                     "9e7SpBsHDAKdtm5WeR5KEaDvc")
     hubic_token = "falsetoken"
     redirect_uri = "http://localhost/"
 
