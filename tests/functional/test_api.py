@@ -10,7 +10,7 @@ from circus.client import CircusClient
 
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
-from tests.utils.driver import LocalStorageDriver, TargetDriver
+from tests.utils.driver import TestingDriver, TargetDriver
 from tests.utils.loop import BooleanLoop
 from tests.utils.files import KB
 
@@ -23,7 +23,7 @@ entries_path = "/api/v1.0/entries"
 
 circus_client = None
 launcher, setup = None, None
-rep1, rep2 = LocalStorageDriver("rep1"), TargetDriver("rep2")
+rep1, rep2 = TestingDriver("rep1"), TargetDriver("rep2")
 
 STOP = ("stopped", "stopping")
 
@@ -122,10 +122,10 @@ def test_entries():
     j = json['entries']
     entries = sorted(j, key=lambda x: x['name'])
     assert len(entries) == 2
-    for i in range(len(entries)):
-        assert entries[i]['driver'] == "local_storage"
-        assert entries[i]['name'] == "rep{}".format(i + 1)
-        assert "root" in entries[i]['options']
+    for (entry, rep) in zip(entries, (rep1, rep2)):
+        assert entry['driver'] == rep.type
+        assert entry['name'] == rep.name
+        assert entry['options'] == rep.options
 
 
 def test_entry_fail():
@@ -144,9 +144,9 @@ def test_entry():
     r = get(url)
     json = extract_json(r)
     assert r.status_code == 200
-    assert json['driver'] == "local_storage"
+    assert json['driver'] == rep1.type
     assert json['name'] == "rep1"
-    assert "root" in json['options']
+    assert json['options'] == rep1.options
 
 
 def test_file_id():

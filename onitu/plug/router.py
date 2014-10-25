@@ -48,7 +48,8 @@ class Router(Thread):
         except Exception as e:
             self.logger.error("Unexpected error: {}", e)
         finally:
-            self.router.close(linger=0)
+            if self.router:
+                self.router.close(linger=0)
 
     def listen(self):
         while True:

@@ -33,6 +33,9 @@ class TestDriver(object):
     def id(self):
         return (self.type, self.name)
 
+    def connect(self, session):
+        pass
+
     def __hash__(self):
         return hash(self.id)
 

@@ -136,8 +136,8 @@ class Launcher(object):
 
         self.process = Popen(
             ('onitu', '--setup', self.setup.filename, '--no-dispatcher'),
-            stdout=PIPE,
-            stderr=PIPE,
+            stdout=PIPE if stdout else None,
+            stderr=PIPE if stderr else None,
         )
 
         if wait:
@@ -145,6 +145,7 @@ class Launcher(object):
                 loop.run(timeout=5)
             except:
                 self.close()
+                raise
 
         return self.process
 

@@ -2,4 +2,5 @@
 git+git://github.com/k4nar/circus.git@onitu
 
 -e drivers/local_storage/
+-e tests/utils/test_driver/
 -e .[dev,doc,tests,bench]

@@ -37,7 +37,8 @@ class Dealer(Thread):
         except Exception as e:
             self.logger.error("Unexpected error: {}", e)
         finally:
-            listener.close()
+            if listener:
+                listener.close()
 
     def listen(self, listener):
         while True:

@@ -78,7 +78,8 @@ class Referee(object):
         except EscalatorClosed:
             pass
         finally:
-            listener.close()
+            if listener:
+                listener.close()
 
     def close(self):
         self.escalator.close()

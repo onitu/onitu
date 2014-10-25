@@ -2,11 +2,11 @@ import json
 
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
-from tests.utils.driver import LocalStorageDriver, TargetDriver
+from tests.utils.driver import TestingDriver, TargetDriver
 
 
 def test_startup():
-    rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
+    rep1, rep2 = TestingDriver('rep1'), TargetDriver('rep2')
 
     setup = Setup()
     setup.add(rep1)

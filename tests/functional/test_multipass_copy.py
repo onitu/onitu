@@ -1,10 +1,10 @@
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
-from tests.utils.driver import LocalStorageDriver, TargetDriver
+from tests.utils.driver import TestingDriver, TargetDriver
 from tests.utils.loop import BooleanLoop
 
 launcher, setup = None, None
-rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2', speed_bump=True)
+rep1, rep2 = TestingDriver('rep1'), TargetDriver('rep2', speed_bump=True)
 
 
 def setup_module(module):
