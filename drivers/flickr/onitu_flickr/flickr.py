@@ -337,8 +337,8 @@ def start():
     if root.endswith('/'):
         root = root[:-1]
 
-    onitu_client_id = "66a1c393c8de67fbeef54bb785375e06"
-    onitu_client_secret = "5bfbc7256872d085"
+    onitu_client_id = plug.options['onitu_client_id']
+    onitu_client_secret = plug.options['onitu_client_secret']
 
     global flickr
     flickr = Flickr(onitu_client_id, onitu_client_secret,

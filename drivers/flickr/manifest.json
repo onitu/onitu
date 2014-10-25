@@ -20,6 +20,21 @@
       "name": "Oauth token secret",
       "description": "Your oauth token secret retrieved with get_token.py",
       "type": "string"
+    },
+
+    "onitu_client_id": {
+      "name": "Onitu client id",
+      "description": "OPTIONAL: you can override this param to use onitu with your flickr application",
+      "type": "string",
+      "default": "66a1c393c8de67fbeef54bb785375e06"
+    },
+
+    "onitu_client_secret": {
+      "name": "Onitu client secret",
+      "description": "OPTIONAL: you can override this param to use onitu with your flickr application",
+      "type": "string",
+      "default": "5bfbc7256872d085"
     }
+
   }
 }
