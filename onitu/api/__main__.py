@@ -117,7 +117,7 @@ def get_file_id(name):
 @app.route('/api/v1.0/files', method='GET')
 def get_files():
     files = [metadata for key, metadata in escalator.range('file:')
-             if key.count(b':') == 1]
+             if key.count(':') == 1]
     for metadata in files:
         metadata['fid'] = get_fid(metadata['filename'])
     return {'files': files}

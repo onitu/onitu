@@ -47,7 +47,7 @@ class Dealer(Thread):
             )
 
             for key, (cmd, args) in events:
-                fid = key.decode().split(':')[-1]
+                fid = key.split(':')[-1]
                 self.call(cmd, fid, *args)
                 self.escalator.delete(
                     'entry:{}:event:{}'.format(self.name, fid)
@@ -80,7 +80,7 @@ class Dealer(Thread):
             return
 
         for key, (driver, offset) in transfers:
-            fid = key.decode().split(':')[-1]
+            fid = key.split(':')[-1]
             self.call(UP, fid, driver, offset=offset, restart=True)
 
     def call(self, cmd, fid, *args, **kwargs):

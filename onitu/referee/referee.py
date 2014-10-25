@@ -67,7 +67,7 @@ class Referee(object):
                 for key, args in events:
                     cmd = args[0]
                     if cmd in self.handlers:
-                        fid = key.decode().split(':')[-1]
+                        fid = key.split(':')[-1]
                         self.handlers[cmd](fid, *args[1:])
                     self.escalator.delete(key)
 

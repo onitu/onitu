@@ -110,7 +110,7 @@ class Metadata(object):
 
         with self.plug.escalator.write_batch() as batch:
             for key, extra in extras:
-                entry = key.decode().split(':')[-1]
+                entry = key.split(':')[-1]
                 batch.put('file:{}:entry:{}'.format(clone.fid, entry), extra)
 
         return clone
