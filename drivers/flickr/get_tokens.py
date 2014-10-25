@@ -2,6 +2,11 @@ from requests_oauthlib import OAuth1Session
 
 if __name__ == '__main__':
 
+    print
+    print ("If you have overrided onitu_client_id and onitu_client_secret in "
+           "your setup.json (OPTIONAL), please open this script and put the "
+           "same keys in vars 'client_key' and 'client_secret'.")
+    print
     client_key = '66a1c393c8de67fbeef54bb785375e06'
     client_secret = '5bfbc7256872d085'
 
