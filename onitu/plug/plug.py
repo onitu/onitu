@@ -232,7 +232,7 @@ class Plug(object):
                 else:
                     raise RuntimeError(
                         "Mandatory option '{}' not present in the "
-                        "configuration.", name
+                        "configuration.".format(name)
                     )
 
         return True
