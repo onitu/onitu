@@ -1,19 +1,34 @@
 import os
+import uuid
 import hashlib
 import paramiko
+import getpass
 
 from tests.utils.testdriver import TestDriver
-
+from stat import S_ISDIR
 
 class Driver(TestDriver):
 
     def __init__(self, *args, **options):
-        super(Driver, self).__init__('sftp', *args, **options)
 
         # Clean the root
-        root = options['root']
-        if root.endswith('/'):
-            root = root[:-1]
+        username = getpass.getuser()
+        self.default_root = "/home/{}/{}".format(username, str(uuid.uuid4()))
+
+        self.root = os.getenv("ONITU_SFTP_ROOT", self.default_root)
+        if self.root.endswith('/'):
+            self.root = self.root[:-1]
+
+        options['root'] = self.root
+        options['hostname'] = os.getenv("ONITU_SFTP_HOSTNAME", "localhost")
+        options['username'] = os.getenv("ONITU_SFTP_USERNAME", username)
+        options['password'] = os.getenv("ONITU_SFTP_PASSWORD", "")
+        options['port'] = os.getenv("ONITU_SFTP_PORT", 22)
+        options['private_key_passphrase'] = os.getenv("ONITU_SFTP_KEY_PASSPHRASE", "")
+        options['private_key_path'] = os.getenv("ONITU_SFTP_HOSTNAME", "~/.ssh/id_rsa")
+        options['changes_timer'] = os.getenv("ONITU_SFTP_CHANGES_TIMER", 10)
+
+        super(Driver, self).__init__('sftp', *args, **options)
 
         hostname = options['hostname']
         username = options['username']
@@ -52,23 +67,49 @@ class Driver(TestDriver):
             transport.close()
             return
 
-        sftp = paramiko.SFTPClient.from_transport(transport)
+        self.sftp = paramiko.SFTPClient.from_transport(transport)
+        self.create_dirs(self.root)
 
         try:
-            sftp.chdir(root)
+            self.sftp.chdir(self.root)
         except IOError as e:
             raise RuntimeError(
-                "{}: {}".format(root, e)
+                "{}: {}".format(self.root, e)
             )
+
+    def rm_folder(self, path):
+        try:
+            filelist = self.sftp.listdir(path)
+        except IOError as e:
+            raise RuntimeError(
+                "Error listing file in '{}': {}".format(path, e)
+            )
+
+        for f in filelist:
+            filepath = os.path.join(path, f)
+            stat_res = self.sftp.stat(filepath)
+
+            if S_ISDIR(stat_res.st_mode):
+                self.rm_folder(filepath)
+            else:
+                self.sftp.remove(filepath)
+
+        # Remove the root
+        self.sftp.rmdir(path)
 
 
     def create_dirs(self, path):
         parent_exists = True
-        tmp_path = './'
+
+        tmp_path = ''
+        if path.startswith('/'):
+            tmp_path = '/'
         dirs = path.split('/')
 
         for d in dirs:
             tmp_path = os.path.join(tmp_path, d)
+            if tmp_path == '':
+                continue
 
             # If the parent exists, we check if the current path exists
             if parent_exists is True:
@@ -84,39 +125,24 @@ class Driver(TestDriver):
                             "Error creating dir '{}': {}".format(tmp_path, e)
                             )
 
-            # If the parent doesn't exist, we can create the current dir without
-            # check if it exists
+            # If the parent doesn't exist, we can create the current dir
+            # without check if it exists
             else:
                 try:
-                    sftp.mkdir(tmp_path)
+                    self.sftp.mkdir(tmp_path)
                 except IOError as e:
                     raise RuntimeError(
                         "Error creating dir '{}': {}".format(tmp_path, e)
                     )
 
-
-    def prefix_root(self, filename):
-        root = str(self.root)
-        if not filename.startswith(root):
-            filename = root + filename
-        return filename
-
-    """@property
-    def root(self):
-        root = self.options['root']
-        if not root.endswith('/'):
-            root += '/'
-        return path(root)
-    """
-
     def close(self):
-        self.sftp.rmdir('.')
+        self.rmdir(self.root)
 
     def mkdir(self, subdirs):
-        create_dirs(subdirs)
+        self.create_dirs(subdirs)
 
     def rmdir(self, path):
-        self.sftp.rmdir(path)
+        self.rm_folder(path)
 
     def write(self, filename, content):
         f = self.sftp.open(filename, 'w+')
