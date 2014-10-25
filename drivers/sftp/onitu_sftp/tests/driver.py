@@ -19,6 +19,10 @@ class Driver(TestDriver):
         if self.root.endswith('/'):
             self.root = self.root[:-1]
 
+        # To use this default configuration, you need:
+            # An ssh server on your local machine
+            # An ssh key pair without passphrase
+            # This ssh key in your authorized_keys files
         options['root'] = self.root
         options['hostname'] = os.getenv("ONITU_SFTP_HOSTNAME", "localhost")
         options['username'] = os.getenv("ONITU_SFTP_USERNAME", username)
