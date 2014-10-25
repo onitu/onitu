@@ -7,6 +7,7 @@ import getpass
 from tests.utils.testdriver import TestDriver
 from stat import S_ISDIR
 
+
 class Driver(TestDriver):
 
     def __init__(self, *args, **options):
@@ -23,13 +24,19 @@ class Driver(TestDriver):
             # An ssh server on your local machine
             # An ssh key pair without passphrase
             # This ssh key in your authorized_keys files
+        # Otherwise, you can set your personal informations with your
+        # environment variables (e.g: ONITU_SFTP_HOSTNAME, ONITU_SFTP_USERNAME)
         options['root'] = self.root
         options['hostname'] = os.getenv("ONITU_SFTP_HOSTNAME", "localhost")
         options['username'] = os.getenv("ONITU_SFTP_USERNAME", username)
         options['password'] = os.getenv("ONITU_SFTP_PASSWORD", "")
         options['port'] = os.getenv("ONITU_SFTP_PORT", 22)
-        options['private_key_passphrase'] = os.getenv("ONITU_SFTP_KEY_PASSPHRASE", "")
-        options['private_key_path'] = os.getenv("ONITU_SFTP_HOSTNAME", "~/.ssh/id_rsa")
+        options['private_key_passphrase'] = os.getenv(
+            "ONITU_SFTP_KEY_PASSPHRASE", ""
+        )
+        options['private_key_path'] = os.getenv(
+            "ONITU_SFTP_KEY_PATH", "~/.ssh/id_rsa"
+        )
         options['changes_timer'] = os.getenv("ONITU_SFTP_CHANGES_TIMER", 10)
 
         super(Driver, self).__init__('sftp', *args, **options)
@@ -100,7 +107,6 @@ class Driver(TestDriver):
 
         # Remove the root
         self.sftp.rmdir(path)
-
 
     def create_dirs(self, path):
         parent_exists = True
