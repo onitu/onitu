@@ -1,14 +1,16 @@
 import sys
 
 import zmq
+import json
 
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
-from bottle import Bottle, run, response, abort, redirect
+from bottle import Bottle, run, response, abort, redirect, request
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
 from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint, u, PY2
+from onitu.plug.router import GET_OAUTH_URL, SET_OAUTH_TOKEN
 
 if PY2:
     from urllib import unquote as unquote_
@@ -120,7 +122,11 @@ def call_handler(entry, cmd, *args):
     dealer.connect('tcp://127.0.0.1:{}'.format(port))
 
     try:
-        dealer.send_multipart([cmd] + list(args))
+        message = [cmd]
+        for arg in args:
+            message = message + [arg.encode("utf-8")]
+
+        dealer.send_multipart(message)
         return dealer.recv_multipart()
     finally:
         dealer.close()
@@ -316,6 +322,31 @@ def restart_service(name):
         resp = error(error_message=str(e))
     return resp
 
+@app.route('/api/v1.0/entries/<name>/oauth2callback', method='GET')
+def oauth2_validation(name):
+    name = unquote(name)
+    keys = request.query.keys()
+
+    d = {}
+    d["redirect_uri"] = "http://localhost:3862/api/v1.0/entries/{}/oauth2callback".format(name)
+
+    for key in keys:
+        d[key] = request.query.get(key)
+
+    try:
+        call_handler(name, SET_OAUTH_TOKEN, json.dumps(d))
+    except Exception as e:
+        return error(error_message=str(e))
+    redirect("http://localhost/facet/#/drivers/info/{}".format(name))
+
+@app.route('/api/v1.0/entries/<name>/oauth2url', method='GET')
+def get_oauth2_url(name):
+    name = unquote(name)
+    try:
+        url = call_handler(name, GET_OAUTH_URL, "http://localhost:3862/api/v1.0/entries/{}/oauth2callback".format(name))
+        return url[0]
+    except Exception as e:
+        return error(error_message=str(e))
 
 if __name__ == '__main__':
     with ZeroMQHandler(get_logs_uri(session), multi=True).applicationbound():

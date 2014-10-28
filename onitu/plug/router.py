@@ -113,9 +113,9 @@ class Router(object):
         elif 'get_chunk' in self.plug._handlers:
             return self._handle_get_chunk(metadata, '0', str(metadata.size))
 
-    def _handle_get_oauth_url(self):
-        return [self.call('get_oauth_url') or ERROR]
+    def _handle_get_oauth_url(self, redirect_uri):
+        return [self.call('get_oauth_url', redirect_uri) or ERROR]
 
-    def _handle_set_oauth_token(self, auth_key, token):
-        self.call('set_oauth_token', auth_key, token)
+    def _handle_set_oauth_token(self, query_param):
+        self.call('set_oauth_token', query_param)
         return [OK]

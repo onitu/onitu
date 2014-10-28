@@ -1,10 +1,11 @@
 import time
 import urllib3
 import threading
+import json
 
 import dropbox
 from dropbox.session import DropboxSession
-from dropbox.client import DropboxClient
+from dropbox.client import DropboxOAuth2Flow, DropboxClient
 
 from onitu.plug import Plug
 from onitu.plug import DriverError, ServiceError
@@ -12,12 +13,13 @@ from onitu.escalator.client import EscalatorClosed
 from onitu.utils import u  # Unicode helpers
 
 # Onitu has a unique set of App key and secret to identify it.
-ONITU_APP_KEY = "6towoytqygvexx3"
-ONITU_APP_SECRET = "90hsd4z4d8eu3pp"
+ONITU_APP_KEY = "38jd72msqedx5n9"
+ONITU_APP_SECRET = "g4favy0bgjstt2w"
 ONITU_ACCESS_TYPE = "dropbox"  # full access to user's Dropbox (may change)
 # something like "Sat, 21 Aug 2010 22:31:20 +0000"
 TIMESTAMP_FMT = "%a, %d %b %Y %H:%M:%S +0000"
 plug = Plug()
+app_session = {}
 dropbox_client = None
 
 
@@ -26,15 +28,27 @@ def connect_client():
     keys to authenticate Onitu."""
     global dropbox_client
     plug.logger.debug("Attempting Dropbox connection using Onitu credentials")
-    sess = DropboxSession(ONITU_APP_KEY,
-                          ONITU_APP_SECRET,
-                          ONITU_ACCESS_TYPE)
+
+    # sess = DropboxSession(ONITU_APP_KEY,
+    #                       ONITU_APP_SECRET,
+    #                       ONITU_ACCESS_TYPE)
     # Use the OAuth access token previously retrieved by the user and typed
     # into Onitu configuration.
-    sess.set_token(plug.options['access_key'], plug.options['access_secret'])
-    dropbox_client = DropboxClient(sess)
-    plug.logger.debug("Dropbox connection with Onitu credentials successful")
-    return dropbox_client
+    # sess.set_token(plug.options['access_key'], plug.options['access_secret'])
+    try:
+        db = plug.entry_db
+        token = db.get('oauthToken')
+        dropbox_client = DropboxClient(token)
+        plug.logger.debug("Dropbox connection with Onitu credentials successful")
+        return dropbox_client
+    except:
+        plug.logger.warning("Dropbox connection with Onitu credentials failed")
+        return None
+
+
+def get_dropbox_auth_flow(redirect_uri=""):
+    return DropboxOAuth2Flow(ONITU_APP_KEY, ONITU_APP_SECRET, redirect_uri,
+                             app_session, "dropbox-csrf-token")
 
 
 def remove_upload_id(metadata):
@@ -262,6 +276,29 @@ def delete_file(metadata):
     remove_conflict(filename)
     plug.logger.debug(u"Deleting '{}' - Done".format(filename))
 
+@plug.handler()
+def get_oauth_url(redirect_uri):
+    url = get_dropbox_auth_flow(redirect_uri).start()
+    return url
+
+@plug.handler()
+def set_oauth_token(query_param):
+    query_param = json.loads(query_param)
+    try:
+        access_token, user_id, url_state = get_dropbox_auth_flow(query_param['redirect_uri']).finish(query_param)
+
+        db = plug.entry_db
+        db.put("oauthToken", access_token)
+    except DropboxOAuth2Flow.BadRequestException, e:
+        plug.logger.warning "Bad request when authenticating dropbox"
+    except DropboxOAuth2Flow.BadStateException, e:
+        plug.logger.warning "Bad state when authenticating dropbox"
+    except DropboxOAuth2Flow.CsrfException, e:
+        plug.logger.warning "Csrf exception when authenticating dropbox"
+    except DropboxOAuth2Flow.NotApprovedException, e:
+        plug.logger.warning "Not approved when authenticating dropbox"
+    except DropboxOAuth2Flow.ProviderException, e:
+        plug.logger.warning "Provider exception when authenticating dropbox"
 
 class CheckChanges(threading.Thread):
     """A class spawned in a thread to poll for changes on the Dropbox account.
