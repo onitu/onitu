@@ -9,6 +9,7 @@ from requests_oauthlib import OAuth1
 from onitu.plug import Plug, ServiceError
 
 plug = Plug()
+root = None
 flickr = None
 
 # ############################## OAUTH ######################################
@@ -22,6 +23,7 @@ class Flickr():
         self.oauth_token = oauth_token
         self.oauth_token_secret = oauth_token_secret
         self.root = root
+        self.photoset_id = None
 
         self.oauth = OAuth1(client_key,
                             client_secret=client_secret,
@@ -148,6 +150,19 @@ class Flickr():
 
         tree = ElementTree(fromstring(r)).getroot()
         photo_id = tree.find('photoid').text
+        r = self.list_photosets()
+
+        if self.photoset_id is None:
+            photoset_list = r.json()['photosets']['photoset']
+            for p in photoset_list:
+                if p['title']['_content'] == root and p['description']['_content'] == 'onitu':
+                    self.photoset_id = p['id']
+                    break;
+
+        if self.photoset_id is not None:
+            self.add_photo_to_photoset(photo_id, self.photoset_id)
+        else:
+            self.photoset_id = self.create_photoset(root, photo_id, 'onitu').json()['photoset']['id']
 
         metadata.extra['id'] = photo_id
         metadata.write()
@@ -275,6 +290,18 @@ class Flickr():
 
         return self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
 
+    def add_photo_to_photoset(self, photo_id, photoset_id):
+        params = {
+            'format': 'json',
+            'nojsoncallback': '1',
+            'photoset_id': photoset_id,
+            'photo_id': photo_id,
+            'method': 'flickr.photosets.addPhoto'
+        }
+
+        return self.call(requests.post, self.rest_url, params=params, auth=self.oauth)
+
+
     def create_photoset(self, title, primary_photo_id, description=None):
         params = {
             'format': 'json',
@@ -320,6 +347,7 @@ def delete_file(metadata):
 
 def start():
     # Clean the root
+    global root
     root = plug.options['root']
     if root.startswith('/'):
         root = root[1:]
