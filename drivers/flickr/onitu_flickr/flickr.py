@@ -41,8 +41,7 @@ class Flickr():
             'method': 'flickr.test.login'
         }
 
-        kwargs = dict(params=params, auth=self.oauth)
-        r = self.call(requests.get, self.rest_url, kwargs)
+        r = self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
         self.user_id = r.json()['user']['id']
 
 # ############################## UTILS ######################################
@@ -63,7 +62,7 @@ class Flickr():
             return metadata.extra['id']
         return self.search_file(metadata)
 
-    def call(self, func, url, kwargs):
+    def call(self, func, url, **kwargs):
         try:
             r = func(url, **kwargs)
         except requests.exceptions.RequestException:
@@ -96,8 +95,7 @@ class Flickr():
         auth = {'Authorization': headers.get('Authorization'),
                 'Content-Type': m.content_type}
 
-        kwargs = dict(data=m, headers=auth)
-        return self.call(requests.post, url, kwargs)
+        return self.call(requests.post, url, data=m, headers=auth)
 
     def search_file(self, metadata):
         """ Return None if no file or many files are found.
@@ -112,8 +110,7 @@ class Flickr():
             'tags': tag
         }
 
-        kwargs = dict(params=params, auth=self.oauth)
-        r = self.call(requests.get, self.rest_url, kwargs)
+        r = self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
         json = r.json()
 
         res_nb = len(json['photos']['photo'])
@@ -167,8 +164,7 @@ class Flickr():
                 'photo_id': photo_id
             }
 
-            kwargs = dict(params=params, auth=self.oauth)
-            r = self.call(requests.get, self.rest_url, kwargs)
+            r = self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
 
             # 5 = Original size
             url = r.json()['sizes']['size'][5]['source']
@@ -186,8 +182,7 @@ class Flickr():
                 'photo_id': photo_id
             }
 
-            kwargs = dict(params=params, auth=self.oauth)
-            self.call(requests.get, self.rest_url, kwargs)
+            self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
 
     def get_tag_id(self, photo_id, tag_name):
         try:
@@ -229,8 +224,7 @@ class Flickr():
             'photo_id': photo_id
         }
 
-        kwargs = dict(params=params, auth=self.oauth)
-        r = self.call(requests.get, self.rest_url, kwargs)
+        r = self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
         return r.json()
 
     def remove_tag(self, tag_id):
@@ -242,8 +236,7 @@ class Flickr():
             'tag_id': tag_id
         }
 
-        kwargs = dict(params=params, auth=self.oauth)
-        self.call(requests.post, self.rest_url, kwargs)
+        self.call(requests.post, self.rest_url, params=params, auth=self.oauth)
 
     def add_tags(self, photo_id, tags):
 
@@ -255,8 +248,7 @@ class Flickr():
             'tags': tags
         }
 
-        kwargs = dict(params=params, auth=self.oauth)
-        self.call(requests.post, self.rest_url, kwargs)
+        self.call(requests.post, self.rest_url, params=params, auth=self.oauth)
 
     def rename_file(self, photo_id, title):
 
@@ -269,8 +261,7 @@ class Flickr():
             'description': 'Uploaded by onitu'  # required parameter
         }
 
-        kwargs = dict(params=params, auth=self.oauth)
-        self.call(requests.post, self.rest_url, kwargs)
+        self.call(requests.post, self.rest_url, params=params, auth=self.oauth)
 
 # ############################# PHOTOSETS ###################################
 
@@ -282,8 +273,7 @@ class Flickr():
             'method': 'flickr.photosets.getList'
         }
 
-        kwargs = dict(params=params, auth=self.oauth)
-        return self.call(requests.get, self.rest_url, kwargs)
+        return self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
 
     def create_photoset(self, title, primary_photo_id, description=None):
         params = {
@@ -297,8 +287,7 @@ class Flickr():
 
         params = {k: v for k, v in params.items() if v is not None}
 
-        kwargs = dict(params=params, auth=self.oauth)
-        return self.call(requests.get, self.rest_url, kwargs)
+        return self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
 
 
 # ############################# ONITU BASIC ###################################
