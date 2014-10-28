@@ -43,7 +43,8 @@ class Flickr():
             'method': 'flickr.test.login'
         }
 
-        r = self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
+        r = self.call(requests.get, self.rest_url, params=params,
+                      auth=self.oauth)
         self.user_id = r.json()['user']['id']
 
 # ############################## UTILS ######################################
@@ -112,7 +113,8 @@ class Flickr():
             'tags': tag
         }
 
-        r = self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
+        r = self.call(requests.get, self.rest_url, params=params,
+                      auth=self.oauth)
         json = r.json()
 
         res_nb = len(json['photos']['photo'])
@@ -155,14 +157,16 @@ class Flickr():
         if self.photoset_id is None:
             photoset_list = r.json()['photosets']['photoset']
             for p in photoset_list:
-                if p['title']['_content'] == root and p['description']['_content'] == 'onitu':
+                if (p['title']['_content'] == root and
+                        p['description']['_content'] == 'onitu'):
                     self.photoset_id = p['id']
-                    break;
+                    break
 
         if self.photoset_id is not None:
             self.add_photo_to_photoset(photo_id, self.photoset_id)
         else:
-            self.photoset_id = self.create_photoset(root, photo_id, 'onitu').json()['photoset']['id']
+            r = self.create_photoset(root, photo_id, 'onitu')
+            self.photoset_id = r.json()['photoset']['id']
 
         metadata.extra['id'] = photo_id
         metadata.write()
@@ -179,7 +183,8 @@ class Flickr():
                 'photo_id': photo_id
             }
 
-            r = self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
+            r = self.call(requests.get, self.rest_url, params=params,
+                          auth=self.oauth)
 
             # 5 = Original size
             url = r.json()['sizes']['size'][5]['source']
@@ -197,7 +202,8 @@ class Flickr():
                 'photo_id': photo_id
             }
 
-            self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
+            self.call(requests.get, self.rest_url, params=params,
+                      auth=self.oauth)
 
     def get_tag_id(self, photo_id, tag_name):
         try:
@@ -239,7 +245,8 @@ class Flickr():
             'photo_id': photo_id
         }
 
-        r = self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
+        r = self.call(requests.get, self.rest_url, params=params,
+                      auth=self.oauth)
         return r.json()
 
     def remove_tag(self, tag_id):
@@ -288,7 +295,8 @@ class Flickr():
             'method': 'flickr.photosets.getList'
         }
 
-        return self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
+        return self.call(requests.get, self.rest_url, params=params,
+                         auth=self.oauth)
 
     def add_photo_to_photoset(self, photo_id, photoset_id):
         params = {
@@ -299,8 +307,8 @@ class Flickr():
             'method': 'flickr.photosets.addPhoto'
         }
 
-        return self.call(requests.post, self.rest_url, params=params, auth=self.oauth)
-
+        return self.call(requests.post, self.rest_url, params=params,
+                         auth=self.oauth)
 
     def create_photoset(self, title, primary_photo_id, description=None):
         params = {
@@ -314,7 +322,8 @@ class Flickr():
 
         params = {k: v for k, v in params.items() if v is not None}
 
-        return self.call(requests.get, self.rest_url, params=params, auth=self.oauth)
+        return self.call(requests.get, self.rest_url, params=params,
+                         auth=self.oauth)
 
 
 # ############################# ONITU BASIC ###################################
