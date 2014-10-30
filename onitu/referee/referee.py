@@ -50,6 +50,8 @@ class Referee(object):
             MOV: self._handle_move,
         }
 
+        self.publisher = self.context.socket(zmq.PUSH)
+
     def listen(self):
         """Listen to all the events, and handle them
         """
@@ -83,6 +85,7 @@ class Referee(object):
 
     def close(self):
         self.escalator.close()
+        self.publisher.close()
         self.context.term()
 
     def rule_match(self, rule, filename):
@@ -198,22 +201,17 @@ class Referee(object):
         if not drivers:
             return
 
-        publisher = self.context.socket(zmq.PUSH)
-        publisher.linger = 1000
-
         for name in drivers:
             self.escalator.put(
                 'entry:{}:event:{}'.format(name, fid), (cmd, args)
             )
 
-            publisher.connect(self.get_events_uri(name, 'dealer'))
-        try:
-            publisher.send(b'')
-        except zmq.ZMQError as e:
-            publisher.close(linger=0)
-            if e.errno == zmq.ETERM:
-                pass
+            uri = self.get_events_uri(name, 'dealer')
+            self.publisher.connect(uri)
+
+            try:
+                self.publisher.send(b'')
+            except zmq.ZMQError:
+                self.publisher.close(linger=0)
             else:
-                raise
-        else:
-            publisher.close()
+                self.publisher.disconnect(uri)
