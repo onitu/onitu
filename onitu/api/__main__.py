@@ -1,17 +1,17 @@
 import sys
 
-from sys import version_info
-if version_info.major == 2:
-    from urllib import unquote as unquote
-elif version_info.major == 3:
-    from urllib.parse import unquote as unquote
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
 from bottle import Bottle, run, response, abort, redirect
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
-from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint, u
+from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint, u, PY2
+
+if PY2:
+    from urllib import unquote as unquote_
+else:
+    from urllib.parse import unquote as unquote_
 
 host = 'localhost'
 port = 3862
@@ -33,6 +33,10 @@ def enable_cors():
     response.headers['Access-Control-Allow-Headers'] = (
         'Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
     )
+
+
+def unquote(string):
+    return u(unquote_(string))
 
 
 def entry(name):
