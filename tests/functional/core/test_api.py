@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import requests
 import time
 
@@ -9,24 +11,31 @@ elif version_info.major == 3:
 import pytest
 
 from tests.utils.loop import BooleanLoop
+from tests.utils.testdriver import TestDriver
 from tests.utils.units import KB
 
 from onitu.utils import get_fid
 
+rep1, rep2 = None, None
+
+
+def get_entries():
+    global rep1, rep2
+    rep1, rep2 = TestDriver(u'R€p1'), TestDriver(u'®èp2')
+    return rep1, rep2
+
+
 api_addr = "http://localhost:3862"
-monitoring_path = "/api/v1.0/entries/{}/{}"
+monitoring_path = u"/api/v1.0/entries/{}/{}"
 files_path = "/api/v1.0/files/{}/metadata"
 entries_path = "/api/v1.0/entries"
-
-rep1, rep2 = None, None
 
 STOP = ("stopped", "stopping")
 
 
 @pytest.fixture(autouse=True)
 def _(module_launcher, module_launcher_launch):
-    global rep1, rep2
-    rep1, rep2 = module_launcher.get_entries('rep1', 'rep2')
+    pass
 
 
 def get(*args, **kwargs):
@@ -123,7 +132,7 @@ def test_entry_fail():
 
 
 def test_entry():
-    url = "{}{}/{}".format(api_addr, entries_path, "rep1")
+    url = u"{}{}/{}".format(api_addr, entries_path, rep1.name)
 
     r = get(url)
     json = extract_json(r)
@@ -134,9 +143,9 @@ def test_entry():
 
 
 def test_file_id():
-    filename = "onitu,is*a project ?!_-.txt"
-    fid_path = "/api/v1.0/files/id/{}".format(quote(filename))
-    url = "{}{}".format(api_addr, fid_path)
+    filename = u"onitu,is*a project ?!_-ùñï©œð€.txt"
+    fid_path = u"/api/v1.0/files/id/{}".format(quote(filename.encode('utf-8')))
+    url = u"{}{}".format(api_addr, fid_path)
 
     r = get(url)
     json = extract_json(r)
@@ -202,7 +211,7 @@ def test_file(module_launcher):
 def test_stop(circus_client):
     start(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "stop")
-    url = "{}{}".format(api_addr, monitoring)
+    url = u"{}{}".format(api_addr, monitoring)
     r = put(url)
     json = extract_json(r)
     assert r.status_code == 200
@@ -216,7 +225,7 @@ def test_stop(circus_client):
 def test_start(circus_client):
     stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "start")
-    url = "{}{}".format(api_addr, monitoring)
+    url = u"{}{}".format(api_addr, monitoring)
     r = put(url)
     json = extract_json(r)
     assert r.status_code == 200
@@ -230,7 +239,7 @@ def test_start(circus_client):
 def test_restart(circus_client):
     start(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "restart")
-    url = "{}{}".format(api_addr, monitoring)
+    url = u"{}{}".format(api_addr, monitoring)
     r = put(url)
     json = extract_json(r)
     assert r.status_code == 200
@@ -243,12 +252,12 @@ def test_restart(circus_client):
 def test_stop_already_stopped(circus_client):
     stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "stop")
-    url = "{}{}".format(api_addr, monitoring)
+    url = u"{}{}".format(api_addr, monitoring)
     r = put(url)
     json = extract_json(r)
     assert r.status_code == 409
     assert json['status'] == "error"
-    assert json['reason'] == "entry {} is already stopped".format(
+    assert json['reason'] == u"entry {} is already stopped".format(
         rep1.name
     )
     assert is_running(circus_client, rep1.name) is False
@@ -258,12 +267,12 @@ def test_stop_already_stopped(circus_client):
 def test_start_already_started(circus_client):
     start(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "start")
-    url = "{}{}".format(api_addr, monitoring)
+    url = u"{}{}".format(api_addr, monitoring)
     r = put(url)
     json = extract_json(r)
     assert r.status_code == 409
     assert json['status'] == "error"
-    assert json['reason'] == "entry {} is already running".format(
+    assert json['reason'] == u"entry {} is already running".format(
         rep1.name
     )
     assert is_running(circus_client, rep1.name) is True
@@ -272,12 +281,12 @@ def test_start_already_started(circus_client):
 def test_restart_stopped(circus_client):
     stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "restart")
-    url = "{}{}".format(api_addr, monitoring)
+    url = u"{}{}".format(api_addr, monitoring)
     r = put(url)
     json = extract_json(r)
     assert r.status_code == 409
     assert json['status'] == "error"
-    assert json['reason'] == "entry {} is stopped".format(
+    assert json['reason'] == u"entry {} is stopped".format(
         rep1.name
     )
     assert is_running(circus_client, rep1.name) is False
@@ -289,7 +298,7 @@ def test_stats_running(circus_client):
     infos = ['age', 'cpu', 'create_time', 'ctime', 'mem', 'mem_info1',
              'mem_info2', 'started']
     monitoring = monitoring_path.format(rep1.name, "stats")
-    url = "{}{}".format(api_addr, monitoring)
+    url = u"{}{}".format(api_addr, monitoring)
     r = get(url)
     json = extract_json(r)
     assert r.status_code == 200
@@ -304,12 +313,12 @@ def test_stats_running(circus_client):
 def test_stats_stopped(circus_client):
     stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "stats")
-    url = "{}{}".format(api_addr, monitoring)
+    url = u"{}{}".format(api_addr, monitoring)
     r = get(url)
     json = extract_json(r)
     assert r.status_code == 409
     assert json['status'] == "error"
-    assert json['reason'] == "entry {} is stopped".format(
+    assert json['reason'] == u"entry {} is stopped".format(
         rep1.name
     )
     start(circus_client, rep1.name)
@@ -318,7 +327,7 @@ def test_stats_stopped(circus_client):
 def test_status_started(circus_client):
     start(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "status")
-    url = "{}{}".format(api_addr, monitoring)
+    url = u"{}{}".format(api_addr, monitoring)
     r = get(url)
     json = extract_json(r)
     assert r.status_code == 200
@@ -329,7 +338,7 @@ def test_status_started(circus_client):
 def test_status_stopped(circus_client):
     stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "status")
-    url = "{}{}".format(api_addr, monitoring)
+    url = u"{}{}".format(api_addr, monitoring)
     r = get(url)
     json = extract_json(r)
     assert r.status_code == 200
