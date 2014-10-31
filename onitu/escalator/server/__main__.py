@@ -5,7 +5,7 @@ import zmq
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
 
-from onitu.utils import at_exit, get_escalator_uri, get_logs_uri
+from onitu.utils import at_exit, get_escalator_uri, get_logs_uri, u
 
 from .databases import Databases
 from .worker import Worker
@@ -52,7 +52,7 @@ def cleanup():
     exit()
 
 
-session = sys.argv[1]
+session = u(sys.argv[1])
 databases = Databases('dbs')
 
 at_exit(cleanup)
