@@ -26,7 +26,7 @@ class Router(Thread):
         self.name = plug.name
         self.call = plug.call
         self.router = None
-        self.logger = Logger("{} - Router".format(self.name))
+        self.logger = Logger(u"{} - Router".format(self.name))
         self.context = plug.context
 
         self.handlers = {

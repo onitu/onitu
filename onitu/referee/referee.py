@@ -115,7 +115,7 @@ class Referee(object):
 
         if driver in owners:
             owners.remove(driver)
-            self.escalator.delete('file:{}:entry:{}'.format(fid, driver))
+            self.escalator.delete(u'file:{}:entry:{}'.format(fid, driver))
 
             metadata['owners'] = tuple(owners)
             self.escalator.put('file:{}'.format(fid), metadata)
@@ -147,7 +147,7 @@ class Referee(object):
 
         if driver in owners:
             owners.remove(driver)
-            self.escalator.delete('file:{}:entry:{}'.format(old_fid, driver))
+            self.escalator.delete(u'file:{}:entry:{}'.format(old_fid, driver))
 
             metadata['owners'] = tuple(owners)
             self.escalator.put('file:{}'.format(old_fid), metadata)
@@ -203,7 +203,7 @@ class Referee(object):
 
         for name in drivers:
             self.escalator.put(
-                'entry:{}:event:{}'.format(name, fid), (cmd, args)
+                u'entry:{}:event:{}'.format(name, fid), (cmd, args)
             )
 
             uri = self.get_events_uri(name, 'dealer')

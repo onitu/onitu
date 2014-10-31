@@ -22,7 +22,7 @@ from tornado import gen
 
 from .escalator.client import Escalator
 from .utils import get_logs_uri, IS_WINDOWS, get_stats_endpoint
-from .utils import get_circusctl_endpoint, get_pubsub_endpoint
+from .utils import get_circusctl_endpoint, get_pubsub_endpoint, u
 
 # Time given to each process (Drivers, Referee, API...) to
 # exit before being killed. This avoid any hang during
@@ -65,15 +65,15 @@ def start_setup(*args, **kwargs):
     for name, conf in entries.items():
         logger.debug("Loading entry {}", name)
 
-        if ':' in name:
+        if u':' in name:
             logger.error("Illegal character ':' in entry {}", name)
             continue
 
-        escalator.put('entry:{}:driver'.format(name), conf['driver'])
+        escalator.put(u'entry:{}:driver'.format(name), conf['driver'])
 
         if 'options' in conf:
             escalator.put(
-                'entry:{}:options'.format(name), conf['options']
+                u'entry:{}:options'.format(name), conf['options']
             )
 
         watcher = arbiter.add_watcher(

@@ -1,5 +1,4 @@
-
-from onitu.utils import get_fid, get_mimetype
+from onitu.utils import get_fid, get_mimetype, u
 
 
 class Metadata(object):
@@ -77,7 +76,7 @@ class Metadata(object):
         metadata = cls(plug, fid=fid, **values)
 
         metadata.extra = plug.escalator.get(
-            'file:{}:entry:{}'.format(fid, plug.name),
+            u'file:{}:entry:{}'.format(fid, plug.name),
             default={}
         )
 
@@ -92,7 +91,8 @@ class Metadata(object):
         with self.plug.escalator.write_batch() as batch:
             batch.put('file:{}'.format(self.fid), self.dict())
             batch.put(
-                'file:{}:entry:{}'.format(self.fid, self.plug.name), self.extra
+                u'file:{}:entry:{}'.format(self.fid, self.plug.name),
+                self.extra
             )
 
     def clone(self, new_filename):
@@ -111,6 +111,6 @@ class Metadata(object):
         with self.plug.escalator.write_batch() as batch:
             for key, extra in extras:
                 entry = key.split(':')[-1]
-                batch.put('file:{}:entry:{}'.format(clone.fid, entry), extra)
+                batch.put(u'file:{}:entry:{}'.format(clone.fid, entry), extra)
 
         return clone

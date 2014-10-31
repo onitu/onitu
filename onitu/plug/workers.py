@@ -56,7 +56,7 @@ class TransferWorker(Worker):
         if driver_chunk_size is not None:
             self.chunk_size = driver_chunk_size
 
-        self.transfer_key = ('entry:{}:transfer:{}'
+        self.transfer_key = (u'entry:{}:transfer:{}'
                              .format(self.dealer.name, self.fid))
 
     def do(self):
@@ -202,7 +202,7 @@ class DeletionWorker(Worker):
         self.metadata.write()
 
         self.escalator.delete(
-            'file:{}:entry:{}'.format(self.fid, self.dealer.name)
+            u'file:{}:entry:{}'.format(self.fid, self.dealer.name)
         )
 
         # If we were the last entry owning this file, we delete

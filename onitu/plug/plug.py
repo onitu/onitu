@@ -63,12 +63,12 @@ class Plug(object):
         self.publisher.connect(get_events_uri(session, 'referee'))
 
         self.options = self.escalator.get(
-            'entry:{}:options'.format(name), default={}
+            u'entry:{}:options'.format(name), default={}
         )
 
         self.validate_options(manifest)
 
-        self.escalator.put('drivers:{}:manifest'.format(name), manifest)
+        self.escalator.put(u'drivers:{}:manifest'.format(name), manifest)
 
         self.logger.info("Started")
 
@@ -132,7 +132,7 @@ class Plug(object):
         self.dealer.stop_transfer(fid)
         # We make sure that the key has been deleted
         # (if this event occurs before the transfer was restarted)
-        self.escalator.delete('entry:{}:transfer:{}'.format(self.name, fid))
+        self.escalator.delete(u'entry:{}:transfer:{}'.format(self.name, fid))
 
         if self.name not in metadata.owners:
             metadata.owners += (self.name,)
@@ -303,6 +303,6 @@ class Plug(object):
         instance.
         """
         if not self._entry_db:
-            prefix = 'entry:{}:db:'.format(self.name)
+            prefix = u'entry:{}:db:'.format(self.name)
             self._entry_db = self.escalator.clone(prefix=prefix)
         return self._entry_db

@@ -43,14 +43,14 @@ class Dealer(Thread):
     def listen(self, listener):
         while True:
             events = self.escalator.range(
-                prefix='entry:{}:event:'.format(self.name)
+                prefix=u'entry:{}:event:'.format(self.name)
             )
 
             for key, (cmd, args) in events:
                 fid = key.split(':')[-1]
                 self.call(cmd, fid, *args)
                 self.escalator.delete(
-                    'entry:{}:event:{}'.format(self.name, fid)
+                    u'entry:{}:event:{}'.format(self.name, fid)
                 )
 
             try:
@@ -73,7 +73,7 @@ class Dealer(Thread):
         :meth:`.Plug.listen`.
         """
         transfers = self.escalator.range(
-            prefix='entry:{}:transfer:'.format(self.name)
+            prefix=u'entry:{}:transfer:'.format(self.name)
         )
 
         if not transfers:

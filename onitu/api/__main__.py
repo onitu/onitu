@@ -11,7 +11,7 @@ from bottle import Bottle, run, response, abort, redirect
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
-from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint
+from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint, u
 
 host = 'localhost'
 port = 3862
@@ -36,10 +36,10 @@ def enable_cors():
 
 
 def entry(name):
-    driver = escalator.get('entry:{}:driver'.format(name), default=None)
+    driver = escalator.get(u'entry:{}:driver'.format(name), default=None)
     if not driver:
         return None
-    options = escalator.get('entry:{}:options'.format(name))
+    options = escalator.get(u'entry:{}:options'.format(name))
     return {'name': name, 'driver': driver, 'options': options}
 
 
@@ -86,7 +86,7 @@ def entry_not_found(name):
 
 
 def entry_not_running(name, already=False):
-    fmt = "entry {} is {}stopped".format
+    fmt = u"entry {} is {}stopped".format
     # "already" in case a stop has been requested on an already stopped entry
     err_msg = fmt(name, "already ") if already else fmt(name, "")
     return error(
@@ -218,7 +218,7 @@ def start_entry(name):
         if entry_is_running(name):
             return error(
                 error_code=409,
-                error_message="entry {} is already running".format(name)
+                error_message=u"entry {} is already running".format(name)
             )
         query = {
             "command": "start",
