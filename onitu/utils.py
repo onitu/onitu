@@ -20,6 +20,26 @@ TMPDIR = tempfile.gettempdir()
 
 NAMESPACE_ONITU = uuid.UUID('bcd336f2-d023-4856-bc92-e79dd24b64d7')
 
+UNICODE = unicode if PY2 else str
+
+
+def b(string):
+    """
+    Convert any string (bytes or unicode) to bytes
+    """
+    if type(string) == UNICODE:
+        return string.encode('utf-8')
+    return string
+
+
+def u(string):
+    """
+    Convert any string (bytes or unicode) to unicode
+    """
+    if type(string) == bytes:
+        return string.decode('utf-8')
+    return string
+
 
 def at_exit(callback, *args, **kwargs):
     """
