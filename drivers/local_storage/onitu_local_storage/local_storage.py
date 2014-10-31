@@ -4,7 +4,7 @@ from path import path
 
 from onitu.plug import Plug, DriverError, ServiceError
 from onitu.escalator.client import EscalatorClosed
-from onitu.utils import IS_WINDOWS
+from onitu.utils import IS_WINDOWS, u
 
 if IS_WINDOWS:
     import threading
@@ -31,7 +31,7 @@ def update(metadata, abs_path, mtime=None):
         metadata.extra['revision'] = mtime if mtime else abs_path.mtime
     except (IOError, OSError) as e:
         raise ServiceError(
-            "Error updating file '{}': {}".format(metadata.filename, e)
+            u"Error updating file '{}': {}".format(metadata.filename, e)
         )
     else:
         plug.update_file(metadata)
@@ -84,7 +84,7 @@ def check_changes():
             mtime = abs_path.mtime
         except (IOError, OSError) as e:
             raise ServiceError(
-                "Error updating file '{}': {}".format(filename, e)
+                u"Error updating file '{}': {}".format(filename, e)
             )
             mtime = 0.
 
@@ -102,7 +102,7 @@ def get_chunk(metadata, offset, size):
             return f.read(size)
     except (IOError, OSError) as e:
         raise ServiceError(
-            "Error getting file '{}': {}".format(filename, e)
+            u"Error getting file '{}': {}".format(filename, e)
         )
 
 
@@ -122,7 +122,7 @@ def start_upload(metadata):
                 tmp_file, win32con.FILE_ATTRIBUTE_HIDDEN)
     except IOError as e:
         raise ServiceError(
-            "Error creating file '{}': {}".format(tmp_file, e)
+            u"Error creating file '{}': {}".format(tmp_file, e)
         )
 
 
@@ -136,7 +136,7 @@ def upload_chunk(metadata, offset, chunk):
             f.write(chunk)
     except (IOError, OSError) as e:
         raise ServiceError(
-            "Error writting file '{}': {}".format(tmp_file, e)
+            u"Error writting file '{}': {}".format(tmp_file, e)
         )
 
 
@@ -158,7 +158,7 @@ def end_upload(metadata):
                 filename, win32con.FILE_ATTRIBUTE_NORMAL)
     except (IOError, OSError) as e:
         raise ServiceError(
-            "Error for file '{}': {}".format(filename, e)
+            u"Error for file '{}': {}".format(filename, e)
         )
 
     metadata.extra['revision'] = mtime
@@ -173,7 +173,7 @@ def abort_upload(metadata):
         tmp_file.unlink()
     except (IOError, OSError) as e:
         raise ServiceError(
-            "Error deleting file '{}': {}".format(tmp_file, e)
+            u"Error deleting file '{}': {}".format(tmp_file, e)
         )
 
 
@@ -185,7 +185,7 @@ def delete_file(metadata):
         filename.unlink()
     except (IOError, OSError) as e:
         raise ServiceError(
-            "Error deleting file '{}': {}".format(filename, e)
+            u"Error deleting file '{}': {}".format(filename, e)
         )
 
     delete_empty_dirs(filename)
@@ -204,7 +204,7 @@ def move_file(old_metadata, new_metadata):
         old_filename.rename(new_filename)
     except (IOError, OSError) as e:
         raise ServiceError(
-            "Error moving file '{}': {}".format(old_filename, e)
+            u"Error moving file '{}': {}".format(old_filename, e)
         )
 
     delete_empty_dirs(old_filename)
@@ -282,12 +282,12 @@ else:
             if event.dir:
                 for new in path(event.pathname).walkfiles():
                     old = new.replace(event.pathname, event.src_pathname)
-                    self.process_event(old, move, new)
+                    self.process_event(old, move, u(new))
             else:
-                self.process_event(event.src_pathname, move, event.pathname)
+                self.process_event(event.src_pathname, move, u(event.pathname))
 
         def process_event(self, abs_path, callback, *args):
-            abs_path = path(abs_path)
+            abs_path = path(u(abs_path))
 
             if abs_path.ext == TMP_EXT:
                 return
@@ -314,10 +314,10 @@ else:
 
 def start():
     global root
-    root = path(plug.options['root'])
+    root = path(u(plug.options['root']))
 
     if not root.access(os.W_OK | os.R_OK):
-        raise DriverError("The root '{}' is not accessible".format(root))
+        raise DriverError(u"The root '{}' is not accessible".format(root))
 
     watch_changes()
     check_changes()
