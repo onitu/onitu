@@ -88,16 +88,24 @@ class Plug(object):
         .. autoclass:: onitu.plug.router.Router
         .. autoclass:: onitu.plug.dealer.Dealer
         """
-        self.router.start()
+        self.router_thread = threading.Thread(
+            target=self.router.run, name='Router'
+        )
+        self.router_thread.start()
+
         self.dealer.resume_transfers()
-        self.dealer.start()
+
+        self.dealer_thread = threading.Thread(
+            target=self.dealer.run, name='Dealer'
+        )
+        self.dealer_thread.start()
 
         if wait:
-            while self.dealer.is_alive():
-                self.dealer.join(100)
+            while self.dealer_thread.is_alive():
+                self.dealer_thread.join(100)
 
-            while self.router.is_alive():
-                self.router.join(100)
+            while self.router_thread.is_alive():
+                self.router_thread.join(100)
 
     def handler(self, task=None):
         """Decorator used register a handler for a particular task.
