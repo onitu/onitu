@@ -3,6 +3,8 @@ import json
 from tests.utils.setup import Rule
 from tests.utils.testdriver import TestDriver
 
+from onitu.utils import u
+
 
 def test_startup(setup, launcher):
     rep1, rep2 = TestDriver('rep1'), TestDriver('rep2')
@@ -19,11 +21,11 @@ def test_startup(setup, launcher):
 
 
 def test_no_setup(setup, launcher):
-    error = (
-        "Can't process setup file '{setup}' : "
-        "[Errno 2] No such file or directory: '{setup}'"
-        .format(setup=setup.filename)
-    )
+    try:
+        with open(u(setup.filename)):
+            pass
+    except IOError as e:
+        error = "Can't process setup file '{}' : {}".format(setup.filename, e)
 
     try:
         launcher(wait=False, stderr=True, save_setup=False)
