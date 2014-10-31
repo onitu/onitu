@@ -5,7 +5,7 @@ import json
 
 from plyvel import destroy_db
 
-from onitu.utils import TMPDIR
+from onitu.utils import TMPDIR, b
 
 from .launcher import Launcher
 
@@ -60,7 +60,7 @@ class Setup(object):
 
         try:
             os.unlink(self.filename)
-            destroy_db('dbs/{}'.format(self.name))
+            destroy_db(u'dbs/{}'.format(self.name))
         except (OSError, IOError):
             pass
 
@@ -76,7 +76,7 @@ class Setup(object):
     @property
     def json(self):
         if not self._json:
-            self._json = json.dumps(self.dump, indent=2)
+            self._json = json.dumps(self.dump, indent=2, ensure_ascii=False)
 
         return self._json
 
@@ -89,7 +89,7 @@ class Setup(object):
         print(self.json)
 
         with open(self.filename, 'w+') as f:
-            f.write(self.json)
+            f.write(b(self.json))
 
     def get_launcher(self):
         return Launcher(self)
