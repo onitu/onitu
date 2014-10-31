@@ -84,7 +84,7 @@ class Metadata(object):
 
     def dict(self):
         """Return the metadata as a dict"""
-        return dict((p, self.__getattribute__(p)) for p in self.PROPERTIES)
+        return dict((u(p), self.__getattribute__(p)) for p in self.PROPERTIES)
 
     def write(self):
         """Write the metadata of the current file in the database."""
