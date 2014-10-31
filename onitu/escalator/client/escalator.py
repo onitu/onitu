@@ -3,7 +3,7 @@ from threading import Lock
 import zmq
 
 from onitu.escalator import protocol
-from onitu.utils import get_escalator_uri
+from onitu.utils import get_escalator_uri, b, u
 
 from .batch import WriteBatch
 
@@ -69,7 +69,7 @@ class Escalator(object):
 
     def get(self, key, **kwargs):
         try:
-            value = self._request(protocol.cmd.GET, key)[0]
+            value = self._request(protocol.cmd.GET, b(key))[0]
 
             if kwargs.get('pack', True):
                 value = protocol.msg.unpack_msg(value)
@@ -82,15 +82,15 @@ class Escalator(object):
         return value
 
     def exists(self, key):
-        return self._request(protocol.cmd.EXISTS, key)[0]
+        return self._request(protocol.cmd.EXISTS, b(key))[0]
 
     def put(self, key, value, pack=True):
         if pack:
             value = protocol.msg.pack_arg(value)
-        self._request(protocol.cmd.PUT, key, value)
+        self._request(protocol.cmd.PUT, b(key), value)
 
     def delete(self, key):
-        self._request(protocol.cmd.DELETE, key)
+        self._request(protocol.cmd.DELETE, b(key))
 
     def range(self,
               prefix=None, start=None, stop=None,
@@ -98,13 +98,13 @@ class Escalator(object):
               include_key=True, include_value=True,
               reverse=False, pack=True):
         values = self._request_multi(protocol.cmd.RANGE,
-                                     prefix, start, stop,
+                                     b(prefix), b(start), b(stop),
                                      include_start, include_stop,
                                      include_key, include_value,
                                      reverse)
         if pack and include_value:
             if include_key:
-                values = tuple((key.decode(), protocol.msg.unpack_msg(value))
+                values = tuple((u(key), protocol.msg.unpack_msg(value))
                                for key, value in values)
             else:
                 values = tuple(protocol.msg.unpack_msg(value)
