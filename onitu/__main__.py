@@ -133,7 +133,7 @@ def main():
 
     parser = argparse.ArgumentParser("onitu")
     parser.add_argument(
-        '--setup', default='setup.json',
+        '--setup', default='setup.json', type=u,
         help="A JSON file with Onitu's configuration (defaults to setup.json)"
     )
     parser.add_argument(
