@@ -1,26 +1,23 @@
 {
   "name": "Evernote",
-  "description": "Driver to synchronize files with an Evernote account.",
+  "description": "Store files on your Evernote account.",
   "options": {
-
     "root": {
       "name": "Root",
       "description": "The root of the directories under Onitu's watch",
       "type": "string",
-      "default": ""
+      "default": "basic_evernote_root_for_onitu"
     },
-
-    "oauth_token": {
-      "name": "Oauth token",
-      "description": "Your oauth token",
-      "type": "string"
-    },
-
     "changes_timer": {
-      "name": "Changes timer",
-      "description": "The frequency to check changes on the Evernote account (in seconds).",
+      "name": "Timer for modification check",
+      "description": "Time in seconds between two checks for files modifications",
       "type": "integer",
-      "default": 10
+      "default": 15
+    },
+    "token": {
+      "name": "Your evenote token",
+      "description": "Your evernote token retrieved with the get_token.py script",
+      "type": "string"
     }
   }
 }

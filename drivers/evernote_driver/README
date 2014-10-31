@@ -1,3 +1,40 @@
 Getting started with the Evernote driver
 ========================================
 
+The Evernote driver create a notebook which has the name of your root parameter and encapsulate your files in Evernote 'notes' inside this notebook.
+That's means that you can modify these notes (add text, modify the title...) but you cannot add other resources inside a note.
+
+To add new synchronized files from your Evernote web interface or client, create a new note and add a file inside with "join a file". The file will be downloaded on onitu.
+
+BE CAREFULL : WHEN YOU ADD A FILE FROM EVERNOTE, THIS FILE WILL BE DOWNLOADED IN THE ONITU ROOT FOLDER, IF YOU HAVE A FILE WITH THE SAME NAME, IT WILL BE REPLACED.
+
+An example of setup.json:
+
+{
+  "name": "example",
+
+  "entries": {
+    "LOC": {
+      "driver": "local_storage",
+      "options": {
+        "root": "example/loc"
+      }
+    },
+    "EVERNOTE": {
+      "driver": "evernote_driver",
+      "options": {
+        "root": "my/path/to/my/folder",
+	"token": "my_token",
+        "changes_timer": 10
+      }
+    }
+  },
+
+  "rules": [
+    {
+      "match": {"path": "/"},
+      "sync": ["LOC", "EVERNOTE"]
+    }
+  ]
+
+}
