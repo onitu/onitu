@@ -5,7 +5,7 @@ from collections import defaultdict
 import logbook
 from logbook.queues import ZeroMQSubscriber
 
-from onitu.utils import get_logs_uri
+from onitu.utils import get_logs_uri, u
 
 from .loop import CounterLoop
 from .logs import logs
@@ -152,8 +152,8 @@ class Launcher(object):
         def caller(action, unique=True, **kwargs):
             triggers = set(
                 (
-                    channel.format(**kwargs),
-                    message.format(**kwargs)
+                    u(channel).format(**kwargs),
+                    u(message).format(**kwargs)
                 )
                 for (channel, message) in log_triggers
             )
