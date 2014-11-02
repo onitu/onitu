@@ -2,12 +2,6 @@
   "name": "Amazon S3",
   "description": "Driver to synchronize files with an AWS S3 bucket.",
   "options": {
-    "root": {
-      "name": "Root",
-      "description": "The root of the directories under Onitu's watch",
-      "type": "string",
-      "default": ""
-    },
     "bucket": {
       "name": "S3 Bucket",
       "description": "The S3 bucket this driver synchronizes with",

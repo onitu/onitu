@@ -1,6 +1,4 @@
 import os
-import re
-import mimetypes
 import functools
 
 import zmq
@@ -22,14 +20,14 @@ class Referee(object):
 
     The Referee give orders to the entries via his PUB ZMQ socket,
     whose port is stored in the Redis 'referee:publisher' key.
-    The Plug of each entry should subscribe to this port with a PULL
+    The Plug of each service should subscribe to this port with a PULL
     socket and subscribe to all the events starting by their name.
 
     The notifications are sent to the publishers as multipart
     messages with three parts :
 
     - The name of the addressee (the channel)
-    - The name of the entry from which the file should be transferred
+    - The name of the service from which the file should be transferred
     - The id of the file
     """
 
@@ -41,8 +39,11 @@ class Referee(object):
         self.escalator = Escalator(session)
         self.get_events_uri = functools.partial(get_events_uri, session)
 
-        self.entries = self.escalator.get('entries')
-        self.rules = self.escalator.get('referee:rules')
+        self.services = self.escalator.get('services', default=[])
+        self.folders = {
+            key.split(':')[-1]: options
+            for key, options in self.escalator.range('folders')
+        }
 
         self.handlers = {
             UP: self._handle_update,
@@ -88,17 +89,6 @@ class Referee(object):
         self.publisher.close()
         self.context.term()
 
-    def rule_match(self, rule, filename):
-        if not re.match(rule["match"].get("path", ""), filename):
-            return False
-
-        filemime = set(mimetypes.guess_type(filename))
-        wanted = rule["match"].get("mime", [])
-        if wanted and filemime.isdisjoint(wanted):
-            return False
-
-        return True
-
     def _handle_deletion(self, fid, driver):
         """
         Notify the owners when a file is deleted
@@ -115,7 +105,7 @@ class Referee(object):
 
         if driver in owners:
             owners.remove(driver)
-            self.escalator.delete(u'file:{}:entry:{}'.format(fid, driver))
+            self.escalator.delete(u'file:{}:service:{}'.format(fid, driver))
 
             metadata['owners'] = tuple(owners)
             self.escalator.put('file:{}'.format(fid), metadata)
@@ -147,7 +137,7 @@ class Referee(object):
 
         if driver in owners:
             owners.remove(driver)
-            self.escalator.delete(u'file:{}:entry:{}'.format(old_fid, driver))
+            self.escalator.delete(u'file:{}:service:{}'.format(old_fid, driver))
 
             metadata['owners'] = tuple(owners)
             self.escalator.put('file:{}'.format(old_fid), metadata)
@@ -177,12 +167,9 @@ class Referee(object):
             self.logger.debug("The file '{}' was not suposed to be on {}, "
                               "but syncing anyway.", filename, driver)
 
-        should_own = set(uptodate)
-
-        for rule in self.rules:
-            if self.rule_match(rule, filename):
-                should_own.update(rule.get("sync", []))
-                should_own.difference_update(rule.get("ban", []))
+        # We sync each file with every services as we don't handle
+        # folders yet
+        should_own = set(self.services)
 
         if should_own != owners:
             metadata['owners'] = list(should_own)
@@ -203,7 +190,7 @@ class Referee(object):
 
         for name in drivers:
             self.escalator.put(
-                u'entry:{}:event:{}'.format(name, fid), (cmd, args)
+                u'service:{}:event:{}'.format(name, fid), (cmd, args)
             )
 
             uri = self.get_events_uri(name, 'dealer')

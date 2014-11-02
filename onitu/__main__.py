@@ -14,6 +14,8 @@ import argparse
 import json
 import circus
 
+from itertools import chain
+
 from logbook import Logger, INFO, DEBUG, NullHandler, NestedSetup
 from logbook.queues import ZeroMQHandler, ZeroMQSubscriber
 from logbook.more import ColorizedStderrHandler
@@ -43,60 +45,78 @@ def start_setup(*args, **kwargs):
     """
     escalator = Escalator(session, create_db=True)
 
-    escalator.put('referee:rules', setup.get('rules', []))
+    with escalator.write_batch() as batch:
+        # TODO: handle folders from previous run
+        for name, options in setup.get('folders', {}).items():
+            batch.put(u'folder:{}'.format(name), options)
 
-    entries = setup.get('entries')
-    if not entries:
-        logger.warn("No entries specified in '{}'", setup_file)
-        yield arbiter.stop()
+    services = setup.get('services', {})
+    escalator.put('services', list(services.keys()))
 
-    escalator.put('entries', list(entries.keys()))
+    yield start_watcher("Referee", 'onitu.referee')
 
-    referee = arbiter.add_watcher(
-        "Referee",
-        sys.executable,
-        args=('-m', 'onitu.referee', session),
-        copy_env=True,
-        graceful_timeout=GRACEFUL_TIMEOUT
-    )
+    for service, conf in services.items():
+        yield load_service(escalator, service, conf)
 
-    yield referee.start()
+    logger.debug("Services loaded")
 
-    for name, conf in entries.items():
-        logger.debug("Loading entry {}", name)
+    yield start_watcher("Rest API", 'onitu.api')
 
-        if u':' in name:
-            logger.error("Illegal character ':' in entry {}", name)
-            continue
 
-        escalator.put(u'entry:{}:driver'.format(name), conf['driver'])
+@gen.coroutine
+def load_service(escalator, service, conf):
+    logger.debug("Loading service {}", service)
 
-        if 'options' in conf:
-            escalator.put(
-                u'entry:{}:options'.format(name), conf['options']
-            )
+    if ':' in service:
+        logger.error("Illegal character ':' in service {}", service)
+        return
 
-        watcher = arbiter.add_watcher(
-            name,
-            sys.executable,
-            args=('-m', 'onitu.drivers',
-                  conf['driver'], session, name),
-            copy_env=True,
-            graceful_timeout=GRACEFUL_TIMEOUT
+    if 'driver' not in conf:
+        logger.error("Service {} does not specify a driver.", service)
+        return
+
+    escalator.put(u'service:{}:driver'.format(service), conf['driver'])
+    escalator.put(u'service:{}:root'.format(service), conf.get('root', ''))
+
+    if 'options' in conf:
+        escalator.put(
+            u'service:{}:options'.format(service), conf['options']
         )
 
-        yield watcher.start()
+    for name, options in conf.get('folders', {}).items():
+        if not escalator.exists('folder:{}'.format(name)):
+            logger.warning(
+                'Unknown folder {} in service {}', name, service
+            )
+            continue
 
-    logger.debug("Entries loaded")
+        if type(options) != dict:
+            path = options
+            options = {}
+        else:
+            path = options.pop('path', '/')
 
-    api = arbiter.add_watcher(
-        "Rest API",
+        escalator.put(
+            u'service:{}:folder:{}:path'.format(service, name), path
+        )
+        escalator.put(
+            u'service:{}:folder:{}:options'.format(service, name), options
+        )
+
+    yield start_watcher(service, 'onitu.service', conf['driver'], service)
+
+
+@gen.coroutine
+def start_watcher(name, module, *args, **kwargs):
+    watcher = arbiter.add_watcher(
+        name,
         sys.executable,
-        args=['-m', 'onitu.api', session],
+        args=list(chain(['-m', module, session], args)),
         copy_env=True,
-        graceful_timeout=GRACEFUL_TIMEOUT
+        graceful_timeout=GRACEFUL_TIMEOUT,
+        **kwargs
     )
-    yield api.start()
+    yield watcher.start()
 
 
 def get_logs_dispatcher(uri, debug=False):

@@ -9,7 +9,7 @@ def _(module_launcher_launch):
 
 
 def copy_file(launcher, filename, size):
-    src, dest = launcher.get_entries('rep1', 'rep2')
+    src, dest = launcher.get_services('rep1', 'rep2')
     launcher.unset_all_events()
     loop = BooleanLoop()
     launcher.on_transfer_ended(
@@ -35,15 +35,15 @@ def delete_file(launcher, src, dest):
 
 
 def test_deletion_from_rep1(module_launcher):
-    delete_file(module_launcher, *module_launcher.get_entries('rep2', 'rep1'))
+    delete_file(module_launcher, *module_launcher.get_services('rep2', 'rep1'))
 
 
 def test_deletion_from_rep2(module_launcher):
-    delete_file(module_launcher, *module_launcher.get_entries('rep1', 'rep2'))
+    delete_file(module_launcher, *module_launcher.get_services('rep1', 'rep2'))
 
 
 def test_delete_dir(module_launcher):
-    src, dest = module_launcher.get_entries('rep1', 'rep2')
+    src, dest = module_launcher.get_services('rep1', 'rep2')
     src.mkdir('dir')
     copy_file(module_launcher, 'dir/foo', 100)
     copy_file(module_launcher, 'dir/bar', 100)

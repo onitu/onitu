@@ -1,30 +1,28 @@
 {
   "name": "example",
 
-  "entries": {
+  "folders": {
+    "music": {},
+    "docs": {},
+    "backup": {}
+  },
+
+  "services": {
     "A": {
       "driver": "local_storage",
-      "options": {
-        "root": "example/driver_a"
+      "root": "example/driver_a",
+      "folders": {
+        "music": "My Music",
+        "docs": "My Documents"
       }
     },
     "B": {
       "driver": "local_storage",
-      "options": {
-        "root": "example/driver_b"
+      "root": "example/driver_b",
+      "folders": {
+        "music": "Music",
+        "docs": "Docs"
       }
     }
-  },
-
-  "rules": [
-    {
-      "match": {"path": "/"},
-      "sync": ["A"]
-    },
-    {
-      "match": {"path": "/backedup/", "mime": ["application/pdf"]},
-      "sync": ["B"]
-    }
-  ]
-
+  }
 }

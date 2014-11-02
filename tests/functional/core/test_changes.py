@@ -9,7 +9,7 @@ def _(module_auto_setup):
 
 
 def launch_with_files(launcher, prefix, n, size, delete=True):
-    src, dest = launcher.get_entries('rep1', 'rep2')
+    src, dest = launcher.get_services('rep1', 'rep2')
     files = ['{}{}'.format(prefix, i) for i in range(n)]
 
     try:

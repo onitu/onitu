@@ -3,7 +3,7 @@ from circus.client import CircusClient
 
 from onitu.utils import get_circusctl_endpoint
 
-from .setup import Setup, Rule
+from .setup import Setup
 from .testdriver import TestDriver
 
 
@@ -13,20 +13,19 @@ def _get_setup(request):
     return setup
 
 
-def _get_entries(request):
-    get_entries = getattr(request.module, 'get_entries', None)
-    if get_entries is None:
+def _get_services(request):
+    get_services = getattr(request.module, 'get_services', None)
+    if get_services is None:
         return TestDriver('rep1'), TestDriver('rep2')
-    return get_entries()
+    return get_services()
 
 
 def _init_setup(request, setup):
     init_setup = getattr(request.module, 'init_setup', None)
     if init_setup is None:
-        entries = _get_entries(request)
-        for e in entries:
+        services = _get_services(request)
+        for e in services:
             setup.add(e)
-        setup.add_rule(Rule().match_path('/').sync(*[e.name for e in entries]))
     else:
         init_setup(setup)
 

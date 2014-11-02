@@ -9,7 +9,7 @@ from tests.utils.helpers import copy_file, move_file, delete_file
 d_target, d_test = None, None
 
 
-def get_entries():
+def get_services():
     global d_target, d_test
     d_target, d_test = TargetDriver(u'®ép1'), TestDriver(u'®èp2')
     return d_target, d_test

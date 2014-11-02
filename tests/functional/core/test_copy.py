@@ -10,7 +10,7 @@ def _(module_launcher_launch):
 
 
 def copy_file(launcher, filename, size):
-    src, dest = launcher.get_entries('rep1', 'rep2')
+    src, dest = launcher.get_services('rep1', 'rep2')
     launcher.unset_all_events()
     loop = BooleanLoop()
     launcher.on_transfer_ended(
@@ -53,5 +53,5 @@ def test_empty_file(module_launcher):
 
 
 def test_subdirectories(module_launcher):
-    module_launcher.entries['rep1'].mkdir('sub/dir/deep/')
+    module_launcher.services['rep1'].mkdir('sub/dir/deep/')
     copy_file(module_launcher, 'sub/dir/deep/file', 100)

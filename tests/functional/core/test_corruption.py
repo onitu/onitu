@@ -6,7 +6,7 @@ from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop
 
 
-def get_entries():
+def get_services():
     # We use chunks of size 1 to slow down the transfers. This way, we have
     # more chances to stop a transfer before its completion
     return TestDriver('rep1'), TestDriver('rep2', speed_bump=True)
@@ -18,7 +18,7 @@ def _(module_launcher_launch):
 
 
 def corruption(launcher, filename, size, newcontent):
-    rep1, rep2 = launcher.get_entries('rep1', 'rep2')
+    rep1, rep2 = launcher.get_services('rep1', 'rep2')
     content_hash = hashlib.md5(newcontent.encode()).hexdigest()
     start_loop = BooleanLoop()
     launcher.on_transfer_started(

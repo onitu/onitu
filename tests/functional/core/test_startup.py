@@ -1,6 +1,5 @@
 import json
 
-from tests.utils.setup import Rule
 from tests.utils.testdriver import TestDriver
 
 from onitu.utils import u
@@ -11,7 +10,6 @@ def test_startup(setup, launcher):
 
     setup.add(rep1)
     setup.add(rep2)
-    setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
 
     try:
         launcher()

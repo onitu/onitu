@@ -87,18 +87,18 @@ Files
       "uptodate": ["A", "C"]
     }
 
-Entries
+services
 -------
 
-.. http:get:: /entries
+.. http:get:: /services
 
-  List all the entries.
+  List all the services.
 
   **Example request**:
 
   .. sourcecode:: http
 
-    GET /api/v1.0/entries HTTP/1.1
+    GET /api/v1.0/services HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -111,7 +111,7 @@ Entries
     Content-Type: application/json
 
     {
-      "entries": [
+      "services": [
         {
           "name": "A",
           "driver": "local_storage",
@@ -130,15 +130,15 @@ Entries
     }
 
 
-.. http:get:: /entries/(name)
+.. http:get:: /services/(name)
 
-  Return the description of a given entry.
+  Return the description of a given service.
 
   **Example request**:
 
   .. sourcecode:: http
 
-    GET /api/v1.0/entries/A HTTP/1.1
+    GET /api/v1.0/services/A HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -158,15 +158,15 @@ Entries
       }
     }
 
-.. http:get:: /entries/(name)/stats
+.. http:get:: /services/(name)/stats
 
-  Return the stats of a given entry (age, cpu, memory, status, name).
+  Return the stats of a given service (age, cpu, memory, status, name).
 
   **Example request**:
 
   .. sourcecode:: http
 
-    GET /api/v1.0/entries/A/stats HTTP/1.1
+    GET /api/v1.0/services/A/stats HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -203,7 +203,7 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A not found",
+      "reason": "service A not found",
       "status": "error",
     }
 
@@ -214,19 +214,19 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A is not running",
+      "reason": "service A is not running",
       "status": "error",
     }
 
-.. http:get:: /entries/(name)/status
+.. http:get:: /services/(name)/status
 
-  Return the status of a given entry.
+  Return the status of a given service.
 
   **Example request**:
 
   .. sourcecode:: http
 
-    GET /api/v1.0/entries/A/status HTTP/1.1
+    GET /api/v1.0/services/A/status HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -265,19 +265,19 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A not found",
+      "reason": "service A not found",
       "status": "error",
     }
 
-.. http:put:: /entries/(name)/stop
+.. http:put:: /services/(name)/stop
 
-  Stop a given entry.
+  Stop a given service.
 
   **Example request**:
 
   .. sourcecode:: http
 
-    PUT /api/v1.0/entries/A/stop HTTP/1.1
+    PUT /api/v1.0/services/A/stop HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -304,7 +304,7 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A not found",
+      "reason": "service A not found",
       "status": "error",
     }
 
@@ -315,19 +315,19 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A is already stopped",
+      "reason": "service A is already stopped",
       "status": "error",
     }
 
-.. http:put:: /entries/(name)/start
+.. http:put:: /services/(name)/start
 
-  Start a given entry.
+  Start a given service.
 
   **Example request**:
 
   .. sourcecode:: http
 
-    PUT /api/v1.0/entries/A/start HTTP/1.1
+    PUT /api/v1.0/services/A/start HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -354,7 +354,7 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A not found",
+      "reason": "service A not found",
       "status": "error",
     }
 
@@ -365,19 +365,19 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A is already running",
+      "reason": "service A is already running",
       "status": "error",
     }
 
-.. http:put:: /entries/(name)/restart
+.. http:put:: /services/(name)/restart
 
-  Stop and start a given entry.
+  Stop and start a given service.
 
   **Example request**:
 
   .. sourcecode:: http
 
-    PUT /api/v1.0/entries/A/restart HTTP/1.1
+    PUT /api/v1.0/services/A/restart HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -404,7 +404,7 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A not found",
+      "reason": "service A not found",
       "status": "error",
     }
 
@@ -415,7 +415,7 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A is not running",
+      "reason": "service A is not running",
       "status": "error",
     }
 

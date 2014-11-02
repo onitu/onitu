@@ -4,7 +4,7 @@ from tests.utils.testdriver import TestDriver
 from tests.utils.loop import CounterLoop, BooleanLoop
 
 
-def get_entries():
+def get_services():
     return (TestDriver('rep1', speed_bump=True),
             TestDriver('rep2', speed_bump=True))
 
@@ -54,10 +54,10 @@ def crash(launcher, filename, src, dest):
 
 
 def test_crash_rep1_to_rep2(launcher):
-    crash(launcher, 'crash_1', launcher.entries['rep1'],
-          launcher.entries['rep2'])
+    crash(launcher, 'crash_1', launcher.services['rep1'],
+          launcher.services['rep2'])
 
 
 def test_crash_rep2_to_rep1(launcher):
-    crash(launcher, 'crash_2', launcher.entries['rep2'],
-          launcher.entries['rep1'])
+    crash(launcher, 'crash_2', launcher.services['rep2'],
+          launcher.services['rep1'])

@@ -374,7 +374,7 @@ def start():
     global plug
 
     # Clean the root
-    root = plug.options[u'root']
+    root = plug.root
     if root.startswith('/'):
         root = root[1:]
     if root.endswith('/'):

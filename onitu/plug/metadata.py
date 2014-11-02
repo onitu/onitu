@@ -24,7 +24,7 @@ class Metadata(object):
     **mimetype**
         The MIME type of the file, as detected by python
 
-    Each entry can also store extra informations via the :attr:`.extra`
+    Each service can also store extra informations via the :attr:`.extra`
     attribute. It's a dictionary which can contain any kind of information,
     as long as it's JSON serializable.
     Those informations will not be shared with the other entries, as they
@@ -76,7 +76,7 @@ class Metadata(object):
         metadata = cls(plug, fid=fid, **values)
 
         metadata.extra = plug.escalator.get(
-            u'file:{}:entry:{}'.format(fid, plug.name),
+            u'file:{}:service:{}'.format(fid, plug.name),
             default={}
         )
 
@@ -91,7 +91,7 @@ class Metadata(object):
         with self.plug.escalator.write_batch() as batch:
             batch.put('file:{}'.format(self.fid), self.dict())
             batch.put(
-                u'file:{}:entry:{}'.format(self.fid, self.plug.name),
+                u'file:{}:service:{}'.format(self.fid, self.plug.name),
                 self.extra
             )
 
@@ -99,18 +99,21 @@ class Metadata(object):
         """
         Return a new Metadata object with the same properties than the current,
         but with a new filename. The object is not saved in the database, but
-        the entry's extras are copied and saved.
+        the service's extras are copied and saved.
         """
         values = self.dict()
         values['filename'] = new_filename
 
         clone = self.__class__(self.plug, **values)
 
-        extras = self.plug.escalator.range('file:{}:entry:'.format(self.fid))
+        extras = self.plug.escalator.range('file:{}:service:'.format(self.fid))
 
         with self.plug.escalator.write_batch() as batch:
             for key, extra in extras:
-                entry = key.split(':')[-1]
-                batch.put(u'file:{}:entry:{}'.format(clone.fid, entry), extra)
+                service = key.split(':')[-1]
+                batch.put(
+                    u'file:{}:service:{}'.format(clone.fid, service),
+                    extra
+                )
 
         return clone

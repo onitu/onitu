@@ -19,16 +19,16 @@ from onitu.utils import get_fid
 rep1, rep2 = None, None
 
 
-def get_entries():
+def get_services():
     global rep1, rep2
     rep1, rep2 = TestDriver(u'R€p1'), TestDriver(u'®èp2')
     return rep1, rep2
 
 
 api_addr = "http://localhost:3862"
-monitoring_path = u"/api/v1.0/entries/{}/{}"
+monitoring_path = u"/api/v1.0/services/{}/{}"
 files_path = "/api/v1.0/files/{}/metadata"
-entries_path = "/api/v1.0/entries"
+services_path = "/api/v1.0/services"
 
 STOP = ("stopped", "stopping")
 
@@ -106,33 +106,33 @@ def create_file(module_launcher, filename, size):
     loop.run(timeout=10)
 
 
-def test_entries():
-    url = "{}{}".format(api_addr, entries_path)
+def test_services():
+    url = "{}{}".format(api_addr, services_path)
 
     r = get(url)
     json = extract_json(r)
-    assert "entries" in json
-    j = json['entries']
-    entries = sorted(j, key=lambda x: x['name'])
-    assert len(entries) == 2
-    for (entry, rep) in zip(entries, (rep1, rep2)):
-        assert entry['driver'] == rep.type
-        assert entry['name'] == rep.name
-        assert entry['options'] == rep.options
+    assert "services" in json
+    j = json['services']
+    services = sorted(j, key=lambda x: x['name'])
+    assert len(services) == 2
+    for (service, rep) in zip(services, (rep1, rep2)):
+        assert service['driver'] == rep.type
+        assert service['name'] == rep.name
+        assert service['options'] == rep.options
 
 
-def test_entry_fail():
-    url = "{}{}/{}".format(api_addr, entries_path, "fail-repo")
+def test_service_fail():
+    url = "{}{}/{}".format(api_addr, services_path, "fail-repo")
 
     r = get(url)
     json = extract_json(r)
     assert r.status_code == 404
     assert json['status'] == "error"
-    assert json['reason'] == "entry fail-repo not found"
+    assert json['reason'] == "service fail-repo not found"
 
 
-def test_entry():
-    url = u"{}{}/{}".format(api_addr, entries_path, rep1.name)
+def test_service():
+    url = u"{}{}/{}".format(api_addr, services_path, rep1.name)
 
     r = get(url)
     json = extract_json(r)
@@ -257,7 +257,7 @@ def test_stop_already_stopped(circus_client):
     json = extract_json(r)
     assert r.status_code == 409
     assert json['status'] == "error"
-    assert json['reason'] == u"entry {} is already stopped".format(
+    assert json['reason'] == u"service {} is already stopped".format(
         rep1.name
     )
     assert is_running(circus_client, rep1.name) is False
@@ -272,7 +272,7 @@ def test_start_already_started(circus_client):
     json = extract_json(r)
     assert r.status_code == 409
     assert json['status'] == "error"
-    assert json['reason'] == u"entry {} is already running".format(
+    assert json['reason'] == u"service {} is already running".format(
         rep1.name
     )
     assert is_running(circus_client, rep1.name) is True
@@ -286,7 +286,7 @@ def test_restart_stopped(circus_client):
     json = extract_json(r)
     assert r.status_code == 409
     assert json['status'] == "error"
-    assert json['reason'] == u"entry {} is stopped".format(
+    assert json['reason'] == u"service {} is stopped".format(
         rep1.name
     )
     assert is_running(circus_client, rep1.name) is False
@@ -318,7 +318,7 @@ def test_stats_stopped(circus_client):
     json = extract_json(r)
     assert r.status_code == 409
     assert json['status'] == "error"
-    assert json['reason'] == u"entry {} is stopped".format(
+    assert json['reason'] == u"service {} is stopped".format(
         rep1.name
     )
     start(circus_client, rep1.name)

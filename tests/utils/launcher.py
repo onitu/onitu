@@ -121,12 +121,12 @@ class Launcher(object):
             self.setup.save()
 
         if wait:
-            loop = CounterLoop(len(self.setup.entries) + api + 1)
+            loop = CounterLoop(len(self.setup.services) + api + 1)
             self.on_referee_started(loop.check)
             if api:
                 self.on_api_started(loop.check)
-            for entry in self.setup.entries.values():
-                self.on_driver_started(loop.check, driver=entry.name)
+            for service in self.setup.services.values():
+                self.on_driver_started(loop.check, driver=service.name)
 
         self.process = Popen(
             ('onitu', '--setup', self.setup.filename, '--no-dispatcher'),
@@ -167,8 +167,8 @@ class Launcher(object):
         return self.__getattribute__(name)
 
     @property
-    def entries(self):
-        return self.setup.entries
+    def services(self):
+        return self.setup.services
 
-    def get_entries(self, *names):
-        return [self.entries[name] for name in names]
+    def get_services(self, *names):
+        return [self.services[name] for name in names]

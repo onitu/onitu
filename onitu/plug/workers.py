@@ -56,7 +56,7 @@ class TransferWorker(Worker):
         if driver_chunk_size is not None:
             self.chunk_size = driver_chunk_size
 
-        self.transfer_key = (u'entry:{}:transfer:{}'
+        self.transfer_key = (u'service:{}:transfer:{}'
                              .format(self.dealer.name, self.fid))
 
     def do(self):
@@ -202,10 +202,10 @@ class DeletionWorker(Worker):
         self.metadata.write()
 
         self.escalator.delete(
-            u'file:{}:entry:{}'.format(self.fid, self.dealer.name)
+            u'file:{}:service:{}'.format(self.fid, self.dealer.name)
         )
 
-        # If we were the last entry owning this file, we delete
+        # If we were the last service owning this file, we delete
         # all the metadata
         if not self.metadata.owners:
             self.escalator.delete('file:{}'.format(self.fid))
@@ -230,10 +230,10 @@ class MoveWorker(DeletionWorker):
             else:
                 # If the driver don't have a handler for moving a file,
                 # we try to simulate it with a move and a deletion.
-                # We use the same entry for getting and uploading the
+                # We use the same service for getting and uploading the
                 # file, eventhouht it can be an issue as we need twice
                 # the size of the file available.
-                # If another entry has the file, maybe the Referee could
+                # If another service has the file, maybe the Referee could
                 # select a potential sender.
                 transfer = TransferWorker(
                     self.dealer, self.new_fid, self.dealer.name

@@ -38,10 +38,10 @@ def connect_client():
 
 
 def root_prefixed_filename(filename):
-    name = u(plug.options['root'])
-    if not name.endswith(u"/"):
-        name += u"/"
-    name += u(filename)
+    name = plug.root
+    if not name.endswith(u'/'):
+        name += '/'
+    name += filename
     return name
 
 
@@ -65,17 +65,17 @@ def update_metadata_info(metadata, new_metadata, write=True):
 
 
 def remove_conflict(filename):
-    conflict_name = u'conflict:{}'.format(u(filename))
-    conflict = plug.entry_db.get(conflict_name, default=None)
+    conflict_name = u'conflict:{}'.format(filename)
+    conflict = plug.service_db.get(conflict_name, default=None)
     if conflict:
-        plug.entry_db.delete(conflict_name)
+        plug.service_db.delete(conflict_name)
 
 
 def conflicting_filename(filename, value=False):
     """Check for name conflicts in the DB.
     If value is True, search in values (Dropbox filenames)
     instead of Onitu ones."""
-    confs = plug.entry_db.range(u'conflict:')
+    confs = plug.service_db.range('conflict:')
     # Remove the leading 'conflict:' substring
     # do str(o_fn) to manage Python 3
     confs = [(str(o_fn).split(u':', 1)[1], d_fn) for (o_fn, d_fn) in confs]
@@ -211,7 +211,7 @@ def end_upload(metadata):
     # A naming conflict occurred
     # we have to state it in the driver's conflicts list
     if resp['path'] != filename:
-        plug.entry_db.put(u'conflict:{}'.format(filename), u(resp['path']))
+        plug.service_db.put(u'conflict:{}'.format(filename), u(resp['path']))
         plug.logger.warning(u"Case conflict on Dropbox!! Onitu file {} is now "
                             u"mapped to Dropbox file {}, please rename it!"
                             .format(filename, u(resp['path'])))
@@ -243,8 +243,8 @@ def move_file(old_metadata, new_metadata):
             # Dropbox doesn't rename and always throws an error.
             # So if an error arised, tell the database Onitu new file is still
             # in conflict with the old Dropbox one (hasn't been removed)
-            plug.entry_db.put(u'conflict:{}'.format(new_filename),
-                              old_filename)
+            plug.service_db.put(u'conflict:{}'.format(new_filename),
+                                old_filename)
             plug.logger.warning(u"Case conflict on Dropbox!! Onitu file {} is "
                                 u"mapped to Dropbox file {}, please rename it!"
                                 .format(new_filename, old_filename))
@@ -285,16 +285,16 @@ class CheckChanges(threading.Thread):
         # send changes. A cursor is returned at each delta request, and one
         # ought to send the previous cursor to receive only the changes that
         # have occurred since the last time.
-        self.cursor = plug.entry_db.get('dropbox_cursor', default=None)
+        self.cursor = plug.service_db.get('dropbox_cursor', default=None)
         # The onitu root folder on Dropbox
-        self.prefix = plug.entry_db.get('root',
-                                        default=u(plug.options['root']))
+        self.prefix = plug.service_db.get('root',
+                                          default=u(plug.root))
         plug.logger.debug("Getting cursor '{}' out of database"
                           .format(self.cursor))
 
     def update_cursor(self, newCursor):
         if newCursor != self.cursor:
-            plug.entry_db.put('dropbox_cursor', newCursor)
+            plug.service_db.put('dropbox_cursor', newCursor)
             self.cursor = newCursor
             plug.logger.debug("New cursor: '{}'".format(newCursor))
 
@@ -400,11 +400,11 @@ class CheckChanges(threading.Thread):
         # Check if the root has changed since last time. If that's the case,
         # we must trash our cursor since it doesn't point to the same place
         # anymore.
-        if plug.options['root'] != self.prefix:
-            self.prefix = u(plug.options['root'])
+        if plug.root != self.prefix:
+            self.prefix = plug.root
             plug.logger.debug(u"Updating Dropbox root to '{}' folder"
                               .format(self.prefix))
-            plug.entry_db.put('root', self.prefix)
+            plug.service_db.put('root', self.prefix)
             self.update_cursor(None)
         # We must have a cursor in order to use longpoll_delta
         result = {}

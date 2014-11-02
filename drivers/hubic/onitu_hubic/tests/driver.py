@@ -23,8 +23,6 @@ REFRESHTOKEN = \
 class Driver(driver.Driver):
 
     def __init__(self, *args, **options):
-        if 'root' not in options:
-            options['root'] = 'onitu_tests'
         if 'client_id' not in options:
             options['client_id'] = CLIENTID
         if 'client_secret' not in options:
@@ -35,12 +33,16 @@ class Driver(driver.Driver):
             options['changes_timer'] = 15
 
         self.hubic = Hubic(options['client_id'], options['client_secret'],
-                           options['refresh_token'], options['root'])
+                           options['refresh_token'], self.root)
 
         super(Driver, self).__init__('hubic', *args, **options)
 
+    @property
+    def root(self):
+        return 'onitu_root'
+
     def get_path(self, filename):
-        return u(os.path.join(self.options['root'], filename))
+        return u(os.path.join(self.root, filename))
 
     def mkdir(self, subdirs):
         subdirs = self.get_path(subdirs)

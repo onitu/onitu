@@ -59,7 +59,7 @@ def get_conn():
 
 def get_root():
     """Returns Onitu's root for S3. Removes the leading slash if any."""
-    root = plug.options['root']
+    root = plug.root
     if root.startswith(u'/'):  # S3 doesn't like leading slashes
         root = root[1:]
     return root
@@ -470,7 +470,7 @@ def start():
             else:  # another error
                 raise DriverError(u"Cannot fetch Onitu's root ({}) on"
                                   u" bucket "
-                                  u"{}: {}".format(plug.options['root'],
+                                  u"{}: {}".format(plug.root,
                                                    plug.options['bucket'],
                                                    httpe))
         else:  # no error - root already exists
@@ -480,7 +480,7 @@ def start():
                 raise DriverError(
                     u"Onitu's root ({}) is a regular file on the '{}' bucket. "
                     u"It has to be an empty file.".format(
-                        plug.options['root'], plug.options['bucket'])
+                        plug.root, plug.options['bucket'])
                     )
     check = CheckChanges(plug.options['changes_timer'])
     check.daemon = True

@@ -44,14 +44,14 @@ class Dealer(object):
     def listen(self, listener):
         while True:
             events = self.escalator.range(
-                prefix=u'entry:{}:event:'.format(self.name)
+                prefix=u'service:{}:event:'.format(self.name)
             )
 
             for key, (cmd, args) in events:
                 fid = key.split(':')[-1]
                 self.call(cmd, fid, *args)
                 self.escalator.delete(
-                    u'entry:{}:event:{}'.format(self.name, fid)
+                    u'service:{}:event:{}'.format(self.name, fid)
                 )
 
             try:
@@ -74,7 +74,7 @@ class Dealer(object):
         :meth:`.Plug.listen`.
         """
         transfers = self.escalator.range(
-            prefix=u'entry:{}:transfer:'.format(self.name)
+            prefix=u'service:{}:transfer:'.format(self.name)
         )
 
         if not transfers:

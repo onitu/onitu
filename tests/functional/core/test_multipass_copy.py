@@ -4,7 +4,7 @@ from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop
 
 
-def get_entries():
+def get_services():
     return TestDriver('rep1'), TestDriver('rep2', speed_bump=True)
 
 
@@ -14,7 +14,7 @@ def _(module_launcher_launch):
 
 
 def test_multipass_copy(module_launcher):
-    src, dest = module_launcher.get_entries('rep1', 'rep2')
+    src, dest = module_launcher.get_services('rep1', 'rep2')
     count = 10
     size = 100
     filename = 'multipass'

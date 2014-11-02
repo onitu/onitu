@@ -45,7 +45,7 @@ class Plug(object):
         self.escalator = None
         self.options = {}
         self._handlers = {}
-        self._entry_db = None
+        self._service_db = None
 
         self.context = zmq.Context.instance()
 
@@ -62,8 +62,12 @@ class Plug(object):
         self.publisher = self.context.socket(zmq.PUSH)
         self.publisher.connect(get_events_uri(session, 'referee'))
 
+        self.root = self.escalator.get(
+            u'service:{}:root'.format(name), default=''
+        )
+
         self.options = self.escalator.get(
-            u'entry:{}:options'.format(name), default={}
+            u'service:{}:options'.format(name), default={}
         )
 
         self.validate_options(manifest)
@@ -140,7 +144,7 @@ class Plug(object):
         self.dealer.stop_transfer(fid)
         # We make sure that the key has been deleted
         # (if this event occurs before the transfer was restarted)
-        self.escalator.delete(u'entry:{}:transfer:{}'.format(self.name, fid))
+        self.escalator.delete(u'service:{}:transfer:{}'.format(self.name, fid))
 
         if self.name not in metadata.owners:
             metadata.owners += (self.name,)
@@ -184,7 +188,7 @@ class Plug(object):
         if not metadata:
             metadata = Metadata(plug=self, filename=filename)
 
-        metadata.entry = self.name
+        metadata.service = self.name
         return metadata
 
     def validate_options(self, manifest):
@@ -295,22 +299,22 @@ class Plug(object):
         if self.escalator:
             self.escalator.close()
 
-        if self._entry_db:
-            self.entry_db.close()
+        if self._service_db:
+            self.service_db.close()
 
         self.context.term()
 
     @property
-    def entry_db(self):
+    def service_db(self):
         """
         This property is an intance of the database client
         :class:`.Escalator`, configured to store values only
-        for the current entry.
+        for the current service.
 
         It can be used by a driver like any :class:`.Escalator`
         instance.
         """
-        if not self._entry_db:
-            prefix = u'entry:{}:db:'.format(self.name)
-            self._entry_db = self.escalator.clone(prefix=prefix)
-        return self._entry_db
+        if not self._service_db:
+            prefix = u'service:{}:db:'.format(self.name)
+            self._service_db = self.escalator.clone(prefix=prefix)
+        return self._service_db

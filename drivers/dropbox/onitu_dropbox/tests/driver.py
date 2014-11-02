@@ -19,16 +19,15 @@ class Driver(driver.Driver):
     SPEED_BUMP = 1
 
     def __init__(self, *args, **options):
-        if u'root' not in options:
-            rand = u''.join(random.sample(
-                string.ascii_letters + string.digits, 10))
-            options[u'root'] = u"/{}/".format(rand)
-        if u'key' not in options:
-            options[u'access_key'] = os.environ[u'ONITU_DROPBOX_KEY']
-        if u'secret' not in options:
-            options[u'access_secret'] = os.environ[u'ONITU_DROPBOX_SECRET']
-        if u'changes_timer' not in options:
-            options[u'changes_timer'] = 10
+        rand = ''.join(random.sample(string.ascii_letters + string.digits, 10))
+        self._root = "/{}/".format(rand)
+
+        if 'key' not in options:
+            options['access_key'] = os.environ['ONITU_DROPBOX_KEY']
+        if 'secret' not in options:
+            options['access_secret'] = os.environ['ONITU_DROPBOX_SECRET']
+        if 'changes_timer' not in options:
+            options['changes_timer'] = 10
         sess = DropboxSession(ONITU_APP_KEY,
                               ONITU_APP_SECRET,
                               ONITU_ACCESS_TYPE)
@@ -54,10 +53,7 @@ class Driver(driver.Driver):
 
     @property
     def root(self):
-        root = self.options[u'root']
-        if not root.endswith(u'/'):
-            root += u'/'
-        return path(root)
+        return path(self._root)
 
     def close(self):
         try:

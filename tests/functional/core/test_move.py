@@ -9,7 +9,7 @@ def _(module_launcher_launch):
 
 
 def copy_file(launcher, filename, size):
-    src, dest = launcher.get_entries('rep1', 'rep2')
+    src, dest = launcher.get_services('rep1', 'rep2')
     launcher.unset_all_events()
     loop = BooleanLoop()
     launcher.on_transfer_ended(
@@ -37,16 +37,16 @@ def move_file(launcher, old_filename, new_filename, src, dest):
 
 def test_move_from_rep1(module_launcher):
     move_file(module_launcher, 'to_move1', 'moved1',
-              *module_launcher.get_entries('rep1', 'rep2'))
+              *module_launcher.get_services('rep1', 'rep2'))
 
 
 def test_move_from_rep2(module_launcher):
     move_file(module_launcher, 'to_move1', 'moved1',
-              *module_launcher.get_entries('rep2', 'rep1'))
+              *module_launcher.get_services('rep2', 'rep1'))
 
 
 def test_move_in_subdirs(module_launcher):
-    src, dest = module_launcher.get_entries('rep1', 'rep2')
+    src, dest = module_launcher.get_services('rep1', 'rep2')
     src.mkdir('test/with/subdirs/')
     copy_file(module_launcher, 'test/with/subdirs/foo', 100)
     loop = CounterLoop(2)
@@ -66,7 +66,7 @@ def test_move_in_subdirs(module_launcher):
 
 
 def test_move_dir_from_rep1(module_launcher):
-    src, dest = module_launcher.get_entries('rep1', 'rep2')
+    src, dest = module_launcher.get_services('rep1', 'rep2')
     src.mkdir('dir')
     copy_file(module_launcher, 'dir/foo', 100)
     copy_file(module_launcher, 'dir/bar', 100)

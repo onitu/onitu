@@ -10,32 +10,9 @@ from onitu.utils import TMPDIR, b
 from .launcher import Launcher
 
 
-class Rule(object):
-    def __init__(self):
-        self._match = {}
-        self._sync = []
-
-    def match_path(self, path):
-        self._match['path'] = path
-        return self
-
-    def match_mime(self, *mimes):
-        self._match['mime'] = self._match.get('mime', []) + list(mimes)
-        return self
-
-    def sync(self, *entries):
-        self._sync += list(entries)
-        return self
-
-    @property
-    def dump(self):
-        return {'match': self._match, 'sync': self._sync}
-
-
 class Setup(object):
     def __init__(self):
-        self.entries = {}
-        self.rules = []
+        self.services = {}
 
         self._json = None
 
@@ -44,19 +21,15 @@ class Setup(object):
         )
         self.filename = os.path.join(TMPDIR, "{}.json".format(self.name))
 
-    def add(self, entry):
-        entry.connect(self.name)
-        self.entries[entry.name] = entry
+    def add(self, service):
+        service.connect(self.name)
+        self.services[service.name] = service
         return self
 
-    def add_rule(self, rule):
-        self.rules.append(rule)
-        return self
-
-    def clean(self, entries=True):
-        if entries:
-            for entry in self.entries.values():
-                entry.close()
+    def clean(self, services=True):
+        if services:
+            for service in self.services.values():
+                service.close()
 
         try:
             os.unlink(self.filename)
@@ -69,8 +42,7 @@ class Setup(object):
         setup = {}
         if self.name:
             setup['name'] = self.name
-        setup['entries'] = {name: e.dump for name, e in self.entries.items()}
-        setup['rules'] = [r.dump for r in self.rules]
+        setup['services'] = {name: e.dump for name, e in self.services.items()}
         return setup
 
     @property

@@ -314,7 +314,7 @@ else:
 
 def start():
     global root
-    root = path(u(plug.options['root']))
+    root = path(plug.root)
 
     if not root.access(os.W_OK | os.R_OK):
         raise DriverError(u"The root '{}' is not accessible".format(root))

@@ -12,15 +12,14 @@ class Driver(driver.Driver):
     SPEED_BUMP = 1
 
     def __init__(self, *args, **options):
-        if 'root' not in options:
-            options['root'] = dirs.create()
+        self._root = dirs.create()
         super(Driver, self).__init__('local_storage',
                                      *args,
                                      **options)
 
     @property
     def root(self):
-        return path(self.options['root'])
+        return path(self._root)
 
     def close(self):
         dirs.delete(self.root)
