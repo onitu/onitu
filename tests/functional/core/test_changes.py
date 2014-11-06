@@ -1,26 +1,16 @@
-from tests.utils.launcher import Launcher
-from tests.utils.setup import Setup, Rule
+import pytest
+
 from tests.utils.driver import TestingDriver, TargetDriver
 from tests.utils.loop import CounterLoop
 
-launcher, setup = None, None
 rep1, rep2 = TestingDriver("rep1"), TargetDriver("rep2")
 
 
-def setup_module(module):
-    global setup, launcher
-    setup = Setup()
-    setup.add(rep1)
-    setup.add(rep2)
-    setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
-    launcher = Launcher(setup)
+@pytest.fixture(autouse=True)
+def _(module_launcher_initialize): pass
 
 
-def teardown_module(module):
-    launcher.close()
-
-
-def launch_with_files(prefix, n, size, delete=True):
+def launch_with_files(launcher, prefix, n, size, delete=True):
     files = ['{}{}'.format(prefix, i) for i in range(n)]
 
     try:
@@ -50,18 +40,18 @@ def launch_with_files(prefix, n, size, delete=True):
                     pass
 
 
-def test_changes_one_file():
-    launch_with_files('one', 1, 100)
+def test_changes_one_file(module_launcher):
+    launch_with_files(module_launcher, 'one', 1, 100)
 
 
-def test_changes_few_files():
-    launch_with_files('few', 10, 100)
+def test_changes_few_files(module_launcher):
+    launch_with_files(module_launcher, 'few', 10, 100)
 
 
-def test_changes_many_files():
-    launch_with_files('many', 100, 10)
+def test_changes_many_files(module_launcher):
+    launch_with_files(module_launcher, 'many', 100, 10)
 
 
-def test_updating_files():
-    launch_with_files('up', 10, 100, delete=False)
-    launch_with_files('up', 10, 100)
+def test_updating_files(module_launcher):
+    launch_with_files(module_launcher, 'up', 10, 100, delete=False)
+    launch_with_files(module_launcher, 'up', 10, 100)

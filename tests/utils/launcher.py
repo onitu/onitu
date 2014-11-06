@@ -2,6 +2,7 @@ import signal
 from subprocess import Popen, PIPE
 from collections import defaultdict
 
+import pytest
 import logbook
 from logbook.queues import ZeroMQSubscriber
 
@@ -9,6 +10,7 @@ from onitu.utils import get_logs_uri
 
 from .loop import CounterLoop
 from .logs import logs
+from .setup import Setup
 
 
 FORMAT_STRING = (
@@ -171,7 +173,3 @@ class Launcher(object):
         if name.startswith('on_'):
             return self._on_event(name[3:])
         return super(Launcher, self).__getattr__(name)
-
-
-def launch(*args, **kwargs):
-    return Launcher(*args, **kwargs)()

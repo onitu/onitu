@@ -1,32 +1,20 @@
 import hashlib
 
-from tests.utils.launcher import Launcher
-from tests.utils.setup import Setup, Rule
+import pytest
+
 from tests.utils.driver import TestingDriver, TargetDriver
 from tests.utils.loop import BooleanLoop
 
-launcher, setup = None, None
 # We use chunks of size 1 to slow down the transfers. This way, we have
 # more chances to stop a transfer before its completion
 rep1 = TestingDriver('rep1')
 rep2 = TargetDriver('rep2', speed_bump=True)
 
-
-def setup_module(module):
-    global launcher, setup
-    setup = Setup()
-    setup.add(rep1)
-    setup.add(rep2)
-    setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
-    launcher = Launcher(setup)
-    launcher()
+@pytest.fixture(autouse=True)
+def _(module_launcher_launch): pass
 
 
-def teardown_module(module):
-    launcher.close()
-
-
-def corruption(filename, size, newcontent):
+def corruption(launcher, filename, size, newcontent):
     content_hash = hashlib.md5(newcontent.encode()).hexdigest()
     start_loop = BooleanLoop()
     launcher.on_transfer_started(
@@ -43,5 +31,5 @@ def corruption(filename, size, newcontent):
     assert rep1.checksum(filename) == rep2.checksum(filename) == content_hash
 
 
-def test_corruption():
-    corruption('simple', 100, 'corrupted')
+def test_corruption(module_launcher):
+    corruption(module_launcher, 'simple', 100, 'corrupted')

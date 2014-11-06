@@ -1,28 +1,16 @@
-from tests.utils.launcher import Launcher
-from tests.utils.setup import Setup, Rule
+import pytest
+
 from tests.utils.driver import TestingDriver, TargetDriver
 from tests.utils.loop import BooleanLoop
 from tests.utils.files import KB, MB
 
-launcher, setup = None, None
 rep1, rep2 = TestingDriver('rep1'), TargetDriver('rep2')
 
-
-def setup_module(module):
-    global launcher, setup
-    setup = Setup()
-    setup.add(rep1)
-    setup.add(rep2)
-    setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
-    launcher = Launcher(setup)
-    launcher()
+@pytest.fixture(autouse=True)
+def _(module_launcher_launch): pass
 
 
-def teardown_module(module):
-    launcher.close()
-
-
-def copy_file(filename, size):
+def copy_file(launcher, filename, size):
     launcher.unset_all_events()
     loop = BooleanLoop()
     launcher.on_transfer_ended(
@@ -33,37 +21,37 @@ def copy_file(filename, size):
     assert rep1.checksum(filename) == rep2.checksum(filename)
 
 
-def test_small_copy():
-    copy_file('simple', 10)
+def test_small_copy(module_launcher):
+    copy_file(module_launcher, 'simple', 10)
 
 
-def test_regular_copy():
-    copy_file('other', 100)
+def test_regular_copy(module_launcher):
+    copy_file(module_launcher, 'other', 100)
 
 
-def test_same_copy():
-    copy_file('same', 100)
-    copy_file('same', 100)
+def test_same_copy(module_launcher):
+    copy_file(module_launcher, 'same', 100)
+    copy_file(module_launcher, 'same', 100)
 
 
-def test_smaller_copy():
-    copy_file('smaller', 10 * KB)
-    copy_file('smaller', 1 * KB)
+def test_smaller_copy(module_launcher):
+    copy_file(module_launcher, 'smaller', 10 * KB)
+    copy_file(module_launcher, 'smaller', 1 * KB)
 
 
-def test_bigger_copy():
-    copy_file('bigger', 1 * KB)
-    copy_file('bigger', 10 * KB)
+def test_bigger_copy(module_launcher):
+    copy_file(module_launcher, 'bigger', 1 * KB)
+    copy_file(module_launcher, 'bigger', 10 * KB)
 
 
-def test_big_copy():
-    copy_file('big', 10 * MB)
+def test_big_copy(module_launcher):
+    copy_file(module_launcher, 'big', 10 * MB)
 
 
-def test_empty_file():
-    copy_file('empty', 0)
+def test_empty_file(module_launcher):
+    copy_file(module_launcher, 'empty', 0)
 
 
-def test_subdirectories():
+def test_subdirectories(module_launcher):
     rep1.mkdir('sub/dir/deep/')
-    copy_file('sub/dir/deep/file', 100)
+    copy_file(module_launcher, 'sub/dir/deep/file', 100)
