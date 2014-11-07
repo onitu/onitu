@@ -51,11 +51,12 @@ class Referee(object):
             MOV: self._handle_move,
         }
 
-        self.publisher = self.context.socket(zmq.PUSH)
-
     def listen(self):
         """Listen to all the events, and handle them
         """
+        self.publisher = self.context.socket(zmq.PUB)
+        self.publisher.bind(self.get_events_uri('referee', 'publisher'))
+
         self.logger.info("Started")
 
         try:
@@ -193,12 +194,4 @@ class Referee(object):
                 u'service:{}:event:{}'.format(name, fid), (cmd, args)
             )
 
-            uri = self.get_events_uri(name, 'dealer')
-            self.publisher.connect(uri)
-
-            try:
-                self.publisher.send(b'')
-            except zmq.ZMQError:
-                self.publisher.close(linger=0)
-            else:
-                self.publisher.disconnect(uri)
+            self.publisher.send(name.encode('utf-8'))

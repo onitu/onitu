@@ -28,9 +28,10 @@ class Dealer(object):
         listener = None
 
         try:
-            uri = get_events_uri(self.plug.session, self.name, 'dealer')
-            listener = self.context.socket(zmq.PULL)
-            listener.bind(uri)
+            uri = get_events_uri(self.plug.session, 'referee', 'publisher')
+            listener = self.context.socket(zmq.SUB)
+            listener.setsockopt(zmq.SUBSCRIBE, self.name.encode('utf-8'))
+            listener.connect(uri)
 
             self.logger.info("Started")
 
