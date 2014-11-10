@@ -213,13 +213,26 @@ def move(metadata, p, cookie, mask):
             plug.logger.debug("ignore -> last_move")
             return
 
-    if cookie in move_events:
-        m = move_events.pop(cookie)
-        old_metadata = m[0]
-        old_path = m[1]
-        move_final(old_metadata, old_path, p)
+    if p.isdir():
+        if cookie in move_events:
+            m = move_events.pop(cookie)
+            old_metadata = m[0]
+            old_path = m[1]
+            for new in p.walkfiles():
+                old = new.replace(p, old_path)
+                filename = root.relpathto(old)
+                old_metadata = plug.get_metadata(filename)
+                move_final(old_metadata, old, new)
+        else:
+            move_events[cookie] = (metadata, new)
     else:
-        move_events[cookie] = (metadata, p)
+        if cookie in move_events:
+            m = move_events.pop(cookie)
+            old_metadata = m[0]
+            old_path = m[1]
+            move_final(old_metadata, old_path, p)
+        else:
+            move_events[cookie] = (metadata, p)
 
 
 def update_file(metadata, path, mtime=None):
