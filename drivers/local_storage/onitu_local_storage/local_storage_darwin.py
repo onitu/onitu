@@ -7,6 +7,15 @@ from onitu.plug import Plug, DriverError, ServiceError
 
 TMP_EXT = '.onitu-tmp'
 
+MASKS = {
+    fsevents.IN_MODIFY: "IN_MODIFY",
+    fsevents.IN_CREATE: "IN_CREATE",
+    fsevents.IN_DELETE: "IN_DELETE",
+    fsevents.IN_MOVED_FROM: "IN_MOVED_FROM",
+    fsevents.IN_MOVED_TO: "IN_MOVED_TO",
+    fsevents.IN_ATTRIB: "IN_ATTRIB",
+}
+
 plug = Plug()
 
 # Ignore the next fsevents event concerning those files
@@ -181,9 +190,9 @@ def check_changes():
             update_file(metadata, abs_path, mtime)
 
 
-def delete(metadata, _):
+def delete(metadata):
     if metadata.filename in last_delete:
-        plug.logger.debug("ignore -> last delete")
+        plug.logger.debug("ignore deletion -> last delete")
         last_delete.remove(metadata.filename)
         return
 
@@ -195,7 +204,7 @@ def delete(metadata, _):
 
 def move_final(old_metadata, old_path, new_path):
     if plug.name not in old_metadata.owners:
-        plug.logger.debug("ignore -> not owners")
+        plug.logger.debug("ignore move -> not in owners")
         return
 
     new_filename = root.relpathto(new_path)
@@ -206,11 +215,11 @@ def move_final(old_metadata, old_path, new_path):
 def move(metadata, p, cookie, mask):
     if metadata.filename in last_move:
         if mask == fsevents.IN_MOVED_FROM:
-            plug.logger.debug("ignore -> IN_MOVED_FROM")
+            plug.logger.debug("ignore move -> first move event")
             return
         else:
             last_move.remove(metadata.filename)
-            plug.logger.debug("ignore -> last_move")
+            plug.logger.debug("ignore move -> last_move")
             return
 
     if p.isdir():
@@ -237,7 +246,7 @@ def move(metadata, p, cookie, mask):
 
 def update_file(metadata, path, mtime=None):
     if metadata.filename in last_creation:
-        plug.logger.debug("ignore -> last creation")
+        plug.logger.debug("ignore update -> last creation")
         last_creation.remove(metadata.filename)
         return
 
@@ -260,11 +269,11 @@ def handle_event(name, mask, cookie):
     abs_path = path(name)
 
     if abs_path.ext == TMP_EXT:
-        plug.logger.debug("TMP_EXT")
+        plug.logger.debug("ignore event -> TMP_EXT")
         return
 
     if abs_path.isdir() and mask not in move_events:
-        plug.logger.debug("dir")
+        plug.logger.debug("ignore event -> this is a directory")
         return
 
     filename = root.relpathto(abs_path)
@@ -280,7 +289,7 @@ def handle_event(name, mask, cookie):
         update_file(metadata, abs_path)
     elif mask == delete_events:
         plug.logger.debug("delete file")
-        delete(metadata, abs_path)
+        delete(metadata)
     elif mask in move_events:
         plug.logger.debug("move event")
         move(metadata, abs_path, cookie, mask)
@@ -289,7 +298,7 @@ def handle_event(name, mask, cookie):
 def file_event_callback(event):
     plug.logger.debug(
         "Mask: {}, Cookie: {}, Name: {}",
-        event.mask, event.cookie, event.name
+        MASKS[event.mask], event.cookie, event.name
     )
 
     if event.mask == fsevents.IN_ATTRIB:
