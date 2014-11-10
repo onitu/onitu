@@ -195,27 +195,31 @@ def delete(metadata, _):
 
 def move_final(old_metadata, old_path, new_path):
     if plug.name not in old_metadata.owners:
+        plug.logger.debug("ignore -> not owners")
         return
 
     new_filename = root.relpathto(new_path)
+    plug.logger.debug("launch move")
     plug.move_file(old_metadata, new_filename)
 
 
-def move(metadata, path, cookie, mask):
+def move(metadata, p, cookie, mask):
     if metadata.filename in last_move:
         if mask == fsevents.IN_MOVED_FROM:
+            plug.logger.debug("ignore -> IN_MOVED_FROM")
             return
         else:
             last_move.remove(metadata.filename)
+            plug.logger.debug("ignore -> last_move")
             return
 
     if cookie in move_events:
         m = move_events.pop(cookie)
         old_metadata = m[0]
         old_path = m[1]
-        move_final(old_metadata, old_path, path)
+        move_final(old_metadata, old_path, p)
     else:
-        move_events[cookie] = (metadata, path)
+        move_events[cookie] = (metadata, p)
 
 
 def update_file(metadata, path, mtime=None):
@@ -236,13 +240,17 @@ def update_file(metadata, path, mtime=None):
 
 def handle_event(name, mask, cookie):
     plug.logger.debug("handle_event")
+    update_events = (fsevents.IN_MODIFY, fsevents.IN_CREATE)
+    delete_events = (fsevents.IN_DELETE)
+    move_events = (fsevents.IN_MOVED_FROM, fsevents.IN_MOVED_TO)
+
     abs_path = path(name)
 
     if abs_path.ext == TMP_EXT:
         plug.logger.debug("TMP_EXT")
         return
 
-    if abs_path.isdir():
+    if abs_path.isdir() and mask not in move_events:
         plug.logger.debug("dir")
         return
 
@@ -253,10 +261,6 @@ def handle_event(name, mask, cookie):
     plug.logger.debug("name    : {}".format(name))
     plug.logger.debug("abs_path: {}".format(abs_path))
     plug.logger.debug("filename: {}".format(filename))
-
-    update_events = (fsevents.IN_MODIFY, fsevents.IN_CREATE)
-    delete_events = (fsevents.IN_DELETE)
-    move_events = (fsevents.IN_MOVED_FROM, fsevents.IN_MOVED_TO)
 
     if mask in update_events:
         plug.logger.debug("update file")
