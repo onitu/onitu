@@ -8,7 +8,7 @@ import zmq
 from logbook import Logger
 
 from onitu.escalator.client import Escalator, EscalatorClosed
-from onitu.utils import get_events_uri, get_open_fds
+from onitu.utils import get_events_uri
 
 from .cmd import UP, DEL, MOV
 
@@ -200,8 +200,6 @@ class Referee(object):
     def notify(self, drivers, cmd, fid, *args):
         if not drivers:
             return
-
-        self.logger.debug("{} open fds".format(len(get_open_fds())))
 
         for name in drivers:
             self.escalator.put(
