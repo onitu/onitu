@@ -158,6 +158,8 @@ class Plug(object):
 
         self.notify_referee(metadata.fid, MOV, self.name, new_fid)
 
+        return new_metadata
+
     def get_metadata(self, filename):
         """
         :param filename: The name of the file, with the absolute path

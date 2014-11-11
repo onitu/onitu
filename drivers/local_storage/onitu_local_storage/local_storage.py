@@ -49,7 +49,9 @@ def move(old_metadata, old_path, new_path):
         return
 
     new_filename = root.relpathto(new_path)
-    plug.move_file(old_metadata, new_filename)
+    new_metadata = plug.move_file(old_metadata, new_filename)
+    new_metadata.extra['revision'] = path(root / new_path).mtime
+    new_metadata.write()
 
 
 def delete_empty_dirs(filename):
