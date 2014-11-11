@@ -47,7 +47,7 @@ class Launcher(object):
 
     def unset_event(self, event):
         for trigger in event.triggers:
-            self.event_triggers[trigger].remove(event)
+            self.event_triggers[trigger].discard(event)
 
     def unset_all_events(self):
         self.event_triggers = defaultdict(set)
