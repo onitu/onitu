@@ -64,7 +64,7 @@ class Escalator(object):
     def connect(self, name, prefix=None, create=False):
         self.db_uid = self._request(protocol.cmd.CONNECT,
                                     name,
-                                    prefix,
+                                    b(prefix),
                                     create)[0]
 
     def get(self, key, **kwargs):
