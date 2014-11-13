@@ -1,27 +1,17 @@
-from tests.utils.launcher import Launcher
-from tests.utils.setup import Setup, Rule
-from tests.utils.driver import TestingDriver, TargetDriver
+import pytest
+
+from tests.utils.driver import TestingDriver
 from tests.utils.loop import BooleanLoop
 
-launcher, setup = None, None
-rep1, rep2 = TestingDriver('rep1'), TargetDriver('rep2', speed_bump=True)
+rep1, rep2 = TestingDriver('rep1'), TestingDriver('rep2', speed_bump=True)
 
 
-def setup_module(module):
-    global launcher, setup
-    setup = Setup()
-    setup.add(rep1)
-    setup.add(rep2)
-    setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
-    launcher = Launcher(setup)
-    launcher()
+@pytest.fixture(autouse=True)
+def _(module_launcher_launch):
+    pass
 
 
-def teardown_module(module):
-    launcher.close()
-
-
-def test_multipass_copy():
+def test_multipass_copy(module_launcher):
     count = 10
     size = 100
     filename = 'multipass'
@@ -29,14 +19,14 @@ def test_multipass_copy():
     startloop = BooleanLoop()
     loop = BooleanLoop()
 
-    launcher.on_transfer_started(
+    module_launcher.on_transfer_started(
         startloop.stop, d_from='rep1', d_to='rep2', filename=filename,
         unique=False
     )
-    launcher.on_transfer_ended(
+    module_launcher.on_transfer_ended(
         loop.stop, d_from='rep1', d_to='rep2', filename=filename, unique=False
     )
-    launcher.on_transfer_aborted(
+    module_launcher.on_transfer_aborted(
         loop.stop, d_from='rep1', d_to='rep2', filename=filename, unique=False
     )
 

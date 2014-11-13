@@ -1,28 +1,25 @@
-from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
-from tests.utils.driver import TestingDriver, TargetDriver
+from tests.utils.driver import TestingDriver
 from tests.utils.loop import CounterLoop, BooleanLoop
 
 # We use chunks of size 1 to slow down the transfers. This way, we have
 # more chances to stop a transfer before its completion
 rep1 = TestingDriver('rep1', speed_bump=True)
-rep2 = TargetDriver('rep2', speed_bump=True)
+rep2 = TestingDriver('rep2', speed_bump=True)
 
-setup = Setup()
-setup.add(rep1)
-setup.add(rep2)
-setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
-#setup = None
+_setup = Setup()
+_setup.add(rep1)
+_setup.add(rep2)
+_setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
 
-#def setup_module(module):
-#    global setup
-#    setup = Setup()
-#    setup.add(rep1)
-#    setup.add(rep2)
-#    setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
 
-#def teardown_module(module):
-#    setup.clean()
+def setup():
+    return _setup
+
+
+def teardown_module(module):
+    _setup.clean()
+
 
 def crash(launcher, filename, source, target):
     try:
@@ -60,14 +57,12 @@ def crash(launcher, filename, source, target):
         except:
             pass
         launcher.close(clean_setup=False)
-        print('!!!!!!!!!!!')
         pass
 
 
 def test_crash_rep1_to_rep2(launcher):
     crash(launcher, 'crash_1', rep1, rep2)
-    setup.clean()
 
 
-#def test_crash_rep2_to_rep1(launcher):
-#    crash(launcher, 'crash_2', rep2, rep1)
+def test_crash_rep2_to_rep1(launcher):
+    crash(launcher, 'crash_2', rep2, rep1)

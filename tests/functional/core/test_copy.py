@@ -1,13 +1,15 @@
 import pytest
 
-from tests.utils.driver import TestingDriver, TargetDriver
+from tests.utils.driver import TestingDriver
 from tests.utils.loop import BooleanLoop
 from tests.utils.files import KB, MB
 
-rep1, rep2 = TestingDriver('rep1'), TargetDriver('rep2')
+rep1, rep2 = TestingDriver('rep1'), TestingDriver('rep2')
+
 
 @pytest.fixture(autouse=True)
-def _(module_launcher_launch): pass
+def _(module_launcher_launch):
+    pass
 
 
 def copy_file(launcher, filename, size):

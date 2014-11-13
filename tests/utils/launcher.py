@@ -2,7 +2,6 @@ import signal
 from subprocess import Popen, PIPE
 from collections import defaultdict
 
-import pytest
 import logbook
 from logbook.queues import ZeroMQSubscriber
 
@@ -10,7 +9,6 @@ from onitu.utils import get_logs_uri
 
 from .loop import CounterLoop
 from .logs import logs
-from .setup import Setup
 
 
 FORMAT_STRING = (

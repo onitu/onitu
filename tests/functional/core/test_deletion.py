@@ -1,30 +1,20 @@
-from tests.utils.launcher import Launcher
-from tests.utils.setup import Setup, Rule
-from tests.utils.driver import TestingDriver, TargetDriver
+import pytest
+
+from tests.utils.driver import TestingDriver
 from tests.utils.loop import BooleanLoop, CounterLoop
 
-launcher, setup = None, None
-rep1, rep2 = TestingDriver('rep1'), TargetDriver('rep2')
+rep1, rep2 = TestingDriver('rep1'), TestingDriver('rep2')
 
 
-def setup_module(module):
-    global launcher, setup
-    setup = Setup()
-    setup.add(rep1)
-    setup.add(rep2)
-    setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
-    launcher = Launcher(setup)
-    launcher()
+@pytest.fixture(autouse=True)
+def _(module_launcher_launch):
+    pass
 
 
-def teardown_module(module):
-    launcher.close()
-
-
-def copy_file(filename, size):
-    launcher.unset_all_events()
+def copy_file(module_launcher, filename, size):
+    module_launcher.unset_all_events()
     loop = BooleanLoop()
-    launcher.on_transfer_ended(
+    module_launcher.on_transfer_ended(
         loop.stop, d_from='rep1', d_to='rep2', filename=filename
     )
     rep1.generate(filename, size)
@@ -32,13 +22,13 @@ def copy_file(filename, size):
     assert rep2.exists(filename)
 
 
-def test_deletion_from_rep1():
-    copy_file('to_delete', 100)
+def test_deletion_from_rep1(module_launcher):
+    copy_file(module_launcher, 'to_delete', 100)
     loop = CounterLoop(2)
-    launcher.on_file_deleted(
+    module_launcher.on_file_deleted(
         loop.check, driver='rep1', filename='to_delete'
     )
-    launcher.on_deletion_completed(
+    module_launcher.on_deletion_completed(
         loop.check, driver='rep2', filename='to_delete'
     )
     rep1.unlink('to_delete')
@@ -46,13 +36,13 @@ def test_deletion_from_rep1():
     assert not rep2.exists('to_delete')
 
 
-def test_deletion_from_rep2():
-    copy_file('to_delete', 100)
+def test_deletion_from_rep2(module_launcher):
+    copy_file(module_launcher, 'to_delete', 100)
     loop = CounterLoop(2)
-    launcher.on_file_deleted(
+    module_launcher.on_file_deleted(
         loop.check, driver='rep2', filename='to_delete'
     )
-    launcher.on_deletion_completed(
+    module_launcher.on_deletion_completed(
         loop.check, driver='rep1', filename='to_delete'
     )
     rep2.unlink('to_delete')
@@ -60,21 +50,21 @@ def test_deletion_from_rep2():
     assert not rep1.exists('to_delete')
 
 
-def test_delete_dir():
+def test_delete_dir(module_launcher):
     rep1.mkdir('dir')
-    copy_file('dir/foo', 100)
-    copy_file('dir/bar', 100)
+    copy_file(module_launcher, 'dir/foo', 100)
+    copy_file(module_launcher, 'dir/bar', 100)
     loop = CounterLoop(4)
-    launcher.on_file_deleted(
+    module_launcher.on_file_deleted(
         loop.check, driver='rep1', filename='dir/foo'
     )
-    launcher.on_file_deleted(
+    module_launcher.on_file_deleted(
         loop.check, driver='rep1', filename='dir/bar'
     )
-    launcher.on_deletion_completed(
+    module_launcher.on_deletion_completed(
         loop.check, driver='rep2', filename='dir/foo'
     )
-    launcher.on_deletion_completed(
+    module_launcher.on_deletion_completed(
         loop.check, driver='rep2', filename='dir/bar'
     )
     rep1.rmdir('dir')
