@@ -9,7 +9,7 @@ from dropbox.client import DropboxClient
 from onitu.plug import Plug
 from onitu.plug import DriverError, ServiceError
 from onitu.escalator.client import EscalatorClosed
-from onitu.utils import b  # Helper to encode UTF-8 strings
+from onitu.utils import u, b  # Unicode helpers
 
 # Onitu has a unique set of App key and secret to identify it.
 ONITU_APP_KEY = u"6towoytqygvexx3"
@@ -31,17 +31,17 @@ def connect_client():
                           ONITU_ACCESS_TYPE)
     # Use the OAuth access token previously retrieved by the user and typed
     # into Onitu configuration.
-    sess.set_token(plug.options[u'access_key'], plug.options[u'access_secret'])
+    sess.set_token(u(plug.options[u'access_key']), u(plug.options[u'access_secret']))
     dropbox_client = DropboxClient(sess)
     plug.logger.debug(u"Dropbox connection with Onitu credentials successful")
     return dropbox_client
 
 
 def root_prefixed_filename(filename):
-    name = plug.options[u'root']
+    name = u(plug.options[u'root'])
     if not name.endswith(u'/'):
         name += u'/'
-    name += filename
+    name += u(filename)
     return name
 
 
@@ -303,7 +303,7 @@ class CheckChanges(threading.Thread):
     def check_dropbox(self):
         global plug
         plug.logger.debug(u"Checking dropbox for changes in '{}' folder"
-                          .format(plug.options['root']))
+                          .format(plug.options[u'root']))
         prefix = plug.options[u'root']
         # Dropbox lists filenames with a leading slash
         if not prefix.startswith(u'/'):
