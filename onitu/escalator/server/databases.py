@@ -42,7 +42,7 @@ class Databases(object):
                     self._names.append(name)
                 if prefix:
                     db = self._databases[name]
-                    name = '{}/{}'.format(name, prefix)
+                    name = u'{}/{}'.format(name, prefix)
                     if name not in self._databases:
                         self._databases[name] = db.prefixed_db(prefix)
                         self._names.append(name)
