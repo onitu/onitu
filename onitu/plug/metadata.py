@@ -53,7 +53,7 @@ class Metadata(object):
         self.folder = folder
 
         if not fid and filename:
-            self.fid = get_fid(folder_name, filename)
+            fid = get_fid(folder_name, filename)
         self.fid = fid
 
         if not self.mimetype and filename:
