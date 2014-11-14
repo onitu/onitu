@@ -66,9 +66,9 @@ def at_exit(callback, *args, **kwargs):
         signal.signal(s, lambda *_, **__: callback(*args, **kwargs))
 
 
-def get_fid(filename):
+def get_fid(folder, filename):
     """
-    Get the file-id (fid) of the given filename.
+    Get the file-id (fid) of the given filename inside the given folder.
 
     The file-id is a UUID version 5, with the namespace define in
     :attr:`NAMESPACE_ONITU`.
@@ -79,7 +79,7 @@ def get_fid(filename):
     if PY2:
         filename = filename.encode('utf-8')
 
-    return str(uuid.uuid5(NAMESPACE_ONITU, filename))
+    return str(uuid.uuid5(NAMESPACE_ONITU, "{}:{}".format(folder, filename)))
 
 
 def get_mimetype(filename):

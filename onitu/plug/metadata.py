@@ -1,5 +1,7 @@
 from onitu.utils import get_fid, get_mimetype, u
 
+from .folder import Folder
+
 
 class Metadata(object):
     """The Metadata class represent the metadata of any file in Onitu.
@@ -17,8 +19,6 @@ class Metadata(object):
         The absolute filename of the file
     **size**
         The size of the file, in octets
-    **owners**
-        The entries which should have this file
     **uptodate**
         The entries with an up-to-date version of this file
     **mimetype**
@@ -31,22 +31,28 @@ class Metadata(object):
     are stocked separately.
     """
 
-    PROPERTIES = ('filename', 'size', 'owners', 'uptodate', 'mimetype')
+    PROPERTIES = ('filename', 'folder_name', 'size', 'uptodate', 'mimetype')
 
-    def __init__(self, plug=None, filename=None, size=0,
-                 fid=None, owners=[], uptodate=[], mimetype=None):
+    def __init__(self, plug=None, filename=None, folder=None, folder_name=None,
+                 size=0, fid=None, uptodate=[], mimetype=None):
         super(Metadata, self).__init__()
 
         self.filename = filename
         self.size = size
-        self.owners = owners
         self.uptodate = uptodate
         self.mimetype = mimetype
 
+        if folder_name and not folder:
+            folder = Folder.get(plug.escalator, plug.name, folder_name)
+        elif folder and not folder_name:
+            folder_name = folder.name
+
+        self.folder_name = folder_name
+        self.folder = folder
+
         if not fid and filename:
-            self.fid = get_fid(filename)
-        elif fid:
-            self.fid = fid
+            self.fid = get_fid(folder_name, filename)
+        self.fid = fid
 
         if not self.mimetype and filename:
             self.mimetype = get_mimetype(filename)
@@ -56,11 +62,11 @@ class Metadata(object):
         self.plug = plug
 
     @classmethod
-    def get_by_filename(cls, plug, filename):
+    def get(cls, plug, folder, filename):
         """Instantiate a new :class:`.Metadata` object for the file
-        with the given name.
+        with the given name inside the given folder.
         """
-        fid = get_fid(filename)
+        fid = get_fid(folder, filename)
         return cls.get_by_id(plug, fid)
 
     @classmethod
@@ -84,7 +90,7 @@ class Metadata(object):
 
     def dict(self):
         """Return the metadata as a dict"""
-        return dict((u(p), self.__getattribute__(p)) for p in self.PROPERTIES)
+        return dict((u(p), getattr(self, p)) for p in self.PROPERTIES)
 
     def write(self):
         """Write the metadata of the current file in the database."""

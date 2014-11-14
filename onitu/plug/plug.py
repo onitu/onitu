@@ -149,13 +149,12 @@ class Plug(object):
         # (if this event occurs before the transfer was restarted)
         self.escalator.delete(u'service:{}:transfer:{}'.format(self.name, fid))
 
-        if self.name not in metadata.owners:
-            metadata.owners += (self.name,)
         metadata.uptodate = (self.name,)
         metadata.write()
 
         self.logger.debug(
-            "Notifying the Referee about '{}'", metadata.filename
+            "Notifying the Referee about '{}' in folder {}",
+            metadata.filename, metadata.folder
         )
         self.notify_referee(fid, UP, self.name)
 
