@@ -31,7 +31,8 @@ def connect_client():
                           ONITU_ACCESS_TYPE)
     # Use the OAuth access token previously retrieved by the user and typed
     # into Onitu configuration.
-    sess.set_token(u(plug.options[u'access_key']), u(plug.options[u'access_secret']))
+    sess.set_token(u(plug.options[u'access_key']),
+                   u(plug.options[u'access_secret']))
     dropbox_client = DropboxClient(sess)
     plug.logger.debug(u"Dropbox connection with Onitu credentials successful")
     return dropbox_client
@@ -94,6 +95,15 @@ def conflicting_filename(filename, value=False):
                                 .format(filename, conflict_name))
             break
     return conflict_name
+
+
+def stringify(s):
+    """In Py3k, unicode are strings, so we mustn't encode it.
+    However it is necessary in Python 2.x, since Unicode strings are
+    unicode, not str."""
+    if type(s) != str:
+        s = b(s)
+    return s
 
 
 def get_dropbox_filename(metadata):
@@ -230,12 +240,14 @@ def abort_upload(metadata):
 def move_file(old_metadata, new_metadata):
     old_filename = get_dropbox_filename(old_metadata)
     new_filename = get_dropbox_filename(new_metadata)
-    plug.logger.debug(u"Moving '{}' to '{}'".format(old_filename, new_filename))
+    plug.logger.debug(u"Moving '{}' to '{}'".format(old_filename,
+                                                    new_filename))
     # while is to manage cases where we have to try again.
     for attempt in range(10):
         try:
-            new_db_metadata = dropbox_client.file_move(from_path=b(old_filename),
-                                                       to_path=b(new_filename))
+            new_db_metadata = dropbox_client.file_move(
+                from_path=stringify(old_filename),
+                to_path=stringify(new_filename))
         except dropbox.rest.ErrorResponse as err:
             if err.status is 503 and u"please re-issue request" in err.error:
                 # If we didn't exceed retry limit
@@ -275,7 +287,7 @@ def delete_file(metadata):
     filename = get_dropbox_filename(metadata)
     plug.logger.debug(u"Deleting '{}'".format(filename))
     try:
-        dropbox_client.file_delete(b(filename))
+        dropbox_client.file_delete(stringify(filename))
     except dropbox.rest.ErrorResponse as err:
         raise ServiceError(u"Cannot delete file {} - {}".format(filename, err))
     remove_conflict(filename)
@@ -340,7 +352,8 @@ class CheckChanges(threading.Thread):
                                   .format(rootless_filename))
                 # empty string = root; ignore it
                 # ignore directories as well (onitu creates them on the fly)
-                if rootless_filename == u'' or db_metadata.get(u'is_dir', False):
+                if (rootless_filename == u'' or
+                   db_metadata.get(u'is_dir', False)):
                     continue
                 metadata = plug.get_metadata(rootless_filename)
                 # If the file has been deleted

@@ -40,6 +40,11 @@ class Driver(driver.Driver):
                                      *args,
                                      **options)
 
+    def stringify(self, s):
+        if type(s) != str:
+            s = b(s)
+        return s
+
     def prefix_root(self, filename):
         root = u(str(self.root))
         filename = u(filename)
@@ -64,32 +69,38 @@ class Driver(driver.Driver):
             pass
 
     def mkdir(self, subdirs):
-        self.dropbox_client.file_create_folder(self.prefix_root(subdirs))
+        self.dropbox_client.file_create_folder(
+            self.stringify(self.prefix_root(subdirs)))
 
     def rmdir(self, path):
         self.unlink(self.prefix_root(path))
 
     def write(self, filename, content):
-        self.dropbox_client.put_file(self.prefix_root(filename), content)
+        self.dropbox_client.put_file(
+            self.stringify(self.prefix_root(filename)), content)
 
     def generate(self, filename, size):
-        self.write(self.prefix_root(filename), os.urandom(size))
+        self.write(
+            self.stringify(self.prefix_root(filename)), os.urandom(size))
 
     def exists(self, filename):
-        metadata = self.dropbox_client.metadata(self.prefix_root(filename),
-                                                include_deleted=True)
+        metadata = self.dropbox_client.metadata(
+            self.stringify(self.prefix_root(filename)),
+            include_deleted=True)
         return not metadata.get(u'is_deleted', False)
 
     def unlink(self, filename):
-        self.dropbox_client.file_delete(b(self.prefix_root(filename)))
+        self.dropbox_client.file_delete(
+            self.stringify(self.prefix_root(filename)))
 
     def rename(self, source, target):
-        self.dropbox_client.file_move(from_path=b(self.prefix_root(source)),
-                                      to_path=b(self.prefix_root(target))
-                                  )
+        self.dropbox_client.file_move(
+            from_path=self.stringify(self.prefix_root(source)),
+            to_path=self.stringify(self.prefix_root(target)))
 
     def checksum(self, filename):
-        data = self.dropbox_client.get_file(self.prefix_root(filename))
+        data = self.dropbox_client.get_file(
+            self.stringify(self.prefix_root(filename)))
         return hashlib.md5(data.read()).hexdigest()
 
 
