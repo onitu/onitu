@@ -2,10 +2,11 @@ import os
 
 import pytest
 
-from .driver import load_driver
+from .driver import load_driver_module, load_driver
 
 
 _driver_name = os.environ.get('ONITU_TEST_DRIVER', 'test')
+TargetModule = load_driver_module(_driver_name)
 TargetDriver, TargetFeatures = load_driver(_driver_name)
 
 
