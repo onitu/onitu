@@ -187,12 +187,12 @@ class DeletionWorker(Worker):
     def do(self):
         self.logger.debug("Deleting '{}'", self.filename)
 
-        self.metadata.delete()
-
         try:
             self.call('delete_file', self.metadata)
         except AbortOperation:
             pass
+
+        self.metadata.delete()
 
         self.logger.info("'{}' deleted", self.filename)
 
