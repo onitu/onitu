@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
         # We run Referee.listen in another thread in order
         # to be able to interrupt it gently in the end
-        thread = Thread(target=referee.listen)
+        thread = Thread(target=referee.start)
         thread.start()
 
         while thread.is_alive():

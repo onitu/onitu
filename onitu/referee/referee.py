@@ -59,7 +59,7 @@ class Referee(object):
             MOV: self._handle_move,
         }
 
-    def listen(self):
+    def start(self):
         """Listen to all the events, and handle them
         """
         self.publisher = self.context.socket(zmq.PUB)
@@ -70,18 +70,7 @@ class Referee(object):
         try:
             listener = self.context.socket(zmq.PULL)
             listener.bind(self.get_events_uri('referee'))
-
-            while True:
-                events = self.escalator.range(prefix='referee:event:')
-
-                for key, args in events:
-                    cmd = args[0]
-                    if cmd in self.handlers:
-                        fid = key.split(':')[-1]
-                        self.handlers[cmd](fid, *args[1:])
-                    self.escalator.delete(key)
-
-                listener.recv()
+            self.listen(listener)
         except zmq.ZMQError as e:
             if e.errno == zmq.ETERM:
                 pass
@@ -92,6 +81,23 @@ class Referee(object):
         finally:
             if listener:
                 listener.close()
+
+    def listen(self, listener):
+        while True:
+            events = self.escalator.range(prefix='referee:event:')
+
+            for key, args in events:
+                try:
+                    cmd = args[0]
+                    if cmd in self.handlers:
+                        fid = key.split(':')[-1]
+                        self.handlers[cmd](fid, *args[1:])
+                except Exception as e:
+                    self.logger.error("Unexpected error: {}", e)
+                finally:
+                    self.escalator.delete(key)
+
+            listener.recv()
 
     def close(self):
         self.escalator.close()
@@ -146,7 +152,9 @@ class Referee(object):
 
         if driver in owners:
             owners.remove(driver)
-            self.escalator.delete(u'file:{}:service:{}'.format(old_fid, driver))
+            self.escalator.delete(
+                u'file:{}:service:{}'.format(old_fid, driver)
+            )
 
             metadata['owners'] = tuple(owners)
             self.escalator.put('file:{}'.format(old_fid), metadata)
