@@ -11,6 +11,7 @@ from logbook import Logger
 from .metadata import Metadata
 from .router import Router
 from .dealer import Dealer
+from .folder import Folder
 from .exceptions import DriverError, AbortOperation
 
 from onitu.escalator.client import Escalator
@@ -69,6 +70,8 @@ class Plug(object):
         self.options = self.escalator.get(
             u'service:{}:options'.format(name), default={}
         )
+
+        self.folders = Folder.get_folders(self.escalator, self.name)
 
         self.validate_options(manifest)
 
