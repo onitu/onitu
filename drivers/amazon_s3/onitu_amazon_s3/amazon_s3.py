@@ -15,7 +15,7 @@ import tinys3
 
 from onitu.plug import Plug, DriverError, ServiceError
 from onitu.escalator.client import EscalatorClosed
-from onitu.utils import b,u  # Unicode helpers
+from onitu.utils import u  # Unicode helpers
 
 plug = Plug()
 
@@ -52,7 +52,7 @@ def get_conn():
             err += u": The bucket doesn't exist."
         if httpe.response.status_code == 403:
             err += u": Invalid credentials."
-        err += u" Please check your Amazon S3 configuration. - {}".format(httpe)
+        err += u" Please check your Amazon S3 configuration - {}".format(httpe)
         raise DriverError(err)
     return S3Conn
 
@@ -186,7 +186,8 @@ def get_chunk(metadata, offset, size):
 def upload_chunk(metadata, offset, chunk):
     multipart_upload = get_multipart_upload(metadata)
     part_num = multipart_upload.number_of_parts() + 1
-    plug.logger.debug(u"Start upload chunk of {}".format(multipart_upload.key))
+    plug.logger.debug(u"Start upload chunk of {}".format(
+        u(multipart_upload.key)))
     plug.logger.debug(u"Uploading {} bytes at offset {}"
                       u" in part {}".format(len(chunk),
                                             offset, part_num))
@@ -218,7 +219,6 @@ def start_upload(metadata):
                               plug.options['bucket']))
     # Create a new multipart upload for this file
     new_mp = S3Conn.initiate_multipart_upload(filename)
-    plug.logger.debug("DEBUG")
     # Write the new multipart ID in metadata
     metadata.extra['mp_id'] = new_mp.uploadId
     # New file ? Create a default timestamp
@@ -230,7 +230,7 @@ def start_upload(metadata):
     # Store the Multipart upload id in cache
     add_to_cache(new_mp)
     plug.logger.debug(u"Storing upload ID {} for {}"
-                    .format(new_mp.uploadId, filename))
+                      .format(new_mp.uploadId, filename))
 
 
 @plug.handler()
@@ -334,7 +334,7 @@ def delete_file(metadata):
     global S3Conn
     try:
         filename = root_prefixed_filename(metadata.filename)
-        plug.logger.debug(u"Deleting {}"
+        plug.logger.debug(u"Deleting {} "
                           u"on bucket {}".format(filename,
                                                  plug.options['bucket']))
         S3Conn.delete(filename)
@@ -471,8 +471,8 @@ def start():
                 raise DriverError(u"Cannot fetch Onitu's root ({}) on"
                                   u" bucket "
                                   u"{}: {}".format(plug.options['root'],
-                                                  plug.options['bucket'],
-                                                  httpe))
+                                                   plug.options['bucket'],
+                                                   httpe))
         else:  # no error - root already exists
             # Amazon S3 has no concept of directories, they're just 0-size
             # files. So if root hasn't a size of 0, it is a regular file.
