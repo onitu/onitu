@@ -41,9 +41,17 @@ class Referee(object):
 
         self.services = self.escalator.get('services', default=[])
         self.folders = {
-            key.split(':')[-1]: options
-            for key, options in self.escalator.range('folders')
+            key.split(':')[-1]: {'options': options, 'services': set()}
+            for key, options in self.escalator.range('folder:')
         }
+
+        for service in self.services:
+            folders = self.escalator.get(
+                'service:{}:folders'.format(service), default=[]
+            )
+
+            for name in folders:
+                self.folders[name]['services'].add(service)
 
         self.handlers = {
             UP: self._handle_update,
