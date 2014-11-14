@@ -162,16 +162,15 @@ class Plug(object):
         metadata.delete()
         self.notify_referee(metadata.fid, DEL, self.name)
 
-    def move_file(self, metadata, new_filename):
+    def move_file(self, metadata, new_path):
+        new_filename = metadata.folder.relpath(new_path)
         new_metadata = metadata.clone(new_filename)
-        new_fid = new_metadata.fid
-
-        if self.name not in new_metadata.owners:
-            new_metadata.owners += (self.name,)
         new_metadata.uptodate = (self.name,)
         new_metadata.write()
 
-        self.notify_referee(metadata.fid, MOV, self.name, new_fid)
+        metadata.delete()
+
+        self.notify_referee(metadata.fid, MOV, self.name, new_metadata.fid)
 
         return new_metadata
 

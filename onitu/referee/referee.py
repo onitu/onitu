@@ -125,39 +125,29 @@ class Referee(object):
 
         self.notify(targets, DEL, fid)
 
-    def _handle_move(self, old_fid, driver, new_fid):
+    def _handle_move(self, old_fid, source, new_fid):
         """
         Notify the owners when a file is moved
         """
-        metadata = self.escalator.get('file:{}'.format(old_fid), default=None)
-
-        if not metadata:
+        try:
+            metadata = self.escalator.get('file:{}'.format(old_fid))
+        except KeyError:
             return
 
-        owners = set(metadata['owners'])
-        filename = metadata['filename']
+        folder_name = metadata['folder_name']
+        folder = self.folders[folder_name]
 
         new_metadata = self.escalator.get('file:{}'.format(new_fid))
-        new_filename = new_metadata['filename']
 
         self.logger.info(
-            "Moving of '{}' to '{}' from {}", filename, new_filename, driver
+            "Moving of '{}' to '{}' from {} in folder {}",
+            metadata['filename'], new_metadata['filename'], source, folder_name
         )
 
-        if driver in owners:
-            owners.remove(driver)
-            self.escalator.delete(
-                u'file:{}:service:{}'.format(old_fid, driver)
-            )
+        targets = list(folder['services'])
+        targets.remove(source)
 
-            metadata['owners'] = tuple(owners)
-            self.escalator.put('file:{}'.format(old_fid), metadata)
-
-        if not owners:
-            self.escalator.delete('file:{}'.format(old_fid))
-            return
-
-        self.notify(owners, MOV, old_fid, new_fid)
+        self.notify(targets, MOV, old_fid, new_fid)
 
     def _handle_update(self, fid, source):
         """Choose who are the entries that are concerned by the event

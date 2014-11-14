@@ -197,7 +197,7 @@ class DeletionWorker(Worker):
         self.logger.info("'{}' deleted", self.filename)
 
 
-class MoveWorker(DeletionWorker):
+class MoveWorker(Worker):
     def __init__(self, dealer, fid, new_fid):
         super(MoveWorker, self).__init__(dealer, fid)
 
@@ -212,12 +212,12 @@ class MoveWorker(DeletionWorker):
         try:
             if 'move_file' in self.dealer.plug._handlers:
                 self.call('move_file', self.metadata, new_metadata)
-                self.update_metadata()
+                self.metadata.delete()
             else:
                 # If the driver don't have a handler for moving a file,
                 # we try to simulate it with a move and a deletion.
                 # We use the same service for getting and uploading the
-                # file, eventhouht it can be an issue as we need twice
+                # file, even thought it can be an issue as we need twice
                 # the size of the file available.
                 # If another service has the file, maybe the Referee could
                 # select a potential sender.
@@ -226,7 +226,7 @@ class MoveWorker(DeletionWorker):
                 )
                 transfer()
                 self.call('delete_file', self.metadata)
-
+                self.metadata.delete()
         except AbortOperation:
             pass
 
