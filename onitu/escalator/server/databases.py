@@ -3,6 +3,8 @@ from threading import Lock
 
 import plyvel
 
+from onitu.utils import u
+
 
 class Databases(object):
     class OpenError(Exception):
@@ -42,7 +44,7 @@ class Databases(object):
                     self._names.append(name)
                 if prefix:
                     db = self._databases[name]
-                    name = u'{}/{}'.format(name, prefix)
+                    name = u'{}/{}'.format(name, u(prefix))
                     if name not in self._databases:
                         self._databases[name] = db.prefixed_db(prefix)
                         self._names.append(name)
