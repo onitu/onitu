@@ -57,3 +57,7 @@ class Driver(driver.Driver):
 
     def checksum(self, filename):
         return files.checksum(self.root / filename)
+
+
+class DriverFeatures(driver.DriverFeatures):
+    pass

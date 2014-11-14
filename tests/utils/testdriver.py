@@ -1,4 +1,4 @@
 from .driver import load_driver
 
 
-TestDriver = load_driver('test')
+TestDriver, _ = load_driver('test')

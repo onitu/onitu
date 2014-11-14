@@ -88,3 +88,7 @@ class Driver(driver.Driver):
     def checksum(self, filename):
         data = self.dropbox_client.get_file(self.prefix_root(filename))
         return hashlib.md5(data.read()).hexdigest()
+
+
+class DriverFeatures(driver.DriverFeatures):
+    pass

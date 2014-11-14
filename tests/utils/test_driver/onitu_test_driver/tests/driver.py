@@ -101,3 +101,7 @@ class Driver(driver.Driver):
                 self.push_socket.send(b'')
         except zmq.ZMQError:
             return
+
+
+class DriverFeatures(driver.DriverFeatures):
+    pass

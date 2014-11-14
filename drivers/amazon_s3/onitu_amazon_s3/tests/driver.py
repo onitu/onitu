@@ -100,3 +100,7 @@ class Driver(driver.Driver):
         filename = str(self.root) + filename
         file = self.conn.get(filename)
         return hashlib.md5(file.content).hexdigest()
+
+
+class DriverFeatures(driver.DriverFeatures):
+    pass

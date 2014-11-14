@@ -94,3 +94,7 @@ class Driver(driver.Driver):
         f = self.hubic.os_call('get', 'default/' + filename,
                                headers=headers).content
         return hashlib.md5(f).hexdigest()
+
+
+class DriverFeatures(driver.DriverFeatures):
+    pass
