@@ -174,7 +174,7 @@ class Plug(object):
 
         return new_metadata
 
-    def get_metadata(self, filename):
+    def get_metadata(self, filename, folder=None):
         """
         :param filename: The name of the file, with the absolute path
                          from the driver's root
@@ -185,12 +185,27 @@ class Plug(object):
         If the file does not exists in Onitu, it will be created when
         :meth:`.Metadata.write` will be called.
         """
-        metadata = Metadata.get_by_filename(self, filename)
+        if not folder:
+            # We select the folder containing the file which is
+            # the closer to the root
+            for candidate in self.folders.values():
+                if candidate.contains(filename):
+                    if folder:
+                        if folder.contains(candidate.path):
+                            folder = candidate
+                    else:
+                        folder = candidate
+
+            if not folder:
+                return None
+
+            filename = folder.relpath(filename)
+
+        metadata = Metadata.get(self, folder, filename)
 
         if not metadata:
-            metadata = Metadata(plug=self, filename=filename)
+            metadata = Metadata(plug=self, folder=folder, filename=filename)
 
-        metadata.service = self.name
         return metadata
 
     def validate_options(self, manifest):
