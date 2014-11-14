@@ -1,4 +1,3 @@
-import os
 import functools
 
 import zmq
@@ -173,39 +172,26 @@ class Referee(object):
         this should change when the rules will be introduced.
         """
         metadata = self.escalator.get('file:{}'.format(fid))
-        owners = set(metadata['owners'])
-        uptodate = set(metadata['uptodate'])
+        uptodate = metadata['uptodate']
+        folder_name = metadata['folder_name']
+        folder = self.folders[folder_name]
 
-        filename = os.path.join("/", metadata['filename'])
+        self.logger.info(
+            "Update for '{}' from {} in folder {}",
+            metadata['filename'], driver, folder_name
+        )
 
-        self.logger.info("Update for '{}' from {}", filename, driver)
+        targets = tuple(
+            service for service in folder['services']
+            if service not in uptodate
+        )
 
-        if driver not in owners:
-            self.logger.debug("The file '{}' was not suposed to be on {}, "
-                              "but syncing anyway.", filename, driver)
+        source = uptodate[0]
 
-        # We sync each file with every services as we don't handle
-        # folders yet
-        should_own = set(self.services)
+        self.notify(targets, UP, fid, source)
 
-        if should_own != owners:
-            metadata['owners'] = list(should_own)
-            self.escalator.put('file:{}'.format(fid), metadata)
-
-        assert uptodate
-        source = next(iter(uptodate))
-
-        self.notify(should_own - uptodate, UP, fid, source)
-
-        for name in owners.difference(should_own):
-            self.logger.debug("The file '{}' on {} is no longer under onitu "
-                              "control. should be deleted.", filename, name)
-
-    def notify(self, drivers, cmd, fid, *args):
-        if not drivers:
-            return
-
-        for name in drivers:
+    def notify(self, services, cmd, fid, *args):
+        for name in services:
             self.escalator.put(
                 u'service:{}:event:{}'.format(name, fid), (cmd, args)
             )
