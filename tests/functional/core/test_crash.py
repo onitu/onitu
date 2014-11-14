@@ -1,11 +1,11 @@
 from tests.utils.setup import Setup, Rule
-from tests.utils.driver import TestingDriver
+from tests.utils.testdriver import TestDriver
 from tests.utils.loop import CounterLoop, BooleanLoop
 
 # We use chunks of size 1 to slow down the transfers. This way, we have
 # more chances to stop a transfer before its completion
-rep1 = TestingDriver('rep1', speed_bump=True)
-rep2 = TestingDriver('rep2', speed_bump=True)
+rep1 = TestDriver('rep1', speed_bump=True)
+rep2 = TestDriver('rep2', speed_bump=True)
 
 _setup = Setup()
 _setup.add(rep1)

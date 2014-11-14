@@ -8,7 +8,7 @@ elif version_info.major == 3:
     from urllib.parse import quote as quote
 import pytest
 
-from tests.utils.driver import TestingDriver
+from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop
 from tests.utils.files import KB
 
@@ -19,7 +19,7 @@ monitoring_path = "/api/v1.0/entries/{}/{}"
 files_path = "/api/v1.0/files/{}/metadata"
 entries_path = "/api/v1.0/entries"
 
-rep1, rep2 = TestingDriver("rep1"), TestingDriver("rep2")
+rep1, rep2 = TestDriver("rep1"), TestDriver("rep2")
 
 STOP = ("stopped", "stopping")
 

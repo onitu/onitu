@@ -1,11 +1,11 @@
 import json
 
 from tests.utils.setup import Rule
-from tests.utils.driver import TestingDriver
+from tests.utils.testdriver import TestDriver
 
 
 def test_startup(setup, launcher):
-    rep1, rep2 = TestingDriver('rep1'), TestingDriver('rep2')
+    rep1, rep2 = TestDriver('rep1'), TestDriver('rep2')
 
     setup.add(rep1)
     setup.add(rep2)

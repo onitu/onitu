@@ -1,9 +1,9 @@
 import pytest
 
-from tests.utils.driver import TestingDriver
+from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop
 
-rep1, rep2 = TestingDriver('rep1'), TestingDriver('rep2', speed_bump=True)
+rep1, rep2 = TestDriver('rep1'), TestDriver('rep2', speed_bump=True)
 
 
 @pytest.fixture(autouse=True)

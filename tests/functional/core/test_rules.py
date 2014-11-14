@@ -1,5 +1,5 @@
 from tests.utils.setup import Rule
-from tests.utils.driver import TestingDriver
+from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop, TimeoutError
 
 
@@ -10,7 +10,7 @@ class ShouldNotCopy(BaseException):
 def test_no_rule(setup, launcher):
     try:
         filename = 'bar'
-        rep1, rep2 = TestingDriver('rep1'), TestingDriver('rep2')
+        rep1, rep2 = TestDriver('rep1'), TestDriver('rep2')
         setup.add(rep1)
         setup.add(rep2)
         launcher()
@@ -34,7 +34,7 @@ def test_path(setup, launcher):
     try:
         directory = 'foo'
         filename = '{}/bar'.format(directory)
-        rep1, rep2 = TestingDriver('rep1'), TestingDriver('rep2')
+        rep1, rep2 = TestDriver('rep1'), TestDriver('rep2')
         setup.add(rep1)
         setup.add(rep2)
         setup.add_rule(Rule().match_path('/{}'.format(directory)).sync('rep2'))
@@ -55,7 +55,7 @@ def test_path(setup, launcher):
 def test_not_mime(setup, launcher):
     try:
         filename = 'bar.txt'
-        rep1, rep2 = TestingDriver('rep1'), TestingDriver('rep2')
+        rep1, rep2 = TestDriver('rep1'), TestDriver('rep2')
         setup.add(rep1)
         setup.add(rep2)
         setup.add_rule(Rule().match_mime('image/png').sync('rep2'))
@@ -79,7 +79,7 @@ def test_not_mime(setup, launcher):
 def test_simple_mime(setup, launcher):
     try:
         filename = 'bar.png'
-        rep1, rep2 = TestingDriver('rep1'), TestingDriver('rep2')
+        rep1, rep2 = TestDriver('rep1'), TestDriver('rep2')
         setup.add(rep1)
         setup.add(rep2)
         setup.add_rule(Rule().match_mime('image/png').sync('rep2'))
@@ -99,7 +99,7 @@ def test_simple_mime(setup, launcher):
 def test_multi_mime(setup, launcher):
     try:
         filenames = 'bar.png', 'foo.txt'
-        rep1, rep2 = TestingDriver('rep1'), TestingDriver('rep2')
+        rep1, rep2 = TestDriver('rep1'), TestDriver('rep2')
         setup.add(rep1)
         setup.add(rep2)
         setup.add_rule(Rule().match_mime('image/png', 'text/plain')
@@ -121,7 +121,7 @@ def test_multi_mime(setup, launcher):
 def test_path_mime(setup, launcher):
     try:
         directory = 'foo'
-        rep1, rep2 = TestingDriver('rep1'), TestingDriver('rep2')
+        rep1, rep2 = TestDriver('rep1'), TestDriver('rep2')
         setup.add(rep1)
         setup.add(rep2)
         setup.add_rule(Rule().match_path('/{}'.format(directory))

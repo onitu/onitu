@@ -12,10 +12,10 @@ elif sys.version_info.major == 3:
 import requests
 
 import tinys3
-from tests.utils.testdriver import TestDriver
+from tests.utils import driver
 
 
-class Driver(TestDriver):
+class Driver(driver.Driver):
     SPEED_BUMP = 1
 
     def __init__(self, *args, **options):

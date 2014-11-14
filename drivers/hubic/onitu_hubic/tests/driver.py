@@ -4,10 +4,10 @@ import requests
 
 from onitu.plug import ServiceError
 from onitu.drivers.hubic import Hubic
-from tests.utils.testdriver import TestDriver
+from tests.utils import driver
 
 
-class Driver(TestDriver):
+class Driver(driver.Driver):
 
     def __init__(self, *args, **options):
         if "root" not in options:

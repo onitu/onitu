@@ -2,7 +2,7 @@ import zmq
 
 from threading import Thread
 
-from tests.utils.testdriver import TestDriver
+from tests.utils import driver
 
 from onitu.utils import _get_uri
 
@@ -31,7 +31,7 @@ class NotifThread(Thread):
             self.socket.close()
 
 
-class Driver(TestDriver):
+class Driver(driver.Driver):
     SPEED_BUMP = 1
 
     def __init__(self, *args, **options):
