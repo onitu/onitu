@@ -103,32 +103,27 @@ class Referee(object):
         self.publisher.close()
         self.context.term()
 
-    def _handle_deletion(self, fid, driver):
+    def _handle_deletion(self, fid, source):
         """
         Notify the owners when a file is deleted
         """
-        metadata = self.escalator.get('file:{}'.format(fid), default=None)
-
-        if not metadata:
+        try:
+            metadata = self.escalator.get('file:{}'.format(fid))
+        except KeyError:
             return
 
-        owners = set(metadata['owners'])
-        filename = metadata['filename']
+        folder_name = metadata['folder_name']
+        folder = self.folders[folder_name]
 
-        self.logger.info("Deletion of '{}' from {}", filename, driver)
+        self.logger.info(
+            "Deletion of '{}' from {} in folder {}",
+            metadata['filename'], source, folder_name
+        )
 
-        if driver in owners:
-            owners.remove(driver)
-            self.escalator.delete(u'file:{}:service:{}'.format(fid, driver))
+        targets = list(folder['services'])
+        targets.remove(source)
 
-            metadata['owners'] = tuple(owners)
-            self.escalator.put('file:{}'.format(fid), metadata)
-
-        if not owners:
-            self.escalator.delete('file:{}'.format(fid))
-            return
-
-        self.notify(owners, DEL, fid)
+        self.notify(targets, DEL, fid)
 
     def _handle_move(self, old_fid, driver, new_fid):
         """
@@ -164,7 +159,7 @@ class Referee(object):
 
         self.notify(owners, MOV, old_fid, new_fid)
 
-    def _handle_update(self, fid, driver):
+    def _handle_update(self, fid, source):
         """Choose who are the entries that are concerned by the event
         and send a notification to them.
 
@@ -178,7 +173,7 @@ class Referee(object):
 
         self.logger.info(
             "Update for '{}' from {} in folder {}",
-            metadata['filename'], driver, folder_name
+            metadata['filename'], source, folder_name
         )
 
         targets = tuple(

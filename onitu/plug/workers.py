@@ -187,7 +187,7 @@ class DeletionWorker(Worker):
     def do(self):
         self.logger.debug("Deleting '{}'", self.filename)
 
-        self.update_metadata()
+        self.metadata.delete()
 
         try:
             self.call('delete_file', self.metadata)
@@ -195,20 +195,6 @@ class DeletionWorker(Worker):
             pass
 
         self.logger.info("'{}' deleted", self.filename)
-
-    def update_metadata(self):
-        self.metadata.owners = [e for e in self.metadata.owners
-                                if e != self.dealer.name]
-        self.metadata.write()
-
-        self.escalator.delete(
-            u'file:{}:service:{}'.format(self.fid, self.dealer.name)
-        )
-
-        # If we were the last service owning this file, we delete
-        # all the metadata
-        if not self.metadata.owners:
-            self.escalator.delete('file:{}'.format(self.fid))
 
 
 class MoveWorker(DeletionWorker):

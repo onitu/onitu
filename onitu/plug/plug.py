@@ -159,6 +159,7 @@ class Plug(object):
         self.notify_referee(fid, UP, self.name)
 
     def delete_file(self, metadata):
+        metadata.delete()
         self.notify_referee(metadata.fid, DEL, self.name)
 
     def move_file(self, metadata, new_filename):
