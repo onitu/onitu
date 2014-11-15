@@ -8,6 +8,7 @@ from onitu.escalator.client import Escalator, EscalatorClosed
 from onitu.utils import get_events_uri
 
 from .cmd import UP, DEL, MOV
+from .folder import Folder
 
 
 class Referee(object):
@@ -39,18 +40,7 @@ class Referee(object):
         self.get_events_uri = functools.partial(get_events_uri, session)
 
         self.services = self.escalator.get('services', default=[])
-        self.folders = {
-            key.split(':')[-1]: {'options': options, 'services': set()}
-            for key, options in self.escalator.range('folder:')
-        }
-
-        for service in self.services:
-            folders = self.escalator.get(
-                'service:{}:folders'.format(service), default=[]
-            )
-
-            for name in folders:
-                self.folders[name]['services'].add(service)
+        self.folders = Folder.get_folders(self.escalator, self.services)
 
         self.handlers = {
             UP: self._handle_update,
@@ -112,18 +102,14 @@ class Referee(object):
         except KeyError:
             return
 
-        folder_name = metadata['folder_name']
-        folder = self.folders[folder_name]
+        folder = self.folders[metadata['folder_name']]
 
         self.logger.info(
             "Deletion of '{}' from {} in folder {}",
-            metadata['filename'], source, folder_name
+            metadata['filename'], source, folder
         )
 
-        targets = list(folder['services'])
-        targets.remove(source)
-
-        self.notify(targets, DEL, fid)
+        self.notify(folder.targets(source), DEL, fid)
 
     def _handle_move(self, old_fid, source, new_fid):
         """
@@ -134,20 +120,16 @@ class Referee(object):
         except KeyError:
             return
 
-        folder_name = metadata['folder_name']
-        folder = self.folders[folder_name]
+        folder = self.folders[metadata['folder_name']]
 
         new_metadata = self.escalator.get('file:{}'.format(new_fid))
 
         self.logger.info(
             "Moving of '{}' to '{}' from {} in folder {}",
-            metadata['filename'], new_metadata['filename'], source, folder_name
+            metadata['filename'], new_metadata['filename'], source, folder
         )
 
-        targets = list(folder['services'])
-        targets.remove(source)
-
-        self.notify(targets, MOV, old_fid, new_fid)
+        self.notify(folder.targets(source), MOV, old_fid, new_fid)
 
     def _handle_update(self, fid, source):
         """Choose who are the entries that are concerned by the event
@@ -158,22 +140,14 @@ class Referee(object):
         """
         metadata = self.escalator.get('file:{}'.format(fid))
         uptodate = metadata['uptodate']
-        folder_name = metadata['folder_name']
-        folder = self.folders[folder_name]
+        folder = self.folders[metadata['folder_name']]
 
         self.logger.info(
             "Update for '{}' from {} in folder {}",
-            metadata['filename'], source, folder_name
+            metadata['filename'], source, folder
         )
 
-        targets = tuple(
-            service for service in folder['services']
-            if service not in uptodate
-        )
-
-        source = uptodate[0]
-
-        self.notify(targets, UP, fid, source)
+        self.notify(folder.targets(*uptodate), UP, fid, source)
 
     def notify(self, services, cmd, fid, *args):
         for name in services:
