@@ -1,10 +1,14 @@
 
 
 class Folder(object):
-    def __init__(self, name, services, **kwargs):
+    def __init__(self, name, services,
+                 min_size=None, max_size=None, **kwargs):
         self.name = name
         self.services = frozenset(services)
         self.options = kwargs
+
+        self.min_size = self._to_bytes(min_size)
+        self.max_size = self._to_bytes(max_size)
 
     def __str__(self):
         return self.name
@@ -30,5 +34,53 @@ class Folder(object):
 
         return folders
 
-    def targets(self, *excluded):
-        return self.services - frozenset(excluded)
+    def targets(self, metadata, source):
+        if not self.check_size(metadata['size']):
+            return
+
+        return self.services - frozenset((source,))
+
+    def check_size(self, size):
+        if self.min_size is not None and size < self.min_size:
+            return False
+
+        if self.max_size is not None and size > self.max_size:
+            return False
+
+        return True
+
+    def _to_bytes(self, size):
+        units = {
+            'B': 1e0,
+            'k': 1e3,
+            'M': 1e6,
+            'G': 1e9,
+            'T': 1e12,
+            'P': 1e15,
+            'E': 1e18,
+            'Z': 1e21,
+            'Y': 1e2,
+            'Ki': 2 ** 10,
+            'Mi': 2 ** 20,
+            'Gi': 2 ** 30,
+            'Ti': 2 ** 40,
+            'Pi': 2 ** 50,
+            'Ei': 2 ** 60
+        }
+
+        if not size:
+            return None
+
+        try:
+            return float(size)
+        except ValueError:
+            pass
+
+        for unit, multiple in units.items():
+            if size.endswith(unit):
+                try:
+                    return float(size.replace(unit, '')) * multiple
+                except ValueError:
+                    return None
+
+        return None

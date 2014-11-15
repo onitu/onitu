@@ -109,7 +109,7 @@ class Referee(object):
             metadata['filename'], source, folder
         )
 
-        self.notify(folder.targets(source), DEL, fid)
+        self.notify(folder.targets(metadata, source), DEL, fid)
 
     def _handle_move(self, old_fid, source, new_fid):
         """
@@ -129,7 +129,7 @@ class Referee(object):
             metadata['filename'], new_metadata['filename'], source, folder
         )
 
-        self.notify(folder.targets(source), MOV, old_fid, new_fid)
+        self.notify(folder.targets(metadata, source), MOV, old_fid, new_fid)
 
     def _handle_update(self, fid, source):
         """Choose who are the entries that are concerned by the event
@@ -139,7 +139,6 @@ class Referee(object):
         this should change when the rules will be introduced.
         """
         metadata = self.escalator.get('file:{}'.format(fid))
-        uptodate = metadata['uptodate']
         folder = self.folders[metadata['folder_name']]
 
         self.logger.info(
@@ -147,9 +146,12 @@ class Referee(object):
             metadata['filename'], source, folder
         )
 
-        self.notify(folder.targets(*uptodate), UP, fid, source)
+        self.notify(folder.targets(metadata, source), UP, fid, source)
 
     def notify(self, services, cmd, fid, *args):
+        if not services:
+            return
+
         for name in services:
             self.escalator.put(
                 u'service:{}:event:{}'.format(name, fid), (cmd, args)
