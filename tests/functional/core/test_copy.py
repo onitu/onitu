@@ -1,10 +1,7 @@
 import pytest
 
-from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop
 from tests.utils.units import KB, MB
-
-rep1, rep2 = TestDriver('rep1'), TestDriver('rep2')
 
 
 @pytest.fixture(autouse=True)
@@ -13,14 +10,15 @@ def _(module_launcher_launch):
 
 
 def copy_file(launcher, filename, size):
+    src, dest = launcher.get_entries('rep1', 'rep2')
     launcher.unset_all_events()
     loop = BooleanLoop()
     launcher.on_transfer_ended(
-        loop.stop, d_from='rep1', d_to='rep2', filename=filename
+        loop.stop, d_from=src, d_to=dest, filename=filename
     )
-    rep1.generate(filename, size)
+    src.generate(filename, size)
     loop.run(timeout=10)
-    assert rep1.checksum(filename) == rep2.checksum(filename)
+    assert src.checksum(filename) == dest.checksum(filename)
 
 
 def test_small_copy(module_launcher):
@@ -55,5 +53,5 @@ def test_empty_file(module_launcher):
 
 
 def test_subdirectories(module_launcher):
-    rep1.mkdir('sub/dir/deep/')
+    module_launcher.entries['rep1'].mkdir('sub/dir/deep/')
     copy_file(module_launcher, 'sub/dir/deep/file', 100)

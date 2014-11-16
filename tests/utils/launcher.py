@@ -165,3 +165,10 @@ class Launcher(object):
         if name.startswith('on_'):
             return self._on_event(name[3:])
         return self.__getattribute__(name)
+
+    @property
+    def entries(self):
+        return self.setup.entries
+
+    def get_entries(self, *names):
+        return [self.entries[name] for name in names]

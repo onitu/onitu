@@ -1,44 +1,42 @@
-from tests.utils.setup import Setup, Rule
+import pytest
+
+from tests.utils.setup import Rule
 from tests.utils.testdriver import TestDriver
 from tests.utils.loop import CounterLoop, BooleanLoop
 
-rep1, rep2 = None, None
+
+def init_setup(setup):
+    setup.add(TestDriver('rep1', speed_bump=True))
+    setup.add(TestDriver('rep2', speed_bump=True))
+    setup.add_rule(Rule().match_path('/').sync('rep1', 'rep2'))
 
 
-def get_setup():
-    global rep1, rep2
-    # We use chunks of size 1 to slow down the transfers. This way, we have
-    # more chances to stop a transfer before its completion
-    rep1 = TestDriver('rep1', speed_bump=True)
-    rep2 = TestDriver('rep2', speed_bump=True)
-    setup = Setup()
-    setup.add(rep1)
-    setup.add(rep2)
-    setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
-    return setup
+@pytest.fixture(autouse=True)
+def _(auto_setup):
+    pass
 
 
-def crash(launcher, filename, source, target):
+def crash(launcher, filename, src, dest):
     try:
         start_loop = BooleanLoop()
         end_loop = CounterLoop(2)
         launcher.on_transfer_started(
             start_loop.stop,
-            d_from=source.name, d_to=target.name,
+            d_from=src, d_to=dest,
             filename=filename
         )
         launcher.on_transfer_restarted(
             end_loop.check,
-            d_from=source.name, d_to=target.name,
+            d_from=src, d_to=dest,
             filename=filename
         )
         launcher.on_transfer_ended(
             end_loop.check,
-            d_from=source.name, d_to=target.name,
+            d_from=src, d_to=dest,
             filename=filename
         )
 
-        source.generate(filename, 100)
+        src.generate(filename, 100)
         launcher()
         start_loop.run(timeout=10)
         launcher.kill()
@@ -46,11 +44,11 @@ def crash(launcher, filename, source, target):
         launcher()
         end_loop.run(timeout=10)
 
-        assert source.checksum(filename) == target.checksum(filename)
+        assert src.checksum(filename) == dest.checksum(filename)
     finally:
         try:
-            source.unlink(filename)
-            target.unlink(filename)
+            src.unlink(filename)
+            dest.unlink(filename)
         except:
             pass
         launcher.close()
@@ -58,8 +56,10 @@ def crash(launcher, filename, source, target):
 
 
 def test_crash_rep1_to_rep2(launcher):
-    crash(launcher, 'crash_1', rep1, rep2)
+    crash(launcher, 'crash_1', launcher.entries['rep1'],
+          launcher.entries['rep2'])
 
 
 def test_crash_rep2_to_rep1(launcher):
-    crash(launcher, 'crash_2', rep2, rep1)
+    crash(launcher, 'crash_2', launcher.entries['rep2'],
+          launcher.entries['rep1'])

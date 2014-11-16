@@ -46,6 +46,9 @@ class Driver(object):
     def __eq__(self, other):
         return self.id == other.id
 
+    def __str__(self):
+        return self.name
+
 
 class DriverFeatures(object):
     copy_file_from_onitu = True

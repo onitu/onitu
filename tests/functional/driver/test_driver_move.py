@@ -4,8 +4,7 @@ from tests.utils.targetdriver import TargetDriver, if_feature
 from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop, CounterLoop
 
-d_target, d_test = TargetDriver('target'), TestDriver('test')
-rep1, rep2 = d_target, d_test
+entries = TargetDriver('rep1'), TestDriver('rep2')
 
 
 @pytest.fixture(autouse=True)
@@ -25,6 +24,7 @@ def copy_file(launcher, filename, size, src, dest):
 
 
 def init_file(launcher, filename, size):
+    d_target, d_test = launcher.get_entries('rep1', 'rep2')
     if if_feature.copy_file_from_onitu:
         copy_file(launcher, filename, size, d_test, d_target)
     else:
@@ -49,9 +49,11 @@ def move_file(launcher, old_filename, new_filename, size, src, dest):
 
 @if_feature.move_file_from_onitu
 def test_driver_move_from_onitu(module_launcher):
+    d_target, d_test = module_launcher.get_entries('rep1', 'rep2')
     move_file(module_launcher, 'move1', 'moved1', 100, d_test, d_target)
 
 
 @if_feature.move_file_to_onitu
 def test_driver_move_to_onitu(module_launcher):
+    d_target, d_test = module_launcher.get_entries('rep1', 'rep2')
     move_file(module_launcher, 'move2', 'moved2', 100, d_target, d_test)

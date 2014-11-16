@@ -18,7 +18,7 @@ def test_no_rule(setup, launcher):
         try:
             loop = BooleanLoop()
             launcher.on_transfer_started(
-                loop.stop, d_from='rep1', d_to='rep2', filename=filename
+                loop.stop, d_from=rep1, d_to=rep2, filename=filename
             )
             rep1.generate(filename, 10)
             loop.run(timeout=1)
@@ -42,7 +42,7 @@ def test_path(setup, launcher):
 
         loop = BooleanLoop()
         launcher.on_transfer_ended(
-            loop.stop, d_from='rep1', d_to='rep2', filename=filename
+            loop.stop, d_from=rep1, d_to=rep2, filename=filename
         )
         rep1.mkdir(directory)
         rep1.generate(filename, 100)
@@ -64,7 +64,7 @@ def test_not_mime(setup, launcher):
         try:
             loop = BooleanLoop()
             launcher.on_transfer_started(
-                loop.stop, d_from='rep1', d_to='rep2', filename=filename
+                loop.stop, d_from=rep1, d_to=rep2, filename=filename
             )
             rep1.generate(filename, 100)
             loop.run(timeout=1)
@@ -87,7 +87,7 @@ def test_simple_mime(setup, launcher):
 
         loop = BooleanLoop()
         launcher.on_transfer_ended(
-            loop.stop, d_from='rep1', d_to='rep2', filename=filename
+            loop.stop, d_from=rep1, d_to=rep2, filename=filename
         )
         rep1.generate(filename, 100)
         loop.run(timeout=5)
@@ -109,7 +109,7 @@ def test_multi_mime(setup, launcher):
         for filename in filenames:
             loop = BooleanLoop()
             launcher.on_transfer_ended(
-                loop.stop, d_from='rep1', d_to='rep2', filename=filename
+                loop.stop, d_from=rep1, d_to=rep2, filename=filename
             )
             rep1.generate(filename, 100)
             loop.run(timeout=5)
@@ -133,7 +133,7 @@ def test_path_mime(setup, launcher):
         filename = 'foo/bar.png'
         loop = BooleanLoop()
         launcher.on_transfer_ended(
-            loop.stop, d_from='rep1', d_to='rep2', filename=filename
+            loop.stop, d_from=rep1, d_to=rep2, filename=filename
         )
         rep1.generate(filename, 100)
         loop.run(timeout=5)
@@ -144,7 +144,7 @@ def test_path_mime(setup, launcher):
             try:
                 loop = BooleanLoop()
                 launcher.on_transfer_started(
-                    loop.stop, d_from='rep1', d_to='rep2', filename=filename
+                    loop.stop, d_from=rep1, d_to=rep2, filename=filename
                 )
                 rep1.generate(filename, 100)
                 loop.run(timeout=1)

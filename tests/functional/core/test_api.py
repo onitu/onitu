@@ -8,7 +8,6 @@ elif version_info.major == 3:
     from urllib.parse import quote as quote
 import pytest
 
-from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop
 from tests.utils.units import KB
 
@@ -19,14 +18,15 @@ monitoring_path = "/api/v1.0/entries/{}/{}"
 files_path = "/api/v1.0/files/{}/metadata"
 entries_path = "/api/v1.0/entries"
 
-rep1, rep2 = TestDriver("rep1"), TestDriver("rep2")
+rep1, rep2 = None, None
 
 STOP = ("stopped", "stopping")
 
 
 @pytest.fixture(autouse=True)
-def _(module_launcher_launch):
-    pass
+def _(module_launcher, module_launcher_launch):
+    global rep1, rep2
+    rep1, rep2 = module_launcher.get_entries('rep1', 'rep2')
 
 
 def get(*args, **kwargs):
@@ -91,7 +91,7 @@ def create_file(module_launcher, filename, size):
     module_launcher.unset_all_events()
     loop = BooleanLoop()
     module_launcher.on_transfer_ended(
-        loop.stop, d_from='rep1', d_to='rep2', filename=filename
+        loop.stop, d_from=rep1, d_to=rep2, filename=filename
     )
     rep1.generate(filename, size)
     loop.run(timeout=10)
@@ -129,7 +129,7 @@ def test_entry():
     json = extract_json(r)
     assert r.status_code == 200
     assert json['driver'] == rep1.type
-    assert json['name'] == "rep1"
+    assert json['name'] == rep1.name
     assert json['options'] == rep1.options
 
 

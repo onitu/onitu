@@ -1,34 +1,32 @@
 import pytest
 
-from tests.utils.testdriver import TestDriver
 from tests.utils.loop import CounterLoop
-
-rep1, rep2 = TestDriver("rep1"), TestDriver("rep2")
 
 
 @pytest.fixture(autouse=True)
-def _(module_setup_initialize):
+def _(module_auto_setup):
     pass
 
 
 def launch_with_files(launcher, prefix, n, size, delete=True):
+    src, dest = launcher.get_entries('rep1', 'rep2')
     files = ['{}{}'.format(prefix, i) for i in range(n)]
 
     try:
         for filename in files:
-            rep1.generate(filename, size)
+            src.generate(filename, size)
 
         loop = CounterLoop(n)
         for filename in files:
             launcher.on_transfer_ended(
-                loop.check, d_from='rep1', d_to='rep2', filename=filename
+                loop.check, d_from=src, d_to=dest, filename=filename
             )
 
         launcher()
         loop.run(timeout=(10 + n // 5))
 
         for filename in files:
-            assert rep1.checksum(filename) == rep2.checksum(filename)
+            assert src.checksum(filename) == dest.checksum(filename)
     finally:
         launcher.close()
         launcher.unset_all_events()
@@ -36,8 +34,8 @@ def launch_with_files(launcher, prefix, n, size, delete=True):
         if delete:
             for filename in files:
                 try:
-                    rep1.unlink(filename)
-                    rep2.unlink(filename)
+                    src.unlink(filename)
+                    dest.unlink(filename)
                 except:
                     pass
 
