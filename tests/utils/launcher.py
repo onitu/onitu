@@ -70,13 +70,10 @@ class Launcher(object):
     def kill(self, wait=True):
         self._kill(signal.SIGTERM, wait)
 
-    def close(self, clean_setup=True):
+    def close(self):
         try:
             self.kill(wait=True)
         finally:
-            if clean_setup:
-                self.setup.clean()
-
             if self.dispatcher:
                 self.dispatcher.stop()
                 self.dispatcher.subscriber.close()
@@ -103,21 +100,18 @@ class Launcher(object):
             self.unset_event(event)
 
     def start_dispatcher(self):
-        if not self.dispatcher:
-            logs_uri = get_logs_uri(self.setup.name)
+        logs_uri = get_logs_uri(self.setup.name)
 
-            level = logbook.DEBUG if self.debug else logbook.INFO
-            handlers = logbook.NestedSetup([
-                logbook.NullHandler(),
-                logbook.StderrHandler(
-                    level=level, format_string=FORMAT_STRING
-                ),
-                logbook.Processor(self.process_record),
-            ])
-            subscriber = ZeroMQSubscriber(logs_uri, multi=True)
-            self.dispatcher = subscriber.dispatch_in_background(setup=handlers)
-        elif not self.dispatcher.running:
-            self.dispatcher.start()
+        level = logbook.DEBUG if self.debug else logbook.INFO
+        handlers = logbook.NestedSetup([
+            logbook.NullHandler(),
+            logbook.StderrHandler(
+                level=level, format_string=FORMAT_STRING
+            ),
+            logbook.Processor(self.process_record),
+        ])
+        subscriber = ZeroMQSubscriber(logs_uri, multi=True)
+        self.dispatcher = subscriber.dispatch_in_background(setup=handlers)
 
     def __call__(self, wait=True, api=False, save_setup=True,
                  stdout=False, stderr=False):
@@ -131,7 +125,7 @@ class Launcher(object):
             self.on_referee_started(loop.check)
             if api:
                 self.on_api_started(loop.check)
-            for entry in self.setup.entries:
+            for entry in self.setup.entries.values():
                 self.on_driver_started(loop.check, driver=entry.name)
 
         self.process = Popen(
@@ -170,4 +164,4 @@ class Launcher(object):
     def __getattr__(self, name):
         if name.startswith('on_'):
             return self._on_event(name[3:])
-        return super(Launcher, self).__getattr__(name)
+        return self.__getattribute__(name)

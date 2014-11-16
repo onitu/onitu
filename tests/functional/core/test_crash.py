@@ -2,23 +2,20 @@ from tests.utils.setup import Setup, Rule
 from tests.utils.testdriver import TestDriver
 from tests.utils.loop import CounterLoop, BooleanLoop
 
-# We use chunks of size 1 to slow down the transfers. This way, we have
-# more chances to stop a transfer before its completion
-rep1 = TestDriver('rep1', speed_bump=True)
-rep2 = TestDriver('rep2', speed_bump=True)
-
-_setup = Setup()
-_setup.add(rep1)
-_setup.add(rep2)
-_setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
+rep1, rep2 = None, None
 
 
-def setup():
-    return _setup
-
-
-def teardown_module(module):
-    _setup.clean()
+def get_setup():
+    global rep1, rep2
+    # We use chunks of size 1 to slow down the transfers. This way, we have
+    # more chances to stop a transfer before its completion
+    rep1 = TestDriver('rep1', speed_bump=True)
+    rep2 = TestDriver('rep2', speed_bump=True)
+    setup = Setup()
+    setup.add(rep1)
+    setup.add(rep2)
+    setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
+    return setup
 
 
 def crash(launcher, filename, source, target):
@@ -56,7 +53,7 @@ def crash(launcher, filename, source, target):
             target.unlink(filename)
         except:
             pass
-        launcher.close(clean_setup=False)
+        launcher.close()
         pass
 
 

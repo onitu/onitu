@@ -2,15 +2,17 @@ import pytest
 from circus.client import CircusClient
 
 from .setup import Setup, Rule
-from .launcher import Launcher
 from onitu.utils import get_circusctl_endpoint
 
 
 def _get_setup(request):
-    setup_func = getattr(request.module, 'setup', None)
-    if setup_func is None:
-        return Setup()
-    return setup_func()
+    get_setup = getattr(request.module, 'get_setup', None)
+    if get_setup is None:
+        setup = Setup()
+    else:
+        setup = get_setup()
+    request.addfinalizer(setup.clean)
+    return setup
 
 
 @pytest.fixture
@@ -25,26 +27,26 @@ def module_setup(request):
 
 @pytest.fixture
 def launcher(setup):
-    return Launcher(setup)
+    return setup.get_launcher()
 
 
 @pytest.fixture(scope='module')
 def module_launcher(module_setup):
-    return Launcher(module_setup)
+    return module_setup.get_launcher()
 
 
 @pytest.fixture(scope='module')
-def module_launcher_initialize(request, module_launcher):
-    setup = module_launcher.setup
-    setup.add(request.module.rep1)
-    setup.add(request.module.rep2)
-    setup.add_rule(Rule().match_path('/').sync(request.module.rep1.name,
-                                               request.module.rep2.name))
+def module_setup_initialize(request, module_setup):
+    module_setup.add(request.module.rep1)
+    module_setup.add(request.module.rep2)
+    rule = Rule().match_path('/').sync(request.module.rep1.name,
+                                       request.module.rep2.name)
+    module_setup.add_rule(rule)
+
+
+@pytest.fixture(scope='module')
+def module_launcher_launch(request, module_setup_initialize, module_launcher):
     request.addfinalizer(module_launcher.close)
-
-
-@pytest.fixture(scope='module')
-def module_launcher_launch(module_launcher, module_launcher_initialize):
     module_launcher()
 
 

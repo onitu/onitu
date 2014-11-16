@@ -7,7 +7,7 @@ rep1, rep2 = TestDriver("rep1"), TestDriver("rep2")
 
 
 @pytest.fixture(autouse=True)
-def _(module_launcher_initialize):
+def _(module_setup_initialize):
     pass
 
 
@@ -30,7 +30,8 @@ def launch_with_files(launcher, prefix, n, size, delete=True):
         for filename in files:
             assert rep1.checksum(filename) == rep2.checksum(filename)
     finally:
-        launcher.kill()
+        launcher.close()
+        launcher.unset_all_events()
 
         if delete:
             for filename in files:
