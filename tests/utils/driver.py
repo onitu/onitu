@@ -37,6 +37,9 @@ class Driver(object):
     def connect(self, session):
         pass
 
+    def close(self):
+        pass
+
     def __hash__(self):
         return hash(self.id)
 
