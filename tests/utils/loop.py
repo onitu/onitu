@@ -1,5 +1,6 @@
-import os
 from time import time, sleep
+
+from . import env
 
 
 class TimeoutError(BaseException):
@@ -9,7 +10,7 @@ class TimeoutError(BaseException):
 class EventLoop(object):
     def run(self, timeout=None):
         if timeout is not None:
-            timeout *= float(os.environ.get('ONITU_TEST_TIME_UNIT', 1))
+            timeout *= env.time_unit
             start = time()
         while self.condition():
             if timeout is not None:

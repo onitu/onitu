@@ -1,13 +1,11 @@
-import os
-
 import pytest
 
 from .driver import load_driver_module, load_driver
+from . import env
 
 
-_driver_name = os.environ.get('ONITU_TEST_DRIVER', 'test')
-TargetModule = load_driver_module(_driver_name)
-TargetDriver, TargetFeatures = load_driver(_driver_name)
+TargetModule = load_driver_module(env.driver)
+TargetDriver, TargetFeatures = load_driver(env.driver)
 
 
 def has_feature(feature_name):
@@ -16,7 +14,7 @@ def has_feature(feature_name):
 
 class IfFeature(object):
     def __getattr__(self, name):
-        reason = 'Driver {} does not support feature {}'.format(_driver_name,
+        reason = 'Driver {} does not support feature {}'.format(env.driver,
                                                                 name)
         return pytest.mark.skipif(not has_feature(name), reason=reason)
 
