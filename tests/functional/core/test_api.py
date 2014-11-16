@@ -10,7 +10,7 @@ import pytest
 
 from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop
-from tests.utils.files import KB
+from tests.utils.units import KB
 
 from onitu.utils import get_fid
 

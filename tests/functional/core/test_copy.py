@@ -2,7 +2,7 @@ import pytest
 
 from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop
-from tests.utils.files import KB, MB
+from tests.utils.units import KB, MB
 
 rep1, rep2 = TestDriver('rep1'), TestDriver('rep2')
 
