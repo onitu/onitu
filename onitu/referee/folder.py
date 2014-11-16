@@ -3,11 +3,14 @@ from fnmatch import fnmatchcase
 
 class Folder(object):
     def __init__(self, name, services,
+                 mimetypes=None,
                  min_size=None, max_size=None,
                  blacklist=None, whitelist=None, **kwargs):
         self.name = name
         self.services = frozenset(services)
         self.options = kwargs
+
+        self.mimetypes = mimetypes
 
         self.min_size = self._to_bytes(min_size)
         self.max_size = self._to_bytes(max_size)
@@ -43,6 +46,9 @@ class Folder(object):
         if not self.check_size(metadata['size']):
             return
 
+        if not self.check_mimetype(metadata['mimetype']):
+            return
+
         if self.blacklisted(metadata['filename']):
             return
 
@@ -59,6 +65,23 @@ class Folder(object):
             return False
 
         return True
+
+    def check_mimetype(self, mimetype):
+        if self.mimetypes is None:
+            return True
+
+        for predicate in self.mimetypes:
+            if '/' not in predicate:
+                predicate += '/'
+
+            if predicate.endswith('/'):
+                if mimetype.startswith(predicate):
+                    return True
+            else:
+                if predicate == mimetype:
+                    return True
+
+        return False
 
     def blacklisted(self, filename):
         if self.blacklist is None:
