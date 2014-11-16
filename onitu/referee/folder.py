@@ -1,14 +1,19 @@
+from fnmatch import fnmatchcase
 
 
 class Folder(object):
     def __init__(self, name, services,
-                 min_size=None, max_size=None, **kwargs):
+                 min_size=None, max_size=None,
+                 blacklist=None, whitelist=None, **kwargs):
         self.name = name
         self.services = frozenset(services)
         self.options = kwargs
 
         self.min_size = self._to_bytes(min_size)
         self.max_size = self._to_bytes(max_size)
+
+        self.blacklist = blacklist
+        self.whitelist = whitelist
 
     def __str__(self):
         return self.name
@@ -38,6 +43,12 @@ class Folder(object):
         if not self.check_size(metadata['size']):
             return
 
+        if self.blacklisted(metadata['filename']):
+            return
+
+        if not self.whitelisted(metadata['filename']):
+            return
+
         return self.services - frozenset((source,))
 
     def check_size(self, size):
@@ -48,6 +59,18 @@ class Folder(object):
             return False
 
         return True
+
+    def blacklisted(self, filename):
+        if self.blacklist is None:
+            return False
+
+        return any(fnmatchcase(filename, rule) for rule in self.blacklist)
+
+    def whitelisted(self, filename):
+        if self.whitelist is None:
+            return True
+
+        return any(fnmatchcase(filename, rule) for rule in self.whitelist)
 
     def _to_bytes(self, size):
         units = {
