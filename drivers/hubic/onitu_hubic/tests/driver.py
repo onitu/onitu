@@ -9,11 +9,15 @@ from tests.utils import driver
 
 # Those two are set in the manifest.json but that is not yet parsed
 # at this point so we hardcode them here.
-CLIENTID="api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl"
-CLIENTSECRET="CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV49e7SpBsHDAKdtm5WeR5KEaDvc"
+CLIENTID = \
+    "api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl"
+CLIENTSECRET = \
+    "CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV49e7SpBsHDAKdtm5WeR5KEaDvc"
 
 # This needs to be updated using the script and will be used during the tests.
-REFRESHTOKEN="gd3v8ZgsiN2qxQyzCywIiIoWcSNuThuld212TZwmB7QIGTAmBJD3nEY4DsRsnpQ9"
+REFRESHTOKEN = \
+    "gd3v8ZgsiN2qxQyzCywIiIoWcSNuThuld212TZwmB7QIGTAmBJD3nEY4DsRsnpQ9"
+
 
 class Driver(driver.Driver):
 
