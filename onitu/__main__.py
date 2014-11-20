@@ -211,6 +211,7 @@ def main():
                 controller=get_circusctl_endpoint(session),
                 pubsub_endpoint=get_pubsub_endpoint(session),
                 stats_endpoint=get_stats_endpoint(session),
+                loglevel='WARNING',
                 statsd=True
             )
 
