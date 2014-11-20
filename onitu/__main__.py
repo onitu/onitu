@@ -11,7 +11,6 @@ This module starts Onitu. It does the following:
 import sys
 import argparse
 
-import json
 import circus
 
 from itertools import chain
@@ -31,7 +30,6 @@ from .utils import get_circusctl_endpoint, get_pubsub_endpoint, u
 # shutdown
 GRACEFUL_TIMEOUT = 1.
 
-setup_file = None
 session = None
 setup = None
 logger = None
@@ -137,27 +135,44 @@ def get_logs_dispatcher(uri, debug=False):
     return subscriber.dispatch_in_background(setup=NestedSetup(handlers))
 
 
-def get_setup():
+def get_setup(setup_file):
+    if setup_file.endswith('.yml') or setup_file.endswith('.yaml'):
+        try:
+            import yaml
+        except ImportError:
+            logger.error(
+                "You provided a YAML setup file, but PyYAML was not found on "
+                "your system."
+            )
+        loader = lambda f: yaml.load(f.read())
+    elif setup_file.endswith('.json'):
+        import json
+        loader = json.load
+    else:
+        logger.error(
+            "The setup file must be either in JSON or YAML."
+        )
+        return
+
     try:
         with open(setup_file) as f:
-            return json.load(f)
-    except ValueError as e:
-        logger.error("Error parsing '{}' : {}", setup_file, e)
+            return loader(f)
     except Exception as e:
         logger.error(
-            "Can't process setup file '{}' : {}", setup_file, e
+            "Error parsing '{}' : {}", setup_file, e
         )
 
 
 def main():
-    global setup_file, session, setup, logger, arbiter
+    global session, setup, logger, arbiter
 
     logger = Logger("Onitu")
 
     parser = argparse.ArgumentParser("onitu")
     parser.add_argument(
-        '--setup', default='setup.json', type=u,
-        help="A JSON file with Onitu's configuration (defaults to setup.json)"
+        '--setup', default='setup.yml', type=u,
+        help="A YAML or JSON file with Onitu's configuration "
+             "(defaults to setup.yml)"
     )
     parser.add_argument(
         '--no-dispatcher', action='store_true',
@@ -168,9 +183,7 @@ def main():
     )
     args = parser.parse_args()
 
-    setup_file = args.setup
-
-    setup = get_setup()
+    setup = get_setup(args.setup)
     if not setup:
         return 1
 
