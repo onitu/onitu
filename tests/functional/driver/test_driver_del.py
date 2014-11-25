@@ -4,6 +4,7 @@ from tests.utils.targetdriver import TargetDriver, if_feature
 from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop, CounterLoop
 
+
 def get_entries():
     return TargetDriver('rep1'), TestDriver('rep2')
 

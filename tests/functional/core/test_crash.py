@@ -1,12 +1,12 @@
 import pytest
 
-from tests.utils.setup import Rule
 from tests.utils.testdriver import TestDriver
 from tests.utils.loop import CounterLoop, BooleanLoop
 
 
 def get_entries():
-    return TestDriver('rep1', speed_bump=True), TestDriver('rep2', speed_bump=True)
+    return (TestDriver('rep1', speed_bump=True),
+            TestDriver('rep2', speed_bump=True))
 
 
 @pytest.fixture(autouse=True)

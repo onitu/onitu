@@ -2,7 +2,6 @@ import hashlib
 
 import pytest
 
-from tests.utils.setup import Rule
 from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop
 
