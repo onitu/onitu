@@ -14,10 +14,10 @@ def _get_setup(request):
 
 
 def _get_entries(request):
-    entries = getattr(request.module, 'entries', None)
-    if entries is None:
-        entries = TestDriver('rep1'), TestDriver('rep2')
-    return entries
+    get_entries = getattr(request.module, 'get_entries', None)
+    if get_entries is None:
+        return TestDriver('rep1'), TestDriver('rep2')
+    return get_entries()
 
 
 def _init_setup(request, setup):

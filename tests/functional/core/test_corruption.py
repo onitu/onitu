@@ -7,12 +7,10 @@ from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop
 
 
-def init_setup(setup):
+def get_entries():
     # We use chunks of size 1 to slow down the transfers. This way, we have
     # more chances to stop a transfer before its completion
-    setup.add(TestDriver('rep1'))
-    setup.add(TestDriver('rep2', speed_bump=True))
-    setup.add_rule(Rule().match_path('/').sync('rep1', 'rep2'))
+    return TestDriver('rep1'), TestDriver('rep2', speed_bump=True)
 
 
 @pytest.fixture(autouse=True)

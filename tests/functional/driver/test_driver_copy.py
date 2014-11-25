@@ -4,7 +4,8 @@ from tests.utils.targetdriver import TargetDriver, if_feature
 from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop
 
-entries = TargetDriver('rep1'), TestDriver('rep2')
+def get_entries():
+    return TargetDriver('rep1'), TestDriver('rep2')
 
 
 @pytest.fixture(autouse=True)

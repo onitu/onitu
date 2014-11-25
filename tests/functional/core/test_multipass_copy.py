@@ -5,10 +5,8 @@ from tests.utils.testdriver import TestDriver
 from tests.utils.loop import BooleanLoop
 
 
-def init_setup(setup):
-    setup.add(TestDriver('rep1'))
-    setup.add(TestDriver('rep2', speed_bump=True))
-    setup.add_rule(Rule().match_path('/').sync('rep1', 'rep2'))
+def get_entries():
+    return TestDriver('rep1'), TestDriver('rep2', speed_bump=True)
 
 
 @pytest.fixture(autouse=True)

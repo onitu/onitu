@@ -1,11 +1,2 @@
-def test_aaa():
+def test_test_driver():
     pass
-
-
-def test_bbb():
-    pass
-
-
-class TestCCC():
-    def test_ddd(self):
-        pass
