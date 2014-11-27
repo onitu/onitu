@@ -10,7 +10,7 @@ from tests.utils.loop import BooleanLoop, CounterLoop
 from tests.utils.driver import LocalStorageDriver
 from tests.utils.benchmark import Benchmark, BenchmarkData
 from tests.utils.timer import Timer
-from tests.utils.files import MB
+from tests.utils.units import MB
 
 SMALL = 1 * MB
 MEDIUM = 10 * MB

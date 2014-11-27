@@ -3,12 +3,12 @@ import shutil
 
 from path import path
 
-from tests.utils.testdriver import TestDriver
+from tests.utils import driver
 from tests.utils import files
 from tests.utils.tempdirs import dirs
 
 
-class Driver(TestDriver):
+class Driver(driver.Driver):
     SPEED_BUMP = 1
 
     def __init__(self, *args, **options):
@@ -57,3 +57,7 @@ class Driver(TestDriver):
 
     def checksum(self, filename):
         return files.checksum(self.root / filename)
+
+
+class DriverFeatures(driver.DriverFeatures):
+    pass

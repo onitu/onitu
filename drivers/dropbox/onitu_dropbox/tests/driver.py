@@ -8,13 +8,13 @@ from dropbox.session import DropboxSession
 from dropbox.client import DropboxClient
 from dropbox.rest import ErrorResponse
 
-from tests.utils.testdriver import TestDriver
+from tests.utils import driver
 from onitu_dropbox.dropbox_driver import (ONITU_APP_KEY,
                                           ONITU_APP_SECRET,
                                           ONITU_ACCESS_TYPE)
 
 
-class Driver(TestDriver):
+class Driver(driver.Driver):
     SPEED_BUMP = 1
 
     def __init__(self, *args, **options):
@@ -88,3 +88,7 @@ class Driver(TestDriver):
     def checksum(self, filename):
         data = self.dropbox_client.get_file(self.prefix_root(filename))
         return hashlib.md5(data.read()).hexdigest()
+
+
+class DriverFeatures(driver.DriverFeatures):
+    pass

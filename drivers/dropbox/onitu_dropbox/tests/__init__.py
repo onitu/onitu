@@ -1,3 +1,3 @@
-from .driver import Driver
+from .driver import Driver, DriverFeatures
 
-__all__ = ["Driver"]
+__all__ = ["Driver", "DriverFeatures"]

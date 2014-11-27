@@ -7,6 +7,8 @@ from plyvel import destroy_db
 
 from onitu.utils import TMPDIR
 
+from .launcher import Launcher
+
 
 class Rule(object):
     def __init__(self):
@@ -32,7 +34,7 @@ class Rule(object):
 
 class Setup(object):
     def __init__(self):
-        self.entries = set()
+        self.entries = {}
         self.rules = []
 
         self._json = None
@@ -42,9 +44,9 @@ class Setup(object):
         )
         self.filename = os.path.join(TMPDIR, "{}.json".format(self.name))
 
-    def add(self, driver):
-        driver.connect(self.name)
-        self.entries.add(driver)
+    def add(self, entry):
+        entry.connect(self.name)
+        self.entries[entry.name] = entry
         return self
 
     def add_rule(self, rule):
@@ -53,7 +55,7 @@ class Setup(object):
 
     def clean(self, entries=True):
         if entries:
-            for entry in self.entries:
+            for entry in self.entries.values():
                 entry.close()
 
         try:
@@ -67,7 +69,7 @@ class Setup(object):
         setup = {}
         if self.name:
             setup['name'] = self.name
-        setup['entries'] = {e.name: e.dump for e in self.entries}
+        setup['entries'] = {name: e.dump for name, e in self.entries.items()}
         setup['rules'] = [r.dump for r in self.rules]
         return setup
 
@@ -88,3 +90,6 @@ class Setup(object):
 
         with open(self.filename, 'w+') as f:
             f.write(self.json)
+
+    def get_launcher(self):
+        return Launcher(self)

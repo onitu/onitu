@@ -12,10 +12,10 @@ elif sys.version_info.major == 3:
 import requests
 
 import tinys3
-from tests.utils.testdriver import TestDriver
+from tests.utils import driver
 
 
-class Driver(TestDriver):
+class Driver(driver.Driver):
     SPEED_BUMP = 1
 
     def __init__(self, *args, **options):
@@ -100,3 +100,7 @@ class Driver(TestDriver):
         filename = str(self.root) + filename
         file = self.conn.get(filename)
         return hashlib.md5(file.content).hexdigest()
+
+
+class DriverFeatures(driver.DriverFeatures):
+    pass

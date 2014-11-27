@@ -1,5 +1,6 @@
-import os
 from time import time, sleep
+
+from . import env
 
 
 class TimeoutError(BaseException):
@@ -7,18 +8,18 @@ class TimeoutError(BaseException):
 
 
 class EventLoop(object):
-    def run(self, timeout=None):
+    def run(self, timeout=None, step=0.001):
         if timeout is not None:
-            timeout *= float(os.environ.get('ONITU_TEST_TIME_UNIT', 1))
+            timeout *= env.time_unit
             start = time()
         while self.condition():
             if timeout is not None:
                 if time() - start >= timeout:
                     self.timeout()
-            sleep(0.001)
+            sleep(step)
 
-    def timeout(self):
-        raise TimeoutError()
+    def timeout(self, *args):
+        raise TimeoutError(*args)
 
 
 class BooleanLoop(EventLoop):
@@ -46,11 +47,7 @@ class CounterLoop(EventLoop):
     def check(self):
         self.count -= 1
 
-    # TODO: this function should take a logger as parameter
-    # and use it instead of print
-    def timeout(self):
-        print(
-            "CounterLoop : {} on {} done."
-            .format(self.total - self.count, self.total)
-        )
-        super(CounterLoop, self).timeout()
+    def timeout(self, *args):
+        msg = "CounterLoop : {} on {} done.".format(self.total - self.count,
+                                                    self.total)
+        super(CounterLoop, self).timeout(msg, *args)

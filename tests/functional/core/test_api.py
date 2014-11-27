@@ -6,26 +6,27 @@ if version_info.major == 2:
     from urllib import quote as quote
 elif version_info.major == 3:
     from urllib.parse import quote as quote
-from circus.client import CircusClient
+import pytest
 
-from tests.utils.launcher import Launcher
-from tests.utils.setup import Setup, Rule
-from tests.utils.driver import TestingDriver, TargetDriver
 from tests.utils.loop import BooleanLoop
-from tests.utils.files import KB
+from tests.utils.units import KB
 
-from onitu.utils import get_fid, get_circusctl_endpoint
+from onitu.utils import get_fid
 
 api_addr = "http://localhost:3862"
 monitoring_path = "/api/v1.0/entries/{}/{}"
 files_path = "/api/v1.0/files/{}/metadata"
 entries_path = "/api/v1.0/entries"
 
-circus_client = None
-launcher, setup = None, None
-rep1, rep2 = TestingDriver("rep1"), TargetDriver("rep2")
+rep1, rep2 = None, None
 
 STOP = ("stopped", "stopping")
+
+
+@pytest.fixture(autouse=True)
+def _(module_launcher, module_launcher_launch):
+    global rep1, rep2
+    rep1, rep2 = module_launcher.get_entries('rep1', 'rep2')
 
 
 def get(*args, **kwargs):
@@ -53,7 +54,7 @@ def extract_json(req):
         raise e
 
 
-def is_running(name):
+def is_running(circus_client, name):
     query = {
         'command': "status",
         'properties': {
@@ -64,7 +65,7 @@ def is_running(name):
     return status['status'] == "active"
 
 
-def start(name):
+def start(circus_client, name):
     query = {
         'command': "start",
         'properties': {
@@ -75,7 +76,7 @@ def start(name):
     circus_client.call(query)
 
 
-def stop(name):
+def stop(circus_client, name):
     query = {
         'command': "stop",
         'properties': {
@@ -86,31 +87,14 @@ def stop(name):
     circus_client.call(query)
 
 
-def create_file(filename, size):
-    launcher.unset_all_events()
+def create_file(module_launcher, filename, size):
+    module_launcher.unset_all_events()
     loop = BooleanLoop()
-    launcher.on_transfer_ended(
-        loop.stop, d_from='rep1', d_to='rep2', filename=filename
+    module_launcher.on_transfer_ended(
+        loop.stop, d_from=rep1, d_to=rep2, filename=filename
     )
     rep1.generate(filename, size)
     loop.run(timeout=10)
-
-
-def setup_module(module):
-    global launcher, setup, circus_client
-    setup = Setup()
-    setup.add(rep1)
-    setup.add(rep2)
-    setup.add_rule(Rule().match_path("/").sync(rep1.name, rep2.name))
-
-    circus_client = CircusClient(endpoint=get_circusctl_endpoint(setup.name))
-
-    launcher = Launcher(setup)
-    launcher()
-
-
-def teardown_module(module):
-    launcher.close()
 
 
 def test_entries():
@@ -145,7 +129,7 @@ def test_entry():
     json = extract_json(r)
     assert r.status_code == 200
     assert json['driver'] == rep1.type
-    assert json['name'] == "rep1"
+    assert json['name'] == rep1.name
     assert json['options'] == rep1.options
 
 
@@ -160,7 +144,7 @@ def test_file_id():
     assert json[filename] == get_fid(filename)
 
 
-def test_list_files():
+def test_list_files(module_launcher):
     list_files = "/api/v1.0/files"
     url = "{}{}".format(api_addr, list_files)
 
@@ -175,7 +159,7 @@ def test_list_files():
     for i in range(files_number):
         file_name = files_names[i]
         file_size = origin_files[file_name]
-        create_file(file_name, file_size)
+        create_file(module_launcher, file_name, file_size)
     r = get(url)
     json = extract_json(r)
     files = json['files']
@@ -186,8 +170,8 @@ def test_list_files():
         assert files[i]['size'] == origin_file_size
 
 
-def test_file_fail():
-    create_file("test_file.txt", 10 * KB)
+def test_file_fail(module_launcher):
+    create_file(module_launcher, "test_file.txt", 10 * KB)
 
     file_path = files_path.format("non-valid-id")
     url = "{}{}".format(api_addr, file_path)
@@ -199,8 +183,8 @@ def test_file_fail():
     assert json['reason'] == "file {} not found".format("non-valid-id")
 
 
-def test_file():
-    create_file("test_file.txt", 10 * KB)
+def test_file(module_launcher):
+    create_file(module_launcher, "test_file.txt", 10 * KB)
     fid = get_fid("test_file.txt")
 
     file_path = files_path.format(fid)
@@ -215,8 +199,8 @@ def test_file():
     assert json['mimetype'] == "text/plain"
 
 
-def test_stop():
-    start(rep1.name)
+def test_stop(circus_client):
+    start(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "stop")
     url = "{}{}".format(api_addr, monitoring)
     r = put(url)
@@ -225,12 +209,12 @@ def test_stop():
     assert json['status'] == "ok"
     assert json['name'] == rep1.name
     assert 'time' in json
-    assert is_running(rep1.name) is False
-    start(rep1.name)
+    assert is_running(circus_client, rep1.name) is False
+    start(circus_client, rep1.name)
 
 
-def test_start():
-    stop(rep1.name)
+def test_start(circus_client):
+    stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "start")
     url = "{}{}".format(api_addr, monitoring)
     r = put(url)
@@ -239,12 +223,12 @@ def test_start():
     assert json['status'] == "ok"
     assert json['name'] == rep1.name
     assert 'time' in json
-    assert is_running(rep1.name) is True
-    start(rep1.name)
+    assert is_running(circus_client, rep1.name) is True
+    start(circus_client, rep1.name)
 
 
-def test_restart():
-    start(rep1.name)
+def test_restart(circus_client):
+    start(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "restart")
     url = "{}{}".format(api_addr, monitoring)
     r = put(url)
@@ -253,11 +237,11 @@ def test_restart():
     assert json['status'] == "ok"
     assert json['name'] == rep1.name
     assert 'time' in json
-    assert is_running(rep1.name) is True
+    assert is_running(circus_client, rep1.name) is True
 
 
-def test_stop_already_stopped():
-    stop(rep1.name)
+def test_stop_already_stopped(circus_client):
+    stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "stop")
     url = "{}{}".format(api_addr, monitoring)
     r = put(url)
@@ -267,12 +251,12 @@ def test_stop_already_stopped():
     assert json['reason'] == "entry {} is already stopped".format(
         rep1.name
     )
-    assert is_running(rep1.name) is False
-    start(rep1.name)
+    assert is_running(circus_client, rep1.name) is False
+    start(circus_client, rep1.name)
 
 
-def test_start_already_started():
-    start(rep1.name)
+def test_start_already_started(circus_client):
+    start(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "start")
     url = "{}{}".format(api_addr, monitoring)
     r = put(url)
@@ -282,11 +266,11 @@ def test_start_already_started():
     assert json['reason'] == "entry {} is already running".format(
         rep1.name
     )
-    assert is_running(rep1.name) is True
+    assert is_running(circus_client, rep1.name) is True
 
 
-def test_restart_stopped():
-    stop(rep1.name)
+def test_restart_stopped(circus_client):
+    stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "restart")
     url = "{}{}".format(api_addr, monitoring)
     r = put(url)
@@ -296,12 +280,12 @@ def test_restart_stopped():
     assert json['reason'] == "entry {} is stopped".format(
         rep1.name
     )
-    assert is_running(rep1.name) is False
-    start(rep1.name)
+    assert is_running(circus_client, rep1.name) is False
+    start(circus_client, rep1.name)
 
 
-def test_stats_running():
-    start(rep1.name)
+def test_stats_running(circus_client):
+    start(circus_client, rep1.name)
     infos = ['age', 'cpu', 'create_time', 'ctime', 'mem', 'mem_info1',
              'mem_info2', 'started']
     monitoring = monitoring_path.format(rep1.name, "stats")
@@ -317,8 +301,8 @@ def test_stats_running():
         assert info in keys
 
 
-def test_stats_stopped():
-    stop(rep1.name)
+def test_stats_stopped(circus_client):
+    stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "stats")
     url = "{}{}".format(api_addr, monitoring)
     r = get(url)
@@ -328,11 +312,11 @@ def test_stats_stopped():
     assert json['reason'] == "entry {} is stopped".format(
         rep1.name
     )
-    start(rep1.name)
+    start(circus_client, rep1.name)
 
 
-def test_status_started():
-    start(rep1.name)
+def test_status_started(circus_client):
+    start(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "status")
     url = "{}{}".format(api_addr, monitoring)
     r = get(url)
@@ -342,8 +326,8 @@ def test_status_started():
     assert json['status'] == "active"
 
 
-def test_status_stopped():
-    stop(rep1.name)
+def test_status_stopped(circus_client):
+    stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "status")
     url = "{}{}".format(api_addr, monitoring)
     r = get(url)
@@ -351,4 +335,4 @@ def test_status_stopped():
     assert r.status_code == 200
     assert json['name'] == rep1.name
     assert json['status'] in STOP
-    start(rep1.name)
+    start(circus_client, rep1.name)
