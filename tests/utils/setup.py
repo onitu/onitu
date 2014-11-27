@@ -88,7 +88,7 @@ class Setup(object):
         print('Setup:')
         print(self.json)
 
-        with open(self.filename, 'w+') as f:
+        with open(self.filename, 'wb+') as f:
             f.write(b(self.json))
 
     def get_launcher(self):
