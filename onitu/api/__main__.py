@@ -1,24 +1,24 @@
 import sys
 
-from sys import version_info
-if version_info.major == 2:
-    from urllib import unquote as unquote
-elif version_info.major == 3:
-    from urllib.parse import unquote as unquote
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
 from bottle import Bottle, run, response, abort, redirect
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
-from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint
+from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint, u, PY2
+
+if PY2:
+    from urllib import unquote as unquote_
+else:
+    from urllib.parse import unquote as unquote_
 
 host = 'localhost'
 port = 3862
 
 app = Bottle()
 
-session = sys.argv[1]
+session = u(sys.argv[1])
 circus_client = CircusClient(endpoint=get_circusctl_endpoint(session))
 escalator = Escalator(session)
 logger = Logger("REST API")
@@ -35,11 +35,15 @@ def enable_cors():
     )
 
 
+def unquote(string):
+    return u(unquote_(string))
+
+
 def entry(name):
-    driver = escalator.get('entry:{}:driver'.format(name), default=None)
+    driver = escalator.get(u'entry:{}:driver'.format(name), default=None)
     if not driver:
         return None
-    options = escalator.get('entry:{}:options'.format(name))
+    options = escalator.get(u'entry:{}:options'.format(name))
     return {'name': name, 'driver': driver, 'options': options}
 
 
@@ -86,7 +90,7 @@ def entry_not_found(name):
 
 
 def entry_not_running(name, already=False):
-    fmt = "entry {} is {}stopped".format
+    fmt = u"entry {} is {}stopped".format
     # "already" in case a stop has been requested on an already stopped entry
     err_msg = fmt(name, "already ") if already else fmt(name, "")
     return error(
@@ -117,7 +121,7 @@ def get_file_id(name):
 @app.route('/api/v1.0/files', method='GET')
 def get_files():
     files = [metadata for key, metadata in escalator.range('file:')
-             if key.count(b':') == 1]
+             if key.count(':') == 1]
     for metadata in files:
         metadata['fid'] = get_fid(metadata['filename'])
     return {'files': files}
@@ -218,7 +222,7 @@ def start_entry(name):
         if entry_is_running(name):
             return error(
                 error_code=409,
-                error_message="entry {} is already running".format(name)
+                error_message=u"entry {} is already running".format(name)
             )
         query = {
             "command": "start",

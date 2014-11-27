@@ -28,7 +28,7 @@ class Driver(driver.Driver):
         self.notif_socket.close(linger=0)
 
     def get_uri(self, name):
-        return _get_uri(self.session, ':tests:{}:{}'.format(self.name, name))
+        return _get_uri(self.session, u':tests:{}:{}'.format(self.name, name))
 
     def mkdir(self, subdirs):
         pass

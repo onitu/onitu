@@ -2,31 +2,41 @@ import hashlib
 import os
 import requests
 
+from onitu_hubic import Hubic
+
 from onitu.plug import ServiceError
-from onitu.drivers.hubic import Hubic
 from tests.utils import driver
+
+# Those two are set in the manifest.json but that is not yet parsed
+# at this point so we hardcode them here.
+CLIENTID = \
+    "api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl"
+CLIENTSECRET = \
+    "CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV49e7SpBsHDAKdtm5WeR5KEaDvc"
+
+# This needs to be updated using the script and will be used during the tests.
+REFRESHTOKEN = \
+    "gd3v8ZgsiN2qxQyzCywIiIoWcSNuThuld212TZwmB7QIGTAmBJD3nEY4DsRsnpQ9"
 
 
 class Driver(driver.Driver):
 
     def __init__(self, *args, **options):
         if "root" not in options:
-            options['root'] = 'onitu_tests'
+            options['root'] = "onitu_tests"
         if "client_id" not in options:
-            options['client_id'] = ''
+            options['client_id'] = CLIENTID
         if "client_secret" not in options:
-            options['client_secret'] = ''
+            options['client_secret'] = CLIENTSECRET
         if "refresh_token" not in options:
-            options['refresh_token'] = ''
+            options['refresh_token'] = REFRESHTOKEN
         if "changes_timer" not in options:
             options['changes_timer'] = 15
 
         self.hubic = Hubic(options['client_id'], options['client_secret'],
                            options['refresh_token'], options['root'])
 
-        super(Driver, self).__init__('hubic',
-                                     *args,
-                                     **options)
+        super(Driver, self).__init__('hubic', *args, **options)
 
     def get_path(self, filename):
         return str(os.path.join(self.options['root'], filename))

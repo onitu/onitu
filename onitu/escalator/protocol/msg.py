@@ -1,6 +1,5 @@
 import msgpack
 
-from onitu.utils import PY3
 from . import status as protocol_status
 
 
@@ -17,9 +16,6 @@ def unpack_msg(packed):
 
 
 def format_request(cmd, uid, *args):
-    if PY3:
-        args = [arg.encode('utf-8') if isinstance(arg, str) else arg
-                for arg in args]
     return pack_msg(cmd, uid, args)
 
 

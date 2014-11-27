@@ -1,5 +1,4 @@
-
-from onitu.utils import get_fid, get_mimetype
+from onitu.utils import get_fid, get_mimetype, u
 
 
 class Metadata(object):
@@ -77,7 +76,7 @@ class Metadata(object):
         metadata = cls(plug, fid=fid, **values)
 
         metadata.extra = plug.escalator.get(
-            'file:{}:entry:{}'.format(fid, plug.name),
+            u'file:{}:entry:{}'.format(fid, plug.name),
             default={}
         )
 
@@ -85,14 +84,15 @@ class Metadata(object):
 
     def dict(self):
         """Return the metadata as a dict"""
-        return dict((p, self.__getattribute__(p)) for p in self.PROPERTIES)
+        return dict((u(p), self.__getattribute__(p)) for p in self.PROPERTIES)
 
     def write(self):
         """Write the metadata of the current file in the database."""
         with self.plug.escalator.write_batch() as batch:
             batch.put('file:{}'.format(self.fid), self.dict())
             batch.put(
-                'file:{}:entry:{}'.format(self.fid, self.plug.name), self.extra
+                u'file:{}:entry:{}'.format(self.fid, self.plug.name),
+                self.extra
             )
 
     def clone(self, new_filename):
@@ -110,7 +110,7 @@ class Metadata(object):
 
         with self.plug.escalator.write_batch() as batch:
             for key, extra in extras:
-                entry = key.decode().split(':')[-1]
-                batch.put('file:{}:entry:{}'.format(clone.fid, entry), extra)
+                entry = key.split(':')[-1]
+                batch.put(u'file:{}:entry:{}'.format(clone.fid, entry), extra)
 
         return clone

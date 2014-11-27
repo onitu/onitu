@@ -1,4 +1,3 @@
-from threading import Thread
 from multiprocessing.pool import ThreadPool
 
 import zmq
@@ -9,7 +8,7 @@ from onitu.utils import get_events_uri
 from .workers import WORKERS, UP
 
 
-class Dealer(Thread):
+class Dealer(object):
     """Receive and reply to orders from the Referee.
 
     All the requests are handled in a thread-pool.
@@ -20,12 +19,14 @@ class Dealer(Thread):
         self.plug = plug
         self.name = plug.name
         self.escalator = plug.escalator
-        self.logger = Logger("{} - Dealer".format(self.name))
+        self.logger = Logger(u"{} - Dealer".format(self.name))
         self.context = plug.context
         self.in_progress = {}
         self.pool = ThreadPool()
 
     def run(self):
+        listener = None
+
         try:
             uri = get_events_uri(self.plug.session, self.name, 'dealer')
             listener = self.context.socket(zmq.PULL)
@@ -43,14 +44,14 @@ class Dealer(Thread):
     def listen(self, listener):
         while True:
             events = self.escalator.range(
-                prefix='entry:{}:event:'.format(self.name)
+                prefix=u'entry:{}:event:'.format(self.name)
             )
 
             for key, (cmd, args) in events:
-                fid = key.decode().split(':')[-1]
+                fid = key.split(':')[-1]
                 self.call(cmd, fid, *args)
                 self.escalator.delete(
-                    'entry:{}:event:{}'.format(self.name, fid)
+                    u'entry:{}:event:{}'.format(self.name, fid)
                 )
 
             try:
@@ -73,14 +74,14 @@ class Dealer(Thread):
         :meth:`.Plug.listen`.
         """
         transfers = self.escalator.range(
-            prefix='entry:{}:transfer:'.format(self.name)
+            prefix=u'entry:{}:transfer:'.format(self.name)
         )
 
         if not transfers:
             return
 
         for key, (driver, offset) in transfers:
-            fid = key.decode().split(':')[-1]
+            fid = key.split(':')[-1]
             self.call(UP, fid, driver, offset=offset, restart=True)
 
     def call(self, cmd, fid, *args, **kwargs):

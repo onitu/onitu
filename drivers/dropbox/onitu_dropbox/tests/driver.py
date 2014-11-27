@@ -12,44 +12,51 @@ from tests.utils import driver
 from onitu_dropbox.dropbox_driver import (ONITU_APP_KEY,
                                           ONITU_APP_SECRET,
                                           ONITU_ACCESS_TYPE)
+from onitu.utils import u, b  # Unicode helpers
 
 
 class Driver(driver.Driver):
     SPEED_BUMP = 1
 
     def __init__(self, *args, **options):
-        if 'root' not in options:
-            rand = ''.join(random.sample(
+        if u'root' not in options:
+            rand = u''.join(random.sample(
                 string.ascii_letters + string.digits, 10))
-            options['root'] = "/{}/".format(rand)
-        if 'key' not in options:
-            options['access_key'] = os.environ['ONITU_DROPBOX_KEY']
-        if 'secret' not in options:
-            options['access_secret'] = os.environ['ONITU_DROPBOX_SECRET']
-        if 'changes_timer' not in options:
-            options['changes_timer'] = 10
+            options[u'root'] = u"/{}/".format(rand)
+        if u'key' not in options:
+            options[u'access_key'] = os.environ[u'ONITU_DROPBOX_KEY']
+        if u'secret' not in options:
+            options[u'access_secret'] = os.environ[u'ONITU_DROPBOX_SECRET']
+        if u'changes_timer' not in options:
+            options[u'changes_timer'] = 10
         sess = DropboxSession(ONITU_APP_KEY,
                               ONITU_APP_SECRET,
                               ONITU_ACCESS_TYPE)
         # Use the OAuth access token previously retrieved by the user and typed
         # into Onitu configuration.
-        sess.set_token(options['access_key'], options['access_secret'])
+        sess.set_token(options[u'access_key'], options[u'access_secret'])
         self.dropbox_client = DropboxClient(sess)
-        super(Driver, self).__init__('dropbox',
+        super(Driver, self).__init__(u'dropbox',
                                      *args,
                                      **options)
 
+    def stringify(self, s):
+        if type(s) != str:
+            s = b(s)
+        return s
+
     def prefix_root(self, filename):
-        root = str(self.root)
+        root = u(str(self.root))
+        filename = u(filename)
         if not filename.startswith(root):
             filename = root + filename
         return filename
 
     @property
     def root(self):
-        root = self.options['root']
-        if not root.endswith('/'):
-            root += '/'
+        root = self.options[u'root']
+        if not root.endswith(u'/'):
+            root += u'/'
         return path(root)
 
     def close(self):
@@ -62,31 +69,38 @@ class Driver(driver.Driver):
             pass
 
     def mkdir(self, subdirs):
-        self.dropbox_client.file_create_folder(self.prefix_root(subdirs))
+        self.dropbox_client.file_create_folder(
+            self.stringify(self.prefix_root(subdirs)))
 
     def rmdir(self, path):
         self.unlink(self.prefix_root(path))
 
     def write(self, filename, content):
-        self.dropbox_client.put_file(self.prefix_root(filename), content)
+        self.dropbox_client.put_file(
+            self.stringify(self.prefix_root(filename)), content)
 
     def generate(self, filename, size):
-        self.write(self.prefix_root(filename), os.urandom(size))
+        self.write(
+            self.stringify(self.prefix_root(filename)), os.urandom(size))
 
     def exists(self, filename):
-        metadata = self.dropbox_client.metadata(self.prefix_root(filename),
-                                                include_deleted=True)
-        return not metadata.get('is_deleted', False)
+        metadata = self.dropbox_client.metadata(
+            self.stringify(self.prefix_root(filename)),
+            include_deleted=True)
+        return not metadata.get(u'is_deleted', False)
 
     def unlink(self, filename):
-        self.dropbox_client.file_delete(self.prefix_root(filename))
+        self.dropbox_client.file_delete(
+            self.stringify(self.prefix_root(filename)))
 
     def rename(self, source, target):
-        self.dropbox_client.file_move(from_path=self.prefix_root(source),
-                                      to_path=self.prefix_root(target))
+        self.dropbox_client.file_move(
+            from_path=self.stringify(self.prefix_root(source)),
+            to_path=self.stringify(self.prefix_root(target)))
 
     def checksum(self, filename):
-        data = self.dropbox_client.get_file(self.prefix_root(filename))
+        data = self.dropbox_client.get_file(
+            self.stringify(self.prefix_root(filename)))
         return hashlib.md5(data.read()).hexdigest()
 
 

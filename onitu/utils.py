@@ -20,6 +20,26 @@ TMPDIR = tempfile.gettempdir()
 
 NAMESPACE_ONITU = uuid.UUID('bcd336f2-d023-4856-bc92-e79dd24b64d7')
 
+UNICODE = unicode if PY2 else str
+
+
+def b(string):
+    """
+    Convert any string (bytes or unicode) to bytes
+    """
+    if type(string) == UNICODE:
+        return string.encode('utf-8')
+    return string
+
+
+def u(string):
+    """
+    Convert any string (bytes or unicode) to unicode
+    """
+    if type(string) == bytes:
+        return string.decode('utf-8')
+    return string
+
 
 def at_exit(callback, *args, **kwargs):
     """
@@ -78,7 +98,7 @@ if IS_WINDOWS:
     # a temporary file containing an URI corresponding to an open port.
     def _get_uri(session, name):
         sock_file = os.path.join(
-            TMPDIR, 'onitu-{}-{}.txt'
+            TMPDIR, u'onitu-{}-{}.txt'
         ).format(session, name)
 
         if os.path.exists(sock_file):
@@ -103,7 +123,7 @@ if IS_WINDOWS:
 else:
     # On Unix-like systems we use an IPC socket (AF_UNIX)
     def _get_uri(session, name):
-        return 'ipc://{}/onitu-{}-{}.sock'.format(TMPDIR, session, name)
+        return u'ipc://{}/onitu-{}-{}.sock'.format(TMPDIR, session, name)
 
 
 def get_escalator_uri(session):
@@ -112,7 +132,7 @@ def get_escalator_uri(session):
 
 def get_events_uri(session, name, suffix=None):
     if suffix:
-        name = "{}:{}".format(name, suffix)
+        name = u"{}:{}".format(name, suffix)
 
     return _get_uri(session, name)
 

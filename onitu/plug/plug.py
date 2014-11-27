@@ -63,12 +63,12 @@ class Plug(object):
         self.publisher.connect(get_events_uri(session, 'referee'))
 
         self.options = self.escalator.get(
-            'entry:{}:options'.format(name), default={}
+            u'entry:{}:options'.format(name), default={}
         )
 
         self.validate_options(manifest)
 
-        self.escalator.put('drivers:{}:manifest'.format(name), manifest)
+        self.escalator.put(u'drivers:{}:manifest'.format(name), manifest)
 
         self.logger.info("Started")
 
@@ -88,16 +88,24 @@ class Plug(object):
         .. autoclass:: onitu.plug.router.Router
         .. autoclass:: onitu.plug.dealer.Dealer
         """
-        self.router.start()
+        self.router_thread = threading.Thread(
+            target=self.router.run, name='Router'
+        )
+        self.router_thread.start()
+
         self.dealer.resume_transfers()
-        self.dealer.start()
+
+        self.dealer_thread = threading.Thread(
+            target=self.dealer.run, name='Dealer'
+        )
+        self.dealer_thread.start()
 
         if wait:
-            while self.dealer.is_alive():
-                self.dealer.join(100)
+            while self.dealer_thread.is_alive():
+                self.dealer_thread.join(100)
 
-            while self.router.is_alive():
-                self.router.join(100)
+            while self.router_thread.is_alive():
+                self.router_thread.join(100)
 
     def handler(self, task=None):
         """Decorator used register a handler for a particular task.
@@ -132,7 +140,7 @@ class Plug(object):
         self.dealer.stop_transfer(fid)
         # We make sure that the key has been deleted
         # (if this event occurs before the transfer was restarted)
-        self.escalator.delete('entry:{}:transfer:{}'.format(self.name, fid))
+        self.escalator.delete(u'entry:{}:transfer:{}'.format(self.name, fid))
 
         if self.name not in metadata.owners:
             metadata.owners += (self.name,)
@@ -303,6 +311,6 @@ class Plug(object):
         instance.
         """
         if not self._entry_db:
-            prefix = 'entry:{}:db:'.format(self.name)
+            prefix = u'entry:{}:db:'.format(self.name)
             self._entry_db = self.escalator.clone(prefix=prefix)
         return self._entry_db

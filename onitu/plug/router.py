@@ -1,5 +1,3 @@
-from threading import Thread
-
 import zmq
 from logbook import Logger
 
@@ -12,7 +10,7 @@ CHUNK = b'C'
 FILE = b'F'
 
 
-class Router(Thread):
+class Router(object):
     """Receive and reply to requests from other drivers. This is the
     component which calls the `get_chunk` handler.
     It uses a single thread, which means that only one call to
@@ -26,7 +24,7 @@ class Router(Thread):
         self.name = plug.name
         self.call = plug.call
         self.router = None
-        self.logger = Logger("{} - Router".format(self.name))
+        self.logger = Logger(u"{} - Router".format(self.name))
         self.context = plug.context
 
         self.handlers = {

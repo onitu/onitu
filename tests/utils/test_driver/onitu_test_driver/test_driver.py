@@ -129,7 +129,7 @@ class Watcher(Thread):
         }
 
     def get_uri(self, name):
-        return _get_uri(plug.session, ':tests:{}:{}'.format(plug.name, name))
+        return _get_uri(plug.session, u':tests:{}:{}'.format(plug.name, name))
 
     def run(self):
         try:
