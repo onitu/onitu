@@ -3,7 +3,7 @@ from multiprocessing.pool import ThreadPool
 import zmq
 from logbook import Logger
 
-from onitu.utils import get_events_uri
+from onitu.utils import get_events_uri, b
 
 from .workers import WORKERS, UP
 
@@ -30,7 +30,7 @@ class Dealer(object):
         try:
             uri = get_events_uri(self.plug.session, 'referee', 'publisher')
             listener = self.context.socket(zmq.SUB)
-            listener.setsockopt(zmq.SUBSCRIBE, self.name.encode('utf-8'))
+            listener.setsockopt(zmq.SUBSCRIBE, b(self.name))
             listener.connect(uri)
 
             self.logger.info("Started")

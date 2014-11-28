@@ -5,7 +5,7 @@ import zmq
 from threading import Thread, Event
 
 from onitu.plug import Plug
-from onitu.utils import _get_uri
+from onitu.utils import _get_uri, b
 from onitu.escalator.client import EscalatorClosed
 
 plug = Plug()
@@ -18,10 +18,8 @@ def read(metadata):
 
 
 def write(metadata, content):
-    files.add(metadata.filename)
-    if type(content) == type(u''):
-        content = content.encode()
-    metadata.extra['content'] = content
+    files.add(metadata.path)
+    metadata.extra['content'] = b(content)
     metadata.write()
 
 
@@ -30,7 +28,7 @@ def delete(metadata):
         del metadata.extra['content']
         metadata.write()
 
-    files.discard(metadata.filename)
+    files.discard(metadata.path)
 
 
 def move(old_metadata, new_metadata):

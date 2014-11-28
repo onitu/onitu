@@ -139,7 +139,7 @@ class Metadata(object):
 
     def delete(self):
         self.plug.escalator.delete(
-            'file:{}:service:{}'.format(self.fid, self.plug.name),
+            u'file:{}:service:{}'.format(self.fid, self.plug.name),
         )
 
         other_services = self.plug.escalator.range(

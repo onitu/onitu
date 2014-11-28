@@ -5,7 +5,7 @@ import zmq
 from logbook import Logger
 
 from onitu.escalator.client import Escalator, EscalatorClosed
-from onitu.utils import get_events_uri
+from onitu.utils import get_events_uri, b
 
 from .cmd import UP, DEL, MOV
 from .folder import Folder
@@ -157,4 +157,4 @@ class Referee(object):
                 u'service:{}:event:{}'.format(name, fid), (cmd, args)
             )
 
-            self.publisher.send(name.encode('utf-8'))
+            self.publisher.send(b(name))

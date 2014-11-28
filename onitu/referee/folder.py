@@ -24,14 +24,14 @@ class Folder(object):
         return self.name
 
     def __repr__(self):
-        return "<Folder {}: services={}, options={}>".format(
+        return u"<Folder {}: services={}, options={}>".format(
             self.name, list(self.services), self.options
         )
 
     @classmethod
     def get_folders(cls, escalator, services):
         service_folders = {
-            s: escalator.get('service:{}:folders'.format(s), default=[])
+            s: escalator.get(u'service:{}:folders'.format(s), default=[])
             for s in services
         }
 

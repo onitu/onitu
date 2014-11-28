@@ -14,16 +14,16 @@ class Folder(object):
     @classmethod
     def get_folders(cls, escalator, service):
         folders = {}
-        for name in escalator.get('service:{}:folders'.format(service),
+        for name in escalator.get(u'service:{}:folders'.format(service),
                                   default=[]):
             folders[name] = cls.get(escalator, service, name)
         return folders
 
     @classmethod
     def get(cls, escalator, service, name):
-        prefix = 'service:{}:folder:{}'.format(service, name)
-        path = escalator.get('{}:path'.format(prefix), default="")
-        options = escalator.get('{}:options'.format(prefix), default={})
+        prefix = u'service:{}:folder:{}'.format(service, name)
+        path = escalator.get(u'{}:path'.format(prefix), default="")
+        options = escalator.get(u'{}:options'.format(prefix), default={})
 
         return cls(name, path, options)
 

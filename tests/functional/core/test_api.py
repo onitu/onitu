@@ -14,7 +14,7 @@ from tests.utils.loop import BooleanLoop
 from tests.utils.testdriver import TestDriver
 from tests.utils.units import KB
 
-from onitu.utils import get_fid
+from onitu.utils import get_fid, u
 
 rep1, rep2 = None, None
 
@@ -144,7 +144,7 @@ def test_service():
 
 def test_file_id():
     filename = u"onitu,is*a project ?!_-ùñï©œð€.txt"
-    fid_path = u"/api/v1.0/files/id/{}".format(quote(filename.encode('utf-8')))
+    fid_path = u"/api/v1.0/files/id/{}".format(quote(u(filename)))
     url = u"{}{}".format(api_addr, fid_path)
 
     r = get(url)

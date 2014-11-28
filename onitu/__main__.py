@@ -82,10 +82,10 @@ def load_service(escalator, service, conf):
         )
 
     folders = conf.get('folders', {})
-    escalator.put('service:{}:folders'.format(service), list(folders.keys()))
+    escalator.put(u'service:{}:folders'.format(service), list(folders.keys()))
 
     for name, options in folders.items():
-        if not escalator.exists('folder:{}'.format(name)):
+        if not escalator.exists(u'folder:{}'.format(name)):
             logger.warning(
                 'Unknown folder {} in service {}', name, service
             )
