@@ -3,8 +3,7 @@ from fnmatch import fnmatchcase
 
 class Folder(object):
     def __init__(self, name, services,
-                 mimetypes=None,
-                 min_size=None, max_size=None,
+                 mimetypes=None, file_size=None,
                  blacklist=None, whitelist=None, **kwargs):
         self.name = name
         self.services = frozenset(services)
@@ -12,8 +11,11 @@ class Folder(object):
 
         self.mimetypes = mimetypes
 
-        self.min_size = self._to_bytes(min_size)
-        self.max_size = self._to_bytes(max_size)
+        if not file_size:
+            file_size = {}
+
+        self.min_size = self._to_bytes(file_size.get('min'))
+        self.max_size = self._to_bytes(file_size.get('max'))
 
         self.blacklist = blacklist
         self.whitelist = whitelist

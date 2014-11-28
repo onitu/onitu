@@ -45,13 +45,13 @@ type
   :what:
      This value restricts which type(s) of file should be accepted in this folder. Files not conforming to this value will never be read from or written to this folder.
 
-min-size, max-size
+file_size: min, max
   :values:
-     A numeric value with an optional multiplying sufix. Metric prefixes (k, M, G, T, P)  and IEC prefixes (Ki, Mi, Gi, Ti, Pi) are accepted.
+     A dictionary containing two optional values, min and max. The values are numerical with an optional multiplying sufix. Metric prefixes (k, M, G, T, P)  and IEC prefixes (Ki, Mi, Gi, Ti, Pi) are accepted.
   :default:
-     If min-size is not specified there is no limit on how big a file in this folder must be. If max-siz is not specified there is no limit on how big a file in this folder can be.
+     If min is not specified there is no limit on how big a file in this folder must be. If max is not specified there is no limit on how big a file in this folder can be.
   :what:
-     This value restricts which files should be accepted in this folder based on their size. Files not within the range specified by min-size and max-size will never be read from or written to this folder.
+     This value restricts which files should be accepted in this folder based on their size. Files not within the range specified by min and max will never be read from or written to this folder.
 
 blacklist, whitelist
   :values:

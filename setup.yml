@@ -9,7 +9,8 @@ folders:
       - "*.bak"
       - Private/
   backup:
-    max_size: 2G
+    file_size:
+      max: 2G
 
 services:
   A:
