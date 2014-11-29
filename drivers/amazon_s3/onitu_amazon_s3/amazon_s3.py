@@ -65,19 +65,6 @@ def get_root():
     return root
 
 
-def root_prefixed_filename(filename):
-    """Prefixes the given filename with Onitu's root."""
-    root = get_root()
-    if not u(filename).startswith(root):
-        rp_filename = root
-        if not rp_filename.endswith(u'/'):
-            rp_filename += u'/'
-        rp_filename += u(filename)
-    else:
-        rp_filename = u(filename)
-    return rp_filename
-
-
 def get_file_timestamp(filename):
     """Returns the float timestamp based on the
     date format timestamp stored by Amazon.
@@ -120,7 +107,7 @@ def get_multipart_upload(metadata):
 
     multipart_upload = None
     metadata_mp_id = None
-    filename = root_prefixed_filename(metadata.filename)
+    filename = metadata.path
     # Retrieve the stored multipart upload ID
     try:
         metadata_mp_id = metadata.extra['mp_id']
@@ -158,9 +145,9 @@ def get_chunk(metadata, offset, size):
     global S3Conn
     global plug
 
-    plug.logger.debug(u"GET CHUNK {} {} {}".format(metadata.filename, offset,
+    filename = metadata.path
+    plug.logger.debug(u"GET CHUNK {} {} {}".format(filename, offset,
                                                    size))
-    filename = root_prefixed_filename(metadata.filename)
     plug.logger.debug(u"Downloading {} bytes from the {} key"
                       u" on bucket {}".format(size, filename,
                                               plug.options['bucket']))
@@ -213,9 +200,9 @@ def start_upload(metadata):
     global S3Conn
     global plug
 
-    filename = root_prefixed_filename(metadata.filename)
+    filename = metadata.path
     plug.logger.debug(u"Starting upload of '{}' to '{}' on bucket {}"
-                      .format(metadata.filename, filename,
+                      .format(filename, filename,
                               plug.options['bucket']))
     # Create a new multipart upload for this file
     new_mp = S3Conn.initiate_multipart_upload(filename)
@@ -224,7 +211,7 @@ def start_upload(metadata):
     # New file ? Create a default timestamp
     if metadata.extra.get('timestamp') is None:
         plug.logger.debug(u"Creating a new timestamp"
-                          u" for {}".format(metadata.filename))
+                          u" for {}".format(filename))
         metadata.extra['timestamp'] = 0.0
     metadata.write()
     # Store the Multipart upload id in cache
@@ -237,10 +224,9 @@ def start_upload(metadata):
 def upload_file(metadata, data):
     global S3Conn
     global plug
-    filename = root_prefixed_filename(metadata.filename)
-    plug.logger.debug(u"Starting one-shot upload of '{}' to '{}' on bucket {}"
-                      .format(metadata.filename, filename,
-                              plug.options['bucket']))
+    filename = metadata.path
+    plug.logger.debug(u"Starting one-shot upload of '{}' on bucket {}"
+                      .format(filename, plug.options['bucket']))
     fp = IOStream(data)
     try:
         S3Conn.upload(filename, fp)
@@ -256,7 +242,7 @@ def end_upload(metadata):
     global S3Conn
 
     multipart_upload = get_multipart_upload(metadata)
-    filename = root_prefixed_filename(metadata.filename)
+    filename = metadata.path
     # Finish the upload on remote server before getting rid of the
     # multipart upload ID
     try:
@@ -300,8 +286,8 @@ def abort_upload(metadata):
 def move_file(old_metadata, new_metadata):
     global plug
     global S3Conn
-    old_filename = root_prefixed_filename(old_metadata.filename)
-    new_filename = root_prefixed_filename(new_metadata.filename)
+    old_filename = old_metadata.path
+    new_filename = new_metadata.path
     bucket = plug.options['bucket']
     plug.logger.debug(u"Moving file '{}' to '{}' on bucket '{}'"
                       .format(old_filename, new_filename, bucket))
@@ -333,7 +319,7 @@ def delete_file(metadata):
     global plug
     global S3Conn
     try:
-        filename = root_prefixed_filename(metadata.filename)
+        filename = metadata.path
         plug.logger.debug(u"Deleting {} "
                           u"on bucket {}".format(filename,
                                                  plug.options['bucket']))
@@ -408,7 +394,7 @@ class CheckChanges(threading.Thread):
             remote_ts = time.mktime(key['last_modified'].timetuple())
             if onitu_ts < remote_ts:  # Remote timestamp is more recent
                 plug.logger.debug(u"Updating metadata"
-                                  u" of file {}".format(metadata.filename))
+                                  u" of file {}".format(metadata.path))
                 metadata.size = int(key['size'])
                 metadata.extra['timestamp'] = remote_ts
                 plug.update_file(metadata)

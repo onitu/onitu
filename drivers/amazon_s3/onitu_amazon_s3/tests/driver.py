@@ -41,7 +41,7 @@ class Driver(driver.Driver):
 
     @property
     def root(self):
-        return self._root
+        return self._root + '/'
 
     def close(self):
         root = self.root
@@ -101,4 +101,14 @@ class Driver(driver.Driver):
 
 
 class DriverFeatures(driver.DriverFeatures):
-    pass
+    del_file_to_onitu = False
+    move_file_to_onitu = False
+
+    del_directory_to_onitu = False
+    move_directory_to_onitu = False
+
+    del_tree_to_onitu = False
+    move_tree_to_onitu = False
+
+    detect_del_file_on_launch = False
+    dectect_moved_file_on_launch = False
