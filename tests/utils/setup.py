@@ -11,8 +11,11 @@ from .launcher import Launcher
 
 
 class Setup(object):
-    def __init__(self):
+    def __init__(self, folders=None):
         self.services = {}
+        if folders is None:
+            folders = {}
+        self.folders = folders
 
         self._json = None
 
@@ -24,6 +27,11 @@ class Setup(object):
     def add(self, service):
         service.connect(self.name)
         self.services[service.name] = service
+
+        for folder in service.folders.keys():
+            if folder not in self.folders:
+                self.folders[folder] = {}
+
         return self
 
     def clean(self, services=True):
@@ -43,6 +51,7 @@ class Setup(object):
         if self.name:
             setup['name'] = self.name
         setup['services'] = {name: e.dump for name, e in self.services.items()}
+        setup['folders'] = self.folders
         return setup
 
     @property

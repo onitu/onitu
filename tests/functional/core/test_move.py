@@ -24,7 +24,8 @@ def move_file(launcher, old_filename, new_filename, src, dest):
     copy_file(launcher, old_filename, 100)
     loop = CounterLoop(2)
     launcher.on_file_moved(
-        loop.check, driver=src, src=old_filename, dest=new_filename
+        loop.check, driver=src, src=old_filename, dest=new_filename,
+        folder='default'
     )
     launcher.on_move_completed(
         loop.check, driver=dest, src=old_filename, dest=new_filename
@@ -52,7 +53,8 @@ def test_move_in_subdirs(module_launcher):
     loop = CounterLoop(2)
     module_launcher.on_file_moved(
         loop.check, driver=src,
-        src='test/with/subdirs/foo', dest='test/to/other/dir/bar'
+        src='test/with/subdirs/foo', dest='test/to/other/dir/bar',
+        folder='default'
     )
     module_launcher.on_move_completed(
         loop.check, driver=dest,
@@ -72,10 +74,12 @@ def test_move_dir_from_rep1(module_launcher):
     copy_file(module_launcher, 'dir/bar', 100)
     loop = CounterLoop(4)
     module_launcher.on_file_moved(
-        loop.check, driver=src, src='dir/foo', dest='other/foo'
+        loop.check, driver=src, src='dir/foo', dest='other/foo',
+        folder='default'
     )
     module_launcher.on_file_moved(
-        loop.check, driver=src, src='dir/bar', dest='other/bar'
+        loop.check, driver=src, src='dir/bar', dest='other/bar',
+        folder='default'
     )
     module_launcher.on_move_completed(
         loop.check, driver=dest, src='dir/foo', dest='other/foo'

@@ -24,7 +24,7 @@ def delete_file(launcher, src, dest):
     copy_file(launcher, 'to_delete', 100)
     loop = CounterLoop(2)
     launcher.on_file_deleted(
-        loop.check, driver=src, filename='to_delete'
+        loop.check, driver=src, filename='to_delete', folder='default'
     )
     launcher.on_deletion_completed(
         loop.check, driver=dest, filename='to_delete'
@@ -49,10 +49,10 @@ def test_delete_dir(module_launcher):
     copy_file(module_launcher, 'dir/bar', 100)
     loop = CounterLoop(4)
     module_launcher.on_file_deleted(
-        loop.check, driver=src, filename='dir/foo'
+        loop.check, driver=src, filename='dir/foo', folder='default'
     )
     module_launcher.on_file_deleted(
-        loop.check, driver=src, filename='dir/bar'
+        loop.check, driver=src, filename='dir/bar', folder='default'
     )
     module_launcher.on_deletion_completed(
         loop.check, driver=dest, filename='dir/foo'

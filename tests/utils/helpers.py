@@ -29,7 +29,7 @@ def delete_file(launcher, filename, size, src, dest):
     init_file(launcher, filename, size, src, dest)
     loop = CounterLoop(2)
     launcher.on_file_deleted(
-        loop.check, driver=src.name, filename=filename
+        loop.check, driver=src.name, filename=filename, folder='default'
     )
     launcher.on_deletion_completed(
         loop.check, driver=dest.name, filename=filename
@@ -43,7 +43,8 @@ def move_file(launcher, old_filename, new_filename, size, src, dest):
     init_file(launcher, old_filename, size, src, dest)
     loop = CounterLoop(2)
     launcher.on_file_moved(
-        loop.check, driver=src.name, src=old_filename, dest=new_filename
+        loop.check, driver=src.name, src=old_filename, dest=new_filename,
+        folder='default'
     )
     launcher.on_move_completed(
         loop.check, driver=dest.name, src=old_filename, dest=new_filename

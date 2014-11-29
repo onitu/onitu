@@ -14,7 +14,7 @@ from tests.utils.loop import BooleanLoop
 from tests.utils.testdriver import TestDriver
 from tests.utils.units import KB
 
-from onitu.utils import get_fid, u
+from onitu.utils import get_fid, b
 
 rep1, rep2 = None, None
 
@@ -144,13 +144,16 @@ def test_service():
 
 def test_file_id():
     filename = u"onitu,is*a project ?!_-ùñï©œð€.txt"
-    fid_path = u"/api/v1.0/files/id/{}".format(quote(u(filename)))
+    folder = u't€st'
+    fid_path = u"/api/v1.0/files/id/{}/{}".format(
+        quote(b(folder)), quote(b(filename))
+    )
     url = u"{}{}".format(api_addr, fid_path)
 
     r = get(url)
     json = extract_json(r)
     assert r.status_code == 200
-    assert json[filename] == get_fid(filename)
+    assert json[filename] == get_fid(folder, filename)
 
 
 def test_list_files(module_launcher):
@@ -194,7 +197,7 @@ def test_file_fail(module_launcher):
 
 def test_file(module_launcher):
     create_file(module_launcher, "test_file.txt", 10 * KB)
-    fid = get_fid("test_file.txt")
+    fid = get_fid("default", "test_file.txt")
 
     file_path = files_path.format(fid)
     url = "{}{}".format(api_addr, file_path)

@@ -16,6 +16,12 @@ logs = {
     'api_started': (
         ("REST API", "Starting on localhost:3862"),
     ),
+    'file_updated': (
+        (
+            "Referee",
+            "Update for '{filename}' from {d_from} in folder {folder}"
+        ),
+    ),
     'transfer_started': (
         (
             "{d_to} - Dealer",
@@ -43,7 +49,7 @@ logs = {
     'file_deleted': (
         (
             "Referee",
-            "Deletion of '{filename}' from {driver}"
+            "Deletion of '{filename}' from {driver} in folder {folder}"
         ),
     ),
     'deletion_completed': (
@@ -55,7 +61,7 @@ logs = {
     'file_moved': (
         (
             "Referee",
-            "Moving of '{src}' to '{dest}' from {driver}"
+            "Moving of '{src}' to '{dest}' from {driver} in folder {folder}"
         ),
     ),
     'move_completed': (

@@ -13,10 +13,15 @@ class Driver(object):
     requiring slow-downs. If 0, no speed-bumps are used (default).
     """
 
-    def __init__(self, type, name=None, speed_bump=False, **options):
+    def __init__(self, type, name=None, speed_bump=False, folders=None,
+                 **options):
         self.type = type
         self.name = name if name else type
         self.options = options
+
+        if folders is None:
+            folders = {'default': ''}
+        self.folders = folders
 
         if speed_bump and self.SPEED_BUMP > 0:
             self.options['chunk_size'] = self.SPEED_BUMP
@@ -28,7 +33,12 @@ class Driver(object):
 
     @property
     def dump(self):
-        return {'driver': self.type, 'options': self.options}
+        return {
+            'driver': self.type,
+            'root': self.root,
+            'options': self.options,
+            'folders': self.folders
+        }
 
     @property
     def id(self):

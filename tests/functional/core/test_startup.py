@@ -23,7 +23,7 @@ def test_no_setup(setup, launcher):
         with open(u(setup.filename)):
             pass
     except IOError as e:
-        error = "Can't process setup file '{}' : {}".format(setup.filename, e)
+        error = "Error parsing '{}' : {}".format(setup.filename, e)
 
     try:
         launcher(wait=False, stderr=True, save_setup=False)
