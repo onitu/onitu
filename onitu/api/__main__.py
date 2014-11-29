@@ -112,10 +112,11 @@ def api_doc():
     redirect("https://onitu.readthedocs.org/en/latest/api.html")
 
 
-@app.route('/api/v1.0/files/id/<name>', method='GET')
-def get_file_id(name):
+@app.route('/api/v1.0/files/id/<folder>/<name>', method='GET')
+def get_file_id(folder, name):
+    folder = unquote(folder)
     name = unquote(name)
-    return {name: get_fid(name)}
+    return {name: get_fid(folder, name)}
 
 
 @app.route('/api/v1.0/files', method='GET')
@@ -123,7 +124,9 @@ def get_files():
     files = [metadata for key, metadata in escalator.range('file:')
              if key.count(':') == 1]
     for metadata in files:
-        metadata['fid'] = get_fid(metadata['filename'])
+        metadata['fid'] = get_fid(
+            metadata['folder_name'], metadata['filename']
+        )
     return {'files': files}
 
 
