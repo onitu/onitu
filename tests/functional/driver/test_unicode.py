@@ -35,7 +35,7 @@ def test_delete_from_d_target(module_launcher):
 
 
 def test_delete_from_d_test(module_launcher):
-    delete_file(module_launcher, u'ùñï©∅ð€ 4', 100, d_target, d_test)
+    delete_file(module_launcher, u'ùñï©∅ð€ 4', 100, d_test, d_target)
 
 
 def test_move_from_d_target(module_launcher):
