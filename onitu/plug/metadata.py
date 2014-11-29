@@ -135,6 +135,8 @@ class Metadata(object):
                     extra
                 )
 
+        clone.extra = self.extra
+
         return clone
 
     def delete(self):

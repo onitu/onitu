@@ -193,10 +193,6 @@ class Watcher(Thread):
 
         old_metadata = plug.get_metadata(source)
         plug.move_file(old_metadata, target)
-        # We must get the metadata after notifying the Plug
-        # as Plug.move_file will create the Metadata
-        new_metadata = plug.get_metadata(target)
-        move(old_metadata, new_metadata)
 
     def handle_rmdir(self, path):
         for filename in list(files):
@@ -205,10 +201,7 @@ class Watcher(Thread):
 
     def handle_checksum(self, filename):
         metadata = plug.get_metadata(filename)
-        content = read(metadata)
-        h = hashlib.md5()
-        h.update(content)
-        return h.hexdigest()
+        return hashlib.md5(read(metadata)).hexdigest()
 
 
 def start():
