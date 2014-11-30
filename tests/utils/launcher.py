@@ -7,6 +7,8 @@ from logbook.queues import ZeroMQSubscriber
 
 from onitu.utils import get_logs_uri, u
 
+from .targetdriver import TargetDriver, if_feature
+from .testdriver import TestDriver
 from .loop import CounterLoop
 from .logs import logs
 
@@ -172,3 +174,67 @@ class Launcher(object):
 
     def get_services(self, *names):
         return [self.services[name] for name in names]
+
+    def create_file(self, folder, filename, size=10):
+        if if_feature.copy_file_from_onitu:
+            src_driver = TestDriver
+        else:
+            src_driver = TargetDriver
+
+        services = list(self.services.values())
+        for i, service in enumerate(services):
+            if isinstance(service, src_driver):
+                src = services.pop(i)
+                # we asume that all the services should receive
+                # the file
+                dests = services
+                break
+
+        self.copy_file(folder, filename, size, src, *dests)
+
+    def copy_file(self, folder, filename, size, src, *dests):
+        loop = CounterLoop(len(dests))
+        for dest in dests:
+            self.on_transfer_ended(
+                loop.check, d_from=src, d_to=dest, filename=filename
+            )
+        src.generate(src.path(folder, filename), size)
+        loop.run(timeout=10)
+
+        checksum = src.checksum(src.path(folder, filename))
+
+        for dest in dests:
+            assert dest.checksum(dest.path(folder, filename)) == checksum
+
+    def delete_file(self, folder, filename, src, *dests):
+        loop = CounterLoop(1 + len(dests))
+        self.on_file_deleted(
+            loop.check, driver=src, filename=filename, folder=folder
+        )
+        for dest in dests:
+            self.on_deletion_completed(
+                loop.check, driver=dest, filename=filename
+            )
+        src.unlink(src.path(folder, filename))
+        loop.run(timeout=5)
+        for dest in dests:
+            assert not dest.exists(dest.path(folder, filename))
+
+    def move_file(self, folder, old_filename, new_filename, src, *dests):
+        loop = CounterLoop(1 + len(dests))
+        self.on_file_moved(
+            loop.check, driver=src, src=old_filename, dest=new_filename,
+            folder=folder
+        )
+        for dest in dests:
+            self.on_move_completed(
+                loop.check, driver=dest, src=old_filename, dest=new_filename
+            )
+        src.rename(
+            src.path(folder, old_filename), src.path(folder, new_filename)
+        )
+        loop.run(timeout=5)
+        checksum = src.checksum(src.path(folder, new_filename))
+        for dest in dests:
+            assert not dest.exists(dest.path(folder, old_filename))
+            assert dest.checksum(dest.path(folder, new_filename)) == checksum

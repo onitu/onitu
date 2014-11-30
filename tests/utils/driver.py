@@ -44,6 +44,9 @@ class Driver(object):
     def id(self):
         return (self.type, self.name)
 
+    def path(self, folder, filename):
+        return self.folders[folder].rstrip('/') + '/' + filename
+
     def connect(self, session):
         pass
 
