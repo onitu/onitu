@@ -1,6 +1,8 @@
 import re
 import pkg_resources
 
+from onitu.utils import get_random_string
+
 
 class Driver(object):
 
@@ -20,7 +22,7 @@ class Driver(object):
         self.options = options
 
         if folders is None:
-            folders = {'default': ''}
+            folders = {'default': 'default_' + get_random_string(5)}
         self.folders = folders
 
         if speed_bump and self.SPEED_BUMP > 0:
