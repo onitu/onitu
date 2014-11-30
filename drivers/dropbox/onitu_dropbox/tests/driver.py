@@ -1,6 +1,4 @@
 import os
-import string
-import random
 import hashlib
 
 from dropbox.session import DropboxSession
@@ -8,7 +6,7 @@ from dropbox.client import DropboxClient
 from dropbox.rest import ErrorResponse
 
 from tests.utils import driver
-from onitu.utils import u, b
+from onitu.utils import u, b, get_random_string
 from onitu_dropbox.dropbox_driver import (ONITU_APP_KEY,
                                           ONITU_APP_SECRET,
                                           ONITU_ACCESS_TYPE)
@@ -18,9 +16,7 @@ class Driver(driver.Driver):
     SPEED_BUMP = 1
 
     def __init__(self, *args, **options):
-        self._root = "/{}/".format(
-            ''.join(random.sample(string.ascii_letters + string.digits, 10))
-        )
+        self._root = "/{}/".format(get_random_string(10))
 
         if 'key' not in options:
             options['access_key'] = os.environ['ONITU_DROPBOX_KEY']

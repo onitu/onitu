@@ -1,8 +1,6 @@
 import hashlib
 import os
 import sys
-import string
-import random
 # Python 2/3 compatibility
 if sys.version_info.major == 2:
     from StringIO import StringIO as IOStream
@@ -14,6 +12,7 @@ import requests
 
 import tinys3
 
+from onitu.utils import get_random_string
 from tests.utils import driver
 
 
@@ -28,8 +27,7 @@ class Driver(driver.Driver):
         if "bucket" not in options:
             options['bucket'] = 'onitu-test-2'
 
-        self._root = u''.join(random.sample(
-            string.ascii_letters + string.digits, 10))
+        self._root = get_random_string(10)
 
         self.conn = tinys3.Connection(options['aws_access_key'],
                                       options['aws_secret_key'],

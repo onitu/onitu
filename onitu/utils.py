@@ -5,8 +5,10 @@ parts of Onitu.
 import os
 import sys
 import uuid
+import string
 import signal
 import socket
+import random
 import tempfile
 import mimetypes
 import pkg_resources
@@ -23,22 +25,22 @@ NAMESPACE_ONITU = uuid.UUID('bcd336f2-d023-4856-bc92-e79dd24b64d7')
 UNICODE = unicode if PY2 else str
 
 
-def b(string):
+def b(chars):
     """
     Convert any string (bytes or unicode) to bytes
     """
-    if type(string) == UNICODE:
-        return string.encode('utf-8')
-    return string
+    if type(chars) == UNICODE:
+        return chars.encode('utf-8')
+    return chars
 
 
-def u(string):
+def u(chars):
     """
-    Convert any string (bytes or unicode) to unicode
+    Convert any chars (bytes or unicode) to unicode
     """
-    if type(string) == bytes:
-        return string.decode('utf-8')
-    return string
+    if type(chars) == bytes:
+        return chars.decode('utf-8')
+    return chars
 
 
 def n(string):
@@ -101,6 +103,15 @@ def get_mimetype(filename):
 
     return mimetype
 
+
+def get_random_string(length):
+    """
+    Return a string containing `length` random alphanumerical chars.
+    `length` must be inferior to 62.
+    """
+    return ''.join(
+        random.sample(string.ascii_letters + string.digits, length)
+    )
 
 if IS_WINDOWS:
     # We can't use IPC sockets on Windows as they are not supported

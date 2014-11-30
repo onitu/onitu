@@ -1,11 +1,9 @@
 import os
-import random
-import string
 import json
 
 from plyvel import destroy_db
 
-from onitu.utils import TMPDIR, b
+from onitu.utils import TMPDIR, b, get_random_string
 
 from .launcher import Launcher
 
@@ -19,9 +17,7 @@ class Setup(object):
 
         self._json = None
 
-        self.name = ''.join(
-            random.sample(string.ascii_letters + string.digits, 20)
-        )
+        self.name = get_random_string(15)
         self.filename = os.path.join(TMPDIR, "{}.json".format(self.name))
 
     def add(self, service):
