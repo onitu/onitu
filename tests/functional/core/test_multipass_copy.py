@@ -33,16 +33,17 @@ def test_multipass_copy(module_launcher):
         loop.stop, d_from=src, d_to=dest, filename=filename, unique=False
     )
 
-    src.generate(filename, size)
+    src.generate(src.path('default', filename), size)
     startloop.run(timeout=2)
 
     for _ in range(count):
         startloop.restart()
         loop.restart()
-        src.generate(filename, size)
+        src.generate(src.path('default', filename), size)
         loop.run(timeout=5)
         startloop.run(timeout=2)
     loop.restart()
     loop.run(timeout=5)
 
-    assert src.checksum(filename) == dest.checksum(filename)
+    assert src.checksum(src.path('default', filename)) == \
+        dest.checksum(dest.path('default', filename))

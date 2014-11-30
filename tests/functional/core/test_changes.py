@@ -14,7 +14,7 @@ def launch_with_files(launcher, prefix, n, size, delete=True):
 
     try:
         for filename in files:
-            src.generate(filename, size)
+            src.generate(src.path('default', filename), size)
 
         loop = CounterLoop(n)
         for filename in files:
@@ -26,7 +26,8 @@ def launch_with_files(launcher, prefix, n, size, delete=True):
         loop.run(timeout=(10 + n // 5))
 
         for filename in files:
-            assert src.checksum(filename) == dest.checksum(filename)
+            assert src.checksum(src.path('default', filename)) == \
+                dest.checksum(dest.path('default', filename))
     finally:
         launcher.close()
         launcher.unset_all_events()
@@ -34,8 +35,8 @@ def launch_with_files(launcher, prefix, n, size, delete=True):
         if delete:
             for filename in files:
                 try:
-                    src.unlink(filename)
-                    dest.unlink(filename)
+                    src.unlink(src.path('default', filename))
+                    dest.unlink(dest.path('default', filename))
                 except:
                     pass
 

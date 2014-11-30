@@ -28,11 +28,13 @@ def corruption(launcher, filename, size, newcontent):
     launcher.on_transfer_ended(
         end_loop.stop, d_from=rep2, d_to=rep1, filename=filename
     )
-    rep1.generate(filename, size)
+    rep1.generate(rep1.path('default', filename), size)
     start_loop.run(timeout=5)
-    rep2.write(filename, newcontent)
+    rep2.write(rep2.path('default', filename), newcontent)
     end_loop.run(timeout=5)
-    assert rep1.checksum(filename) == rep2.checksum(filename) == content_hash
+    assert rep1.checksum(rep1.path('default', filename)) == \
+        rep2.checksum(rep2.path('default', filename)) == \
+        content_hash
 
 
 def test_corruption(module_launcher):

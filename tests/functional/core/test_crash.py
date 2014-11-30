@@ -3,10 +3,14 @@ import pytest
 from tests.utils.testdriver import TestDriver
 from tests.utils.loop import CounterLoop, BooleanLoop
 
+rep1, rep2 = None, None
+
 
 def get_services():
-    return (TestDriver('rep1', speed_bump=True),
-            TestDriver('rep2', speed_bump=True))
+    global rep1, rep2
+    rep1 = TestDriver('rep1', speed_bump=True)
+    rep2 = TestDriver('rep2', speed_bump=True)
+    return rep1, rep2
 
 
 @pytest.fixture(autouse=True)
@@ -34,7 +38,7 @@ def crash(launcher, filename, src, dest):
             filename=filename
         )
 
-        src.generate(filename, 100)
+        src.generate(src.path('default', filename), 100)
         launcher()
         start_loop.run(timeout=10)
         launcher.kill()
@@ -42,11 +46,12 @@ def crash(launcher, filename, src, dest):
         launcher()
         end_loop.run(timeout=10)
 
-        assert src.checksum(filename) == dest.checksum(filename)
+        assert src.checksum(src.path('default', filename)) == \
+            dest.checksum(dest.path('default', filename))
     finally:
         try:
-            src.unlink(filename)
-            dest.unlink(filename)
+            src.unlink(src.path('default', filename))
+            dest.unlink(dest.path('default', filename))
         except:
             pass
         launcher.close()
@@ -54,10 +59,8 @@ def crash(launcher, filename, src, dest):
 
 
 def test_crash_rep1_to_rep2(launcher):
-    crash(launcher, 'crash_1', launcher.services['rep1'],
-          launcher.services['rep2'])
+    crash(launcher, 'crash_1', rep1, rep2)
 
 
 def test_crash_rep2_to_rep1(launcher):
-    crash(launcher, 'crash_2', launcher.services['rep2'],
-          launcher.services['rep1'])
+    crash(launcher, 'crash_2', rep2, rep1)

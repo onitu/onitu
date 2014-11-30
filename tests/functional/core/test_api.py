@@ -10,7 +10,6 @@ elif version_info.major == 3:
     from urllib.parse import quote as quote
 import pytest
 
-from tests.utils.loop import BooleanLoop
 from tests.utils.testdriver import TestDriver
 from tests.utils.units import KB
 
@@ -96,16 +95,6 @@ def stop(circus_client, name):
     circus_client.call(query)
 
 
-def create_file(module_launcher, filename, size):
-    module_launcher.unset_all_events()
-    loop = BooleanLoop()
-    module_launcher.on_transfer_ended(
-        loop.stop, d_from=rep1, d_to=rep2, filename=filename
-    )
-    rep1.generate(filename, size)
-    loop.run(timeout=10)
-
-
 def test_services():
     url = "{}{}".format(api_addr, services_path)
 
@@ -171,7 +160,7 @@ def test_list_files(module_launcher):
     for i in range(files_number):
         file_name = files_names[i]
         file_size = origin_files[file_name]
-        create_file(module_launcher, file_name, file_size)
+        module_launcher.create_file('default', file_name, file_size)
     r = get(url)
     json = extract_json(r)
     files = json['files']
@@ -183,7 +172,7 @@ def test_list_files(module_launcher):
 
 
 def test_file_fail(module_launcher):
-    create_file(module_launcher, "test_file.txt", 10 * KB)
+    module_launcher.create_file('default', "test_file.txt")
 
     file_path = files_path.format("non-valid-id")
     url = "{}{}".format(api_addr, file_path)
@@ -196,7 +185,7 @@ def test_file_fail(module_launcher):
 
 
 def test_file(module_launcher):
-    create_file(module_launcher, "test_file.txt", 10 * KB)
+    module_launcher.create_file('default', "test_file.txt")
     fid = get_fid("default", "test_file.txt")
 
     file_path = files_path.format(fid)
@@ -207,7 +196,7 @@ def test_file(module_launcher):
     assert r.status_code == 200
     assert json['fid'] == fid
     assert json['filename'] == "test_file.txt"
-    assert json['size'] == 10 * KB
+    assert json['size'] == 10
     assert json['mimetype'] == "text/plain"
 
 
