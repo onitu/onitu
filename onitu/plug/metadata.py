@@ -37,7 +37,7 @@ class Metadata(object):
     def __init__(self, plug=None, filename=None, size=0,
                  fid=None, owners=[], uptodate=[], mimetype=None):
         super(Metadata, self).__init__()
-
+        filename = filename.replace("\\", "/")
         self.filename = filename
         self.size = size
         self.owners = owners
@@ -61,6 +61,7 @@ class Metadata(object):
         """Instantiate a new :class:`.Metadata` object for the file
         with the given name.
         """
+        filename = filename.replace("\\", "/")
         fid = get_fid(filename)
         return cls.get_by_id(plug, fid)
 
@@ -102,7 +103,7 @@ class Metadata(object):
         the entry's extras are copied and saved.
         """
         values = self.dict()
-        values['filename'] = new_filename
+        values['filename'] = new_filename.replace("\\", "/")
 
         clone = self.__class__(self.plug, **values)
 
