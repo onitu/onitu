@@ -37,19 +37,11 @@ def connect_client():
     return dropbox_client
 
 
-def root_prefixed_filename(filename):
-    name = plug.root
-    if not name.endswith(u'/'):
-        name += '/'
-    name += filename
-    return name
-
-
 def remove_upload_id(metadata):
     up_id = metadata.extra.get('upload_id', None)
     if up_id is not None:
         plug.logger.debug(u"Removing upload ID '{}' from '{}' metadata"
-                          .format(up_id, metadata.filename))
+                          .format(up_id, metadata.path))
         del metadata.extra['upload_id']
 
 
@@ -99,7 +91,7 @@ def conflicting_filename(filename, value=False):
 def get_dropbox_filename(metadata):
     """Get the dropbox filename based on the Onitu filename.
     Usually it's the same but we have to check for name conflicts"""
-    filename = root_prefixed_filename(metadata.filename)
+    filename = metadata.path
     # Check if this file is in naming conflict with Dropbox. If that's the case
     # tell Dropbox we update its remote file, not the Onitu's file name
     conflict_name = conflicting_filename(filename)
