@@ -22,7 +22,6 @@ NAMESPACE_ONITU = uuid.UUID('bcd336f2-d023-4856-bc92-e79dd24b64d7')
 
 UNICODE = unicode if PY2 else str
 
-
 def b(string):
     """
     Convert any string (bytes or unicode) to bytes
@@ -40,6 +39,13 @@ def u(string):
         return string.decode('utf-8')
     return string
 
+def n(string):
+    """
+    Convert any string (bytes or unicode) to native.
+    This is useful to pass it to requests or other modules
+    that change behavior when switching py2/py3.
+    """
+    return (b if PY2 else u)(string)
 
 def at_exit(callback, *args, **kwargs):
     """

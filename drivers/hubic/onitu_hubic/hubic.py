@@ -8,6 +8,7 @@ import datetime
 
 from onitu.plug import Plug, ServiceError
 from onitu.escalator.client import EscalatorClosed
+from onitu.utils import b, u, n
 
 plug = Plug()
 hubic = None
@@ -22,7 +23,7 @@ class Hubic:
         self.client_id = client_id
         self.client_secret = client_secret
         self.hubic_refresh_token = hubic_refresh_token
-        self.hubic_token = "falsetoken"
+        self.hubic_token = 'falsetoken'
         self.os_endpoint = None
         self.os_token = None
         self.root = root
@@ -35,23 +36,20 @@ class Hubic:
 
     # ############################ OPENSTACK ##################################
 
-    def _os_renew_token(self, method, uri, data, headers, limit):
-        self._get_openstack_credentials()
-        return self.os_call(method, uri, data, headers, limit)
-
     def os_call(self, method, uri, data=None, headers={}, limit=3):
 
         req = getattr(requests, method.lower())
         headers['X-Auth-Token'] = self.os_token
-        url = self.os_endpoint + '/' + uri
 
-        result = req(url, headers=headers, data=data)
-        if result.status_code == 403:
-            if limit > 0:
-                limit = limit - 1
-                return self._os_renew_token(method, uri, data, headers, limit)
-        else:
-            result.raise_for_status()
+        url = n(u'{}/{}'.format(self.os_endpoint, uri))
+
+        for _ in range(limit):
+            result = req(url, headers=headers, data=data)
+            if result.status_code != 403:
+                break
+            self._get_openstack_credentials()
+
+        result.raise_for_status()
 
         return result
 
@@ -64,41 +62,41 @@ class Hubic:
 
     # ############################## HUBIC ####################################
 
-    def _hubic_renew_token(self, method, uri, data, headers, limit):
+    def _hubic_renew_token(self):
 
-        application_token = base64.b64encode(self.client_id + ":" +
-                                             self.client_secret)
-        url = "https://api.hubic.com/oauth/token/"
+        application_token = base64.b64encode(b(self.client_id + ':' +
+                                               self.client_secret))
+        url = 'https://api.hubic.com/oauth/token/'
         response = requests.post(
             url,
-            data={"grant_type": "refresh_token",
-                  "refresh_token": self.hubic_refresh_token},
-            headers={'Authorization': 'Basic ' + application_token}
+            data={'grant_type': 'refresh_token',
+                  'refresh_token': self.hubic_refresh_token},
+            headers={'Authorization': 'Basic ' + n(application_token)}
             )
 
-        self.hubic_token = response.json()["access_token"]
-        return self._hubic_call(method, uri, data, headers, limit)
+        self.hubic_token = response.json()['access_token']
 
     def _hubic_call(self, method, uri, data=None, headers={}, limit=3):
 
-        req = getattr(requests, method.lower())
-        headers['Authorization'] = "Bearer " + self.hubic_token
-        url = 'https://api.hubic.com/1.0/' + uri
+        for _ in range(limit):
 
-        result = req(url, headers=headers, data=data)
-        json = result.json()
-        if (result.status_code == 401 and json['error'] == 'invalid_token'):
-            if limit > 0:
-                limit = limit - 1
-                return self._hubic_renew_token(method, uri, data,
-                                               headers, limit)
-        else:
-            result.raise_for_status()
+            req = getattr(requests, method.lower())
+            headers['Authorization'] = 'Bearer ' + self.hubic_token
+            url = 'https://api.hubic.com/1.0/' + uri
 
+            result = req(url, headers=headers, data=data)
+            json = result.json()
+
+            if (result.status_code == 401 and json['error'] == 'invalid_token'):
+                self._hubic_renew_token()
+            else:
+                break
+
+        result.raise_for_status()
         return result
 
     def get_path(self, filename):
-        return str(os.path.join(self.root, filename))
+        return u(os.path.join(self.root, filename))
 
     def get_object_details(self, path):
         """ Return a dict with: content-length, accept-ranges,
@@ -109,7 +107,7 @@ class Hubic:
             res = self.os_call('head', 'default/' + path)
         except requests.exceptions.RequestException as e:
             raise ServiceError(
-                "Cannot get object details on file '{}': {}".format(path, e)
+                u"Cannot get object details on file '{}': {}".format(path, e)
                 )
         return res.headers
 
@@ -131,7 +129,7 @@ class Hubic:
                     ).text.split('\n')
             except requests.exceptions.RequestException as e:
                 raise ServiceError(
-                    "Cannot create folder '{}': {}".format(path, e)
+                    u"Cannot create folder '{}': {}".format(path, e)
                     )
 
 # ############################## WATCHER ######################################
@@ -150,7 +148,7 @@ class CheckChanges(threading.Thread):
         self.root = root
 
     def check_changes(self, path=''):
-        """ Detects changes in the given folder and its subfolders and
+        """Detects changes in the given folder and its subfolders and
         launches the download if needed"""
 
         global plug
@@ -169,7 +167,7 @@ class CheckChanges(threading.Thread):
             else:
                 hubic_rev = time.mktime(
                     datetime.datetime.strptime(details['last-modified'],
-                                               "%a, %d %b %Y %X %Z"
+                                               '%a, %d %b %Y %X %Z'
                                                ).timetuple())
 
                 metadata = plug.get_metadata(filename)
@@ -189,7 +187,7 @@ class CheckChanges(threading.Thread):
             res = hubic.os_call('get', full_path)
         except requests.exceptions.RequestException as e:
             raise ServiceError(
-                "Cannot get folder details '{}': {}".format(full_path, e)
+                u"Cannot get folder details '{}': {}".format(full_path, e)
                 )
         return res.text.split('\n')
 
@@ -225,13 +223,13 @@ def move_file(old_metadata, new_metadata):
 
     hubic.create_folders(os.path.dirname(new_metadata.filename))
 
-    headers = {'X-Copy-From': 'default/' + old_filename}
+    headers = {'X-Copy-From': 'default/' + n(old_filename)}
 
     try:
         hubic.os_call('put', 'default/' + new_filename, headers=headers)
     except requests.exceptions.RequestException as e:
         raise ServiceError(
-            "Cannot move file '{}' to '{}': {}".format(
+            u"Cannot move file '{}' to '{}': {}".format(
                 old_filename, new_filename, e
                 )
             )
@@ -252,7 +250,7 @@ def delete_file(metadata):
                       + multipart)
     except requests.exceptions.RequestException as e:
         raise ServiceError(
-            "Cannot delete file '{}': {}".format(metadata.filename, e)
+            u"Cannot delete file '{}': {}".format(metadata.filename, e)
             )
 
 
@@ -265,8 +263,13 @@ def start_upload(metadata):
 
     hubic.create_folders(os.path.dirname(metadata.filename))
 
-    manifest_link = hashlib.md5(hubic.get_path(metadata.filename) +
-                                str(time.time()))
+    path = u(hubic.get_path(metadata.filename))
+    print(path)
+
+    # figure out how format works.
+    # managed to get it working with %s%s somehow.
+
+    manifest_link = hashlib.md5(b(path) + b(str(time.time())))
 
     metadata.extra['manifest'] = SEGMENTS_FOLDER + manifest_link.hexdigest()
     metadata.extra['chunked'] = False
@@ -287,7 +290,7 @@ def upload_file(metadata, data):
             )
     except requests.exceptions.RequestException as e:
         raise ServiceError(
-            "Cannot upload file '{}': {}".format(metadata.filename, e)
+            u"Cannot upload file '{}': {}".format(metadata.filename, e)
             )
 
 
@@ -305,13 +308,13 @@ def upload_chunk(metadata, offset, chunk):
     else:
         metadata.extra['chunked'] = True
         metadata.write()
-        chunk_num = str((offset / metadata.extra['chunk_size']))
+        chunk_num = u((offset / metadata.extra['chunk_size']))
         try:
             hubic.os_call('put', 'default/' + metadata.extra['manifest'] +
                           '/' + chunk_num, data=chunk)
         except requests.exceptions.RequestException as e:
             raise ServiceError(
-                "Cannot upload chunk number {} of file '{}': {}".format(
+                u"Cannot upload chunk number {} of file '{}': {}".format(
                     chunk_num, metadata.filename, e
                     )
                 )
@@ -324,8 +327,7 @@ def end_upload(metadata):
     global hubic
     if metadata.extra['chunked'] is True:
         headers = {
-            'X-Object-Manifest': 'default/'
-            + metadata.extra['manifest']
+            'X-Object-Manifest': 'default/' + n(metadata.extra['manifest'])
             }
 
         try:
@@ -334,7 +336,7 @@ def end_upload(metadata):
                           data=None, headers=headers)
         except requests.exceptions.RequestException as e:
             raise ServiceError(
-                "Cannot end upload of file '{}': {}".format(
+                u"Cannot end upload of file '{}': {}".format(
                     metadata.filename, e
                     )
                 )
@@ -342,7 +344,7 @@ def end_upload(metadata):
     details = hubic.get_object_details(hubic.get_path(metadata.filename))
     metadata.extra['revision'] = time.mktime(
         datetime.datetime.strptime(details['last-modified'],
-                                   "%a, %d %b %Y %X %Z"
+                                   '%a, %d %b %Y %X %Z'
                                    ).timetuple())
 
 
@@ -352,14 +354,14 @@ def get_chunk(metadata, offset, size):
     starting at the given offset, from a file."""
 
     global hubic
-    headers = {'Range': str(offset) + '-' + str(offset + size)}
+    headers = {'Range': '{}-{}'.format(offset, offset + size)}
     try:
         return hubic.os_call(
-            'get', 'default/' + hubic.get_path(metadata.filename),
+            'get', u'default/' + hubic.get_path(metadata.filename),
             headers=headers).content
     except requests.exceptions.RequestException as e:
         raise ServiceError(
-            "Cannot get chunk of file '{}' (offset {}): {}".format(
+            u"Cannot get chunk of file '{}' (offset {}): {}".format(
                 metadata.filename, offset, e
                 )
             )
@@ -372,22 +374,22 @@ def start():
     global plug
 
     # Clean the root
-    root = plug.options['root']
+    root = plug.options[u'root']
     if root.startswith('/'):
         root = root[1:]
     if root.endswith('/'):
         root = root[:-1]
 
-    onitu_client_id = "api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl"
-    onitu_client_secret = ("CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV4"
-                           "9e7SpBsHDAKdtm5WeR5KEaDvc")
+    onitu_client_id = 'api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl'
+    onitu_client_secret = ('CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV4'
+                           '9e7SpBsHDAKdtm5WeR5KEaDvc')
 
     global hubic
     hubic = Hubic(onitu_client_id, onitu_client_secret,
-                  plug.options['refresh_token'], root)
+                  plug.options[u'refresh_token'], root)
 
     # Launch the changes detection
-    check = CheckChanges(root, plug.options['changes_timer'])
+    check = CheckChanges(root, plug.options[u'changes_timer'])
     check.daemon = True
     check.start()
 

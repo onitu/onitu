@@ -3,6 +3,7 @@ import os
 import requests
 
 from onitu_hubic import Hubic
+from onitu.utils import b, u
 
 from onitu.plug import ServiceError
 from tests.utils import driver
@@ -16,21 +17,20 @@ CLIENTSECRET = \
 
 # This needs to be updated using the script and will be used during the tests.
 REFRESHTOKEN = \
-    "gd3v8ZgsiN2qxQyzCywIiIoWcSNuThuld212TZwmB7QIGTAmBJD3nEY4DsRsnpQ9"
-
+    "5yZRuL8tDznGm6CAbTiyrurQ7zc5hirWgz4Af3Z89HlUFMLw0ejn3csGNPq1QBgk"
 
 class Driver(driver.Driver):
 
     def __init__(self, *args, **options):
-        if "root" not in options:
-            options['root'] = "onitu_tests"
-        if "client_id" not in options:
+        if 'root' not in options:
+            options['root'] = 'onitu_tests'
+        if 'client_id' not in options:
             options['client_id'] = CLIENTID
-        if "client_secret" not in options:
+        if 'client_secret' not in options:
             options['client_secret'] = CLIENTSECRET
-        if "refresh_token" not in options:
+        if 'refresh_token' not in options:
             options['refresh_token'] = REFRESHTOKEN
-        if "changes_timer" not in options:
+        if 'changes_timer' not in options:
             options['changes_timer'] = 15
 
         self.hubic = Hubic(options['client_id'], options['client_secret'],
@@ -39,7 +39,7 @@ class Driver(driver.Driver):
         super(Driver, self).__init__('hubic', *args, **options)
 
     def get_path(self, filename):
-        return str(os.path.join(self.options['root'], filename))
+        return u(os.path.join(self.options['root'], filename))
 
     def mkdir(self, subdirs):
         subdirs = self.get_path(subdirs)
@@ -84,14 +84,14 @@ class Driver(driver.Driver):
 
         self.hubic.create_folders(os.path.dirname(target))
 
-        headers = {'X-Copy-From': 'default/' + old_filename}
+        headers = {'X-Copy-From': 'default/' + b(old_filename)}
 
         try:
             self.hubic.os_call('put', 'default/' + new_filename,
                                headers=headers)
         except requests.exceptions.RequestException as e:
             raise ServiceError(
-                "Cannot rename file '{}' to '{}': {}".format(
+                u"Cannot rename file '{}' to '{}': {}".format(
                     old_filename, new_filename, e
                     )
                 )
