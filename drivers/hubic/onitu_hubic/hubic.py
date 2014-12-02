@@ -87,7 +87,7 @@ class Hubic:
             result = req(url, headers=headers, data=data)
             json = result.json()
 
-            if (result.status_code == 401 and json['error'] == 'invalid_token'):
+            if result.status_code == 401 and json['error'] == 'invalid_token':
                 self._hubic_renew_token()
             else:
                 break

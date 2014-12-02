@@ -19,6 +19,7 @@ CLIENTSECRET = \
 REFRESHTOKEN = \
     "5yZRuL8tDznGm6CAbTiyrurQ7zc5hirWgz4Af3Z89HlUFMLw0ejn3csGNPq1QBgk"
 
+
 class Driver(driver.Driver):
 
     def __init__(self, *args, **options):
@@ -107,4 +108,20 @@ class Driver(driver.Driver):
 
 
 class DriverFeatures(driver.DriverFeatures):
-    pass
+
+    # This features aren't functional in this driver.
+
+    del_file_to_onitu = False
+    del_directory_to_onitu = False
+    copy_tree_to_onitu = False
+    del_tree_to_onitu = False
+    detect_del_file_on_launch = False
+    detect_moved_file_on_launch = False
+
+    # The folowing features are worth testing even if they
+    # are marked as not fully functional on the matrix.
+
+    move_file_to_onitu = True
+    del_directory_from_onitu = True
+    move_directory_to_onitu = True
+    del_tree_from_onitu = True
