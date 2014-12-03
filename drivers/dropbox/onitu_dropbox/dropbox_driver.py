@@ -40,7 +40,7 @@ def connect_client():
 def root_prefixed_filename(filename):
     name = u(plug.options['root'])
     if not name.endswith(u"/"):
-        name += u("/")
+        name += u"/"
     name += u(filename)
     return name
 
@@ -48,7 +48,7 @@ def root_prefixed_filename(filename):
 def remove_upload_id(metadata):
     up_id = metadata.extra.get('upload_id', None)
     if up_id is not None:
-        plug.logger.debug("Removing upload ID '{}' from '{}' metadata"
+        plug.logger.debug(u"Removing upload ID '{}' from '{}' metadata"
                           .format(up_id, metadata.filename))
         del metadata.extra['upload_id']
 
@@ -204,7 +204,7 @@ def end_upload(metadata):
     #   then have to wait that Onitu re-sync itself with Dropbox before
     #   attempting this upload again.
     except (dropbox.rest.ErrorResponse, dropbox.rest.RESTSocketError) as err:
-        raise ServiceError("Cannot commit chunked upload for '{}' - {}"
+        raise ServiceError(u"Cannot commit chunked upload for '{}' - {}"
                            .format(filename, err))
     remove_upload_id(metadata)
     update_metadata_info(metadata, resp)
@@ -286,14 +286,11 @@ class CheckChanges(threading.Thread):
         # ought to send the previous cursor to receive only the changes that
         # have occurred since the last time.
         self.cursor = plug.entry_db.get('dropbox_cursor', default=None)
+        # The onitu root folder on Dropbox
+        self.prefix = plug.entry_db.get('root',
+                                        default=u(plug.options['root']))
         plug.logger.debug("Getting cursor '{}' out of database"
                           .format(self.cursor))
-        # Create a prefix out of the stored onitu root to ask dropbox to list
-        # changes under this name only. We have to be sure it begins by a
-        # leading slash because Dropbox lists files with one
-        self.prefix = u(plug.options['root'])
-        if not self.prefix.startswith(u"/"):
-            self.prefix = u"/" + self.prefix
 
     def update_cursor(self, newCursor):
         if newCursor != self.cursor:
@@ -309,6 +306,9 @@ class CheckChanges(threading.Thread):
             plug.logger.debug(u"Delete detected on Dropbox of "
                               u"file {}".format(metadata.filename))
             plug.delete_file(metadata)
+        elif metadata is None:
+            plug.logger.debug(u"Unknown Dropbox file '{}' was deleted, skipped"
+                              .format(db_metadata['path']))
         return deleted
 
     def file_update_check(self, metadata, db_metadata):
@@ -329,6 +329,9 @@ class CheckChanges(threading.Thread):
             plug.update_file(metadata)
             plug.logger.debug(u"Updating metadata of '{}'"
                               .format(metadata.filename))
+        else:
+            plug.logger.debug(u"Onitu file '{}' is up-to-date"
+                              .format(metadata.filename))
 
     def is_a_folder(self, onitu_filename, db_metadata):
         """Tells if a given Dropbox file is a folder based on its Onitu
@@ -348,10 +351,17 @@ class CheckChanges(threading.Thread):
         if not filename:  # no conflict
             filename = db_path
         # Strip the root in the Dropbox filename for root coherence.
-        rootless_filename = filename[len(self.prefix):]
+        prefix = self.prefix
+        if not prefix.startswith(u"/"):
+            prefix = u"/" + prefix
+        rootless_filename = filename[len(prefix):]
         return rootless_filename
 
     def process_changes(self, changes):
+        """The main change checking function of the thread.
+        It retrieves the Onitu filename of all changed Dropbox files
+        and then figures out if the file was updated because of a deletion
+        or because of an update."""
         # Entries are a list of couples (filename, metadatas).
         # However, the filename is case-insensitive. So we have to use the
         # 'path' field of the metadata containing the true, correct-case
@@ -369,6 +379,8 @@ class CheckChanges(threading.Thread):
             )
             # ignore directories as onitu creates them on the fly
             if self.is_a_folder(rootless_filename, db_metadata):
+                plug.logger.debug(u"{} is a folder - skipped"
+                                  .format(db_metadata['path']))
                 continue
             plug.logger.debug(u"Getting metadata of file '{}'"
                               .format(rootless_filename))
@@ -385,11 +397,32 @@ class CheckChanges(threading.Thread):
         return changes['has_more']
 
     def check_dropbox(self):
-        plug.logger.debug(u"Checking dropbox for changes in '{}' folder"
-                          .format(self.prefix))
+        # Check if the root has changed since last time. If that's the case,
+        # we must trash our cursor since it doesn't point to the same place
+        # anymore.
+        if plug.options['root'] != self.prefix:
+            self.prefix = u(plug.options['root'])
+            plug.logger.debug(u"Updating Dropbox root to '{}' folder"
+                              .format(self.prefix))
+            plug.entry_db.put('root', self.prefix)
+            self.update_cursor(None)
+        # We must have a cursor in order to use longpoll_delta
+        result = {}
+        if self.cursor is not None:
+            plug.logger.debug(u"Longpolling Dropbox...")
+            result = dropbox_client.longpoll_delta(cursor=self.cursor)
+            if not result.get('changes', False):
+                plug.logger.debug("No changes, longpoll timeout")
+            else:
+                plug.logger.debug(u"Checking updates in Dropbox '{}' folder"
+                                  .format(self.prefix))
+        else:
+            # cursor = None so we must call delta at least once
+            result['changes'] = True
+        backoff = result.get('backoff', 0)
+        has_more = result['changes']
         # Dropbox doesn't support trailing slashes for path_prefix parameter
         path_prefix = self.prefix.rstrip(u"/")
-        has_more = True
         while has_more:
             changes = dropbox_client.delta(cursor=self.cursor,
                                            path_prefix=path_prefix)
@@ -398,18 +431,21 @@ class CheckChanges(threading.Thread):
             # immediately do another delta with the same cursor to retrieve
             # the remaining data.
             has_more = self.process_changes(changes)
+        return backoff
 
     def run(self):
         while not self.stop.isSet():
             try:
-                self.check_dropbox()
+                backoff = self.check_dropbox()
             except urllib3.exceptions.MaxRetryError as mre:
                 plug.logger.error("Cannot poll changes on Dropbox - {}"
                                   .format(mre))
             except EscalatorClosed:
                 # We are closing
                 return
-            self.stop.wait(self.timer)
+            plug.logger.debug("Waiting {} seconds before longpolling again"
+                              .format(backoff))
+            self.stop.wait(backoff)
 
     def stop(self):
         self.stop.set()
