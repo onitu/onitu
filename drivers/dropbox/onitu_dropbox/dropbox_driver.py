@@ -9,14 +9,14 @@ from dropbox.client import DropboxClient
 from onitu.plug import Plug
 from onitu.plug import DriverError, ServiceError
 from onitu.escalator.client import EscalatorClosed
-from onitu.utils import u, b  # Unicode helpers
+from onitu.utils import u  # Unicode helpers
 
 # Onitu has a unique set of App key and secret to identify it.
-ONITU_APP_KEY = u"6towoytqygvexx3"
-ONITU_APP_SECRET = u"90hsd4z4d8eu3pp"
-ONITU_ACCESS_TYPE = u"dropbox"  # full access to user's Dropbox (may change)
+ONITU_APP_KEY = "6towoytqygvexx3"
+ONITU_APP_SECRET = "90hsd4z4d8eu3pp"
+ONITU_ACCESS_TYPE = "dropbox"  # full access to user's Dropbox (may change)
 # something like "Sat, 21 Aug 2010 22:31:20 +0000"
-TIMESTAMP_FMT = u"%a, %d %b %Y %H:%M:%S +0000"
+TIMESTAMP_FMT = "%a, %d %b %Y %H:%M:%S +0000"
 plug = Plug()
 dropbox_client = None
 
@@ -25,48 +25,47 @@ def connect_client():
     """Helper function to connect to Dropbox via the API, using access token
     keys to authenticate Onitu."""
     global dropbox_client
-    plug.logger.debug(u"Attempting Dropbox connection using Onitu credentials")
+    plug.logger.debug("Attempting Dropbox connection using Onitu credentials")
     sess = DropboxSession(ONITU_APP_KEY,
                           ONITU_APP_SECRET,
                           ONITU_ACCESS_TYPE)
     # Use the OAuth access token previously retrieved by the user and typed
     # into Onitu configuration.
-    sess.set_token(u(plug.options[u'access_key']),
-                   u(plug.options[u'access_secret']))
+    sess.set_token(plug.options['access_key'], plug.options['access_secret'])
     dropbox_client = DropboxClient(sess)
-    plug.logger.debug(u"Dropbox connection with Onitu credentials successful")
+    plug.logger.debug("Dropbox connection with Onitu credentials successful")
     return dropbox_client
 
 
 def root_prefixed_filename(filename):
-    name = u(plug.options[u'root'])
-    if not name.endswith(u'/'):
-        name += u'/'
+    name = u(plug.options['root'])
+    if not name.endswith(u"/"):
+        name += u("/")
     name += u(filename)
     return name
 
 
 def remove_upload_id(metadata):
-    up_id = metadata.extra.get(u'upload_id', None)
+    up_id = metadata.extra.get('upload_id', None)
     if up_id is not None:
-        plug.logger.debug(u"Removing upload ID '{}' from '{}' metadata"
+        plug.logger.debug("Removing upload ID '{}' from '{}' metadata"
                           .format(up_id, metadata.filename))
-        del metadata.extra[u'upload_id']
+        del metadata.extra['upload_id']
 
 
 def update_metadata_info(metadata, new_metadata, write=True):
     """Updates important metadata informations, e.g. on upload ending or
     change detection. We sometimes don't want to write immediately, e.g. when
     plug.update_file is called right after."""
-    metadata.size = new_metadata[u'bytes']
-    metadata.extra[u'rev'] = new_metadata[u'rev']
-    metadata.extra[u'modified'] = new_metadata[u'modified']
+    metadata.size = new_metadata['bytes']
+    metadata.extra['rev'] = new_metadata['rev']
+    metadata.extra['modified'] = new_metadata['modified']
     if write:
         metadata.write()
 
 
 def remove_conflict(filename):
-    conflict_name = u'conflict:{}'.format(filename)
+    conflict_name = u'conflict:{}'.format(u(filename))
     conflict = plug.entry_db.get(conflict_name, default=None)
     if conflict:
         plug.entry_db.delete(conflict_name)
@@ -92,18 +91,9 @@ def conflicting_filename(filename, value=False):
             plug.logger.warning(u"Case conflict on Dropbox, mapping "
                                 u"modifications of file {} to "
                                 u"file {}, please rename it!"
-                                .format(filename, conflict_name))
+                                .format(u(filename), u(conflict_name)))
             break
     return conflict_name
-
-
-def stringify(s):
-    """In Py3k, unicode are strings, so we mustn't encode it.
-    However it is necessary in Python 2.x, since Unicode strings are
-    unicode, not str."""
-    if type(s) != str:
-        s = b(s)
-    return s
 
 
 def get_dropbox_filename(metadata):
@@ -123,17 +113,17 @@ def get_chunk(metadata, offset, size):
     filename = get_dropbox_filename(metadata)
     plug.logger.debug(u"Getting chunk of size {} from file {}"
                       u" from offset {} to {}"
-                      .format(size, filename, offset, offset+(size-1)))
+                      .format(size, u(filename), offset, offset+(size-1)))
+    # content_server = True is required to let us access to file contents,
+    # not only metadata
     try:
-        # content_server = True is required to let us access to file contents,
-        # not only metadata
         url, params, headers = dropbox_client.request(u"/files/dropbox/{}"
                                                       .format(filename),
-                                                      method=u"GET",
+                                                      method="GET",
                                                       content_server=True)
         # Using the 'Range' HTTP Header for offseting.
-        headers[u'Range'] = u"bytes={}-{}".format(offset, offset+(size-1))
-        chunk = dropbox_client.rest_client.request(u"GET",
+        headers['Range'] = "bytes={}-{}".format(offset, offset+(size-1))
+        chunk = dropbox_client.rest_client.request("GET",
                                                    url,
                                                    headers=headers,
                                                    raw_response=True)
@@ -150,7 +140,7 @@ def get_chunk(metadata, offset, size):
 def upload_chunk(metadata, offset, chunk):
     filename = get_dropbox_filename(metadata)
     # Get the upload id of this file. None = upload's first time
-    up_id = metadata.extra.get(u'upload_id', None)
+    up_id = metadata.extra.get('upload_id', None)
     plug.logger.debug(u"Uploading chunk of size {}"
                       u" to file {} at offset {} - Upload ID: {}"
                       .format(len(chunk), filename, offset, up_id))
@@ -164,10 +154,10 @@ def upload_chunk(metadata, offset, chunk):
     except (dropbox.rest.ErrorResponse, dropbox.rest.RESTSocketError) as err:
         raise ServiceError(u"Unable to upload chunk of {}: {}"
                            .format(filename, err))
-    if metadata.extra.get(u'upload_id', None) != up_id:
-        metadata.extra[u'upload_id'] = up_id
+    if metadata.extra.get('upload_id', None) != up_id:
+        metadata.extra['upload_id'] = up_id
         metadata.write()
-        plug.logger.debug(u"Storing upload ID {} in metadata".format(up_id))
+        plug.logger.debug("Storing upload ID {} in metadata".format(up_id))
     plug.logger.debug(u"Uploading chunk of size {}"
                       u" to file {} at offset {} - Done"
                       .format(len(chunk), filename, offset))
@@ -185,7 +175,7 @@ def end_upload(metadata):
         dropbox_client.session.root,
         dropbox.client.format_path(filename)
         )
-    up_id = metadata.extra.get(u'upload_id', None)
+    up_id = metadata.extra.get('upload_id', None)
     # At this point we should have the upload ID.
     if up_id is None:
         # empty file. We must upload one.
@@ -201,9 +191,9 @@ def end_upload(metadata):
     # Upload revision Onitu has of this file. The revision has to be the most
     # recent one, else Dropbox will send us a conflict error. No rev if this
     # file isn't on dropbox yet
-    rev = metadata.extra.get(u'rev', None)
+    rev = metadata.extra.get('rev', None)
     if rev:
-        params[u'parent_rev'] = rev
+        params['parent_rev'] = rev
     try:
         url, params, headers = dropbox_client.request(path,
                                                       params,
@@ -214,19 +204,19 @@ def end_upload(metadata):
     #   then have to wait that Onitu re-sync itself with Dropbox before
     #   attempting this upload again.
     except (dropbox.rest.ErrorResponse, dropbox.rest.RESTSocketError) as err:
-        raise ServiceError(u"Cannot commit chunked upload for '{}' - {}"
+        raise ServiceError("Cannot commit chunked upload for '{}' - {}"
                            .format(filename, err))
     remove_upload_id(metadata)
     update_metadata_info(metadata, resp)
     # A naming conflict occurred
     # we have to state it in the driver's conflicts list
-    if resp[u'path'] != filename:
-        plug.entry_db.put(u'conflict:{}'.format(filename), resp[u'path'])
+    if resp['path'] != filename:
+        plug.entry_db.put(u'conflict:{}'.format(filename), u(resp['path']))
         plug.logger.warning(u"Case conflict on Dropbox!! Onitu file {} is now "
                             u"mapped to Dropbox file {}, please rename it!"
-                            .format(filename, resp[u'path']))
+                            .format(filename, u(resp['path'])))
     plug.logger.debug(u"Storing revision {} for '{}'"
-                      .format(resp[u'rev'], filename))
+                      .format(resp['rev'], filename))
     plug.logger.debug(u"Ending upload of '{}' - Done".format(filename))
 
 
@@ -240,45 +230,32 @@ def abort_upload(metadata):
 def move_file(old_metadata, new_metadata):
     old_filename = get_dropbox_filename(old_metadata)
     new_filename = get_dropbox_filename(new_metadata)
-    plug.logger.debug(u"Moving '{}' to '{}'".format(old_filename,
-                                                    new_filename))
-    # while is to manage cases where we have to try again.
-    for attempt in range(10):
-        try:
-            new_db_metadata = dropbox_client.file_move(
-                from_path=stringify(old_filename),
-                to_path=stringify(new_filename))
-        except dropbox.rest.ErrorResponse as err:
-            if err.status is 503 and u"please re-issue request" in err.error:
-                # If we didn't exceed retry limit
-                if attempt != 9:
-                    plug.logger.info(u"Retrying to move file {} to {}"
-                                     .format(old_filename, new_filename))
-                    continue  # as requested, try again
-            elif err.status is 403 and err.error.startswith(
-                    u"A file with that name already exists"
-            ):
-                # In case of already existing file or case conflict,
-                # when moving, Dropbox doesn't rename and always throws an
-                # error. So if an error arised, tell the database Onitu new
-                # file is still in conflict with the old Dropbox one
-                # (hasn't been removed)
-                plug.entry_db.put(u'conflict:{}'.format(new_filename),
-                                  old_filename)
-                plug.logger.warning(u"Case conflict on Dropbox!! Onitu file {}"
-                                    u" is mapped to Dropbox file {}, "
-                                    u"please rename it!"
-                                    .format(new_filename, old_filename))
-            raise ServiceError(u"Cannot move file {} - {}"
-                               .format(old_filename, err))
-        break
+    plug.logger.debug(u"Move '{}' to '{}'".format(old_filename, new_filename))
     remove_conflict(old_filename)
+    try:
+        new_db_metadata = dropbox_client.file_move(from_path=old_filename,
+                                                   to_path=new_filename)
+    except dropbox.rest.ErrorResponse as err:
+        if err.status is 403 and err.error.startswith(
+                "A file with that name already exists"
+        ):
+            # In case of already existing file or case conflict, when moving,
+            # Dropbox doesn't rename and always throws an error.
+            # So if an error arised, tell the database Onitu new file is still
+            # in conflict with the old Dropbox one (hasn't been removed)
+            plug.entry_db.put(u'conflict:{}'.format(new_filename),
+                              old_filename)
+            plug.logger.warning(u"Case conflict on Dropbox!! Onitu file {} is "
+                                u"mapped to Dropbox file {}, please rename it!"
+                                .format(new_filename, old_filename))
+        raise ServiceError(u"Cannot move file {} - {}"
+                           .format(old_filename, err))
     # Don't forget to update infos of the new metadata to avoid an useless
     # transfer the other way around
-    plug.logger.debug(u"Storing revision '{}' for file '{}'"
-                      .format(new_db_metadata[u'rev'], new_filename))
     update_metadata_info(new_metadata, new_db_metadata)
-    plug.logger.debug(u"Moving '{}' to '{}' - Done"
+    plug.logger.debug(u"Storing revision '{}' for file '{}'"
+                      .format(new_db_metadata['rev'], new_filename))
+    plug.logger.debug(u"Move '{}' to '{}' - Done"
                       .format(old_filename, new_filename))
 
 
@@ -287,7 +264,7 @@ def delete_file(metadata):
     filename = get_dropbox_filename(metadata)
     plug.logger.debug(u"Deleting '{}'".format(filename))
     try:
-        dropbox_client.file_delete(stringify(filename))
+        dropbox_client.file_delete(filename)
     except dropbox.rest.ErrorResponse as err:
         raise ServiceError(u"Cannot delete file {} - {}".format(filename, err))
     remove_conflict(filename)
@@ -308,96 +285,126 @@ class CheckChanges(threading.Thread):
         # send changes. A cursor is returned at each delta request, and one
         # ought to send the previous cursor to receive only the changes that
         # have occurred since the last time.
-        self.cursor = plug.entry_db.get(u'dropbox_cursor', default=None)
-        plug.logger.debug(u"Getting cursor '{}' out of database"
+        self.cursor = plug.entry_db.get('dropbox_cursor', default=None)
+        plug.logger.debug("Getting cursor '{}' out of database"
                           .format(self.cursor))
+        # Create a prefix out of the stored onitu root to ask dropbox to list
+        # changes under this name only. We have to be sure it begins by a
+        # leading slash because Dropbox lists files with one
+        self.prefix = u(plug.options['root'])
+        if not self.prefix.startswith(u"/"):
+            self.prefix = u"/" + self.prefix
+
+    def update_cursor(self, newCursor):
+        if newCursor != self.cursor:
+            plug.entry_db.put('dropbox_cursor', newCursor)
+            self.cursor = newCursor
+            plug.logger.debug("New cursor: '{}'".format(newCursor))
+
+    def file_deletion_check(self, metadata, db_metadata):
+        """Check if a file has been deleted on Dropbox
+        Notify the Plug only if Onitu knew that file"""
+        deleted = db_metadata.get('is_deleted', False)
+        if deleted and metadata is not None:
+            plug.logger.debug(u"Delete detected on Dropbox of "
+                              u"file {}".format(metadata.filename))
+            plug.delete_file(metadata)
+        return deleted
+
+    def file_update_check(self, metadata, db_metadata):
+        """Check if the file is in a more recent state on Dropbox than what we
+        have in Onitu"""
+        # Get the timestamps
+        onitu_ts = metadata.extra.get('modified', None)
+        if onitu_ts:
+            onitu_ts = time.strptime(onitu_ts,
+                                     TIMESTAMP_FMT)
+            dropbox_ts = time.strptime(db_metadata['modified'],
+                                       TIMESTAMP_FMT)
+        # If it's a new file or Dropbox timestamp is more recent
+        if not onitu_ts or dropbox_ts > onitu_ts:
+            # write=False because metadata.write() will be performed
+            # anyway in plug.update_file
+            update_metadata_info(metadata, db_metadata, write=False)
+            plug.update_file(metadata)
+            plug.logger.debug(u"Updating metadata of '{}'"
+                              .format(metadata.filename))
+
+    def is_a_folder(self, onitu_filename, db_metadata):
+        """Tells if a given Dropbox file is a folder based on its Onitu
+        filename and Dropbox metadata"""
+        # if onitu_filename = empty string: it's the root's file, ignore it
+        return onitu_filename == '' or db_metadata.get('is_dir', False)
+
+    def get_onitu_filename(self, db_path):
+        """Given a Dropbox metadata dict, retrieve the matching Dropbox file
+        name. Checks if that file is in case conflict - and thus, has a
+        different name on the other side."""
+        # Check for conflicts with Dropbox filename. If yes, retrieve
+        # the onitu filename rather than the Dropbox one
+        # the 'value' flag tells to search the values, not the keys
+        filename = conflicting_filename(db_path,
+                                        value=True)
+        if not filename:  # no conflict
+            filename = db_path
+        # Strip the root in the Dropbox filename for root coherence.
+        rootless_filename = filename[len(self.prefix):]
+        return rootless_filename
+
+    def process_changes(self, changes):
+        # Entries are a list of couples (filename, metadatas).
+        # However, the filename is case-insensitive. So we have to use the
+        # 'path' field of the metadata containing the true, correct-case
+        # filename.
+        plug.logger.debug("Processing {} entries"
+                          .format(len(changes['entries'])))
+        for (db_filename, db_metadata) in changes['entries']:
+            # No metadata = deleted file. But we can still retrieve the
+            # metadata saved by Dropbox if we ask it.
+            if db_metadata is None:
+                db_metadata = dropbox_client.metadata(db_filename)
+            # Obtain the Onitu filename from the Dropbox one
+            rootless_filename = self.get_onitu_filename(
+                db_metadata['path']
+            )
+            # ignore directories as onitu creates them on the fly
+            if self.is_a_folder(rootless_filename, db_metadata):
+                continue
+            plug.logger.debug(u"Getting metadata of file '{}'"
+                              .format(rootless_filename))
+            metadata = plug.get_metadata(rootless_filename)
+            # Do not check updates if the file has been deleted
+            if self.file_deletion_check(metadata, db_metadata):
+                continue
+            # Finally check if it is a new file or a more recent version
+            # than the one we know
+            self.file_update_check(metadata, db_metadata)
+        # Record we stopped at the current state
+        self.update_cursor(changes['cursor'])
+        # Let the caller know if there's supposed to be more
+        return changes['has_more']
 
     def check_dropbox(self):
-        global plug
         plug.logger.debug(u"Checking dropbox for changes in '{}' folder"
-                          .format(plug.options[u'root']))
-        prefix = plug.options[u'root']
-        # Dropbox lists filenames with a leading slash
-        if not prefix.startswith(u'/'):
-            prefix = u'/' + prefix
+                          .format(self.prefix))
+        # Dropbox doesn't support trailing slashes for path_prefix parameter
+        path_prefix = self.prefix.rstrip(u"/")
         has_more = True
-        changes = None
         while has_more:
-            # Dropbox doesn't support trailing slashes
-            if prefix.endswith(u'/'):
-                prefix = prefix[:-1]
             changes = dropbox_client.delta(cursor=self.cursor,
-                                           path_prefix=prefix)
-            plug.logger.debug(u"Processing {} entries"
-                              .format(len(changes[u'entries'])))
-            prefix += u'/'  # put the trailing slash back
-            # Entries are a list of couples (filename, metadatas).
-            # However, the filename is case-insensitive. So we have to use the
-            # 'path' field of the metadata containing the true, correct-case
-            # filename.
-            for (db_filename, db_metadata) in changes[u'entries']:
-                # No metadata = deleted file.
-                if db_metadata is None:
-                    # Retrieve the metadata saved by Dropbox.
-                    db_metadata = dropbox_client.metadata(db_filename)
-                # Check for conflicts with Dropbox filename. If yes, retrieve
-                # the onitu filename (thanks to value flag)
-                filename = conflicting_filename(db_metadata[u'path'],
-                                                value=True)
-                if not filename:  # no conflict
-                    filename = db_metadata[u'path']
-                # Strip the root in the Dropbox filename for root coherence.
-                rootless_filename = filename[len(prefix):]
-                plug.logger.debug(u"Getting metadata of file '{}'"
-                                  .format(rootless_filename))
-                # empty string = root; ignore it
-                # ignore directories as well (onitu creates them on the fly)
-                if (rootless_filename == u'' or
-                   db_metadata.get(u'is_dir', False)):
-                    continue
-                metadata = plug.get_metadata(rootless_filename)
-                # If the file has been deleted
-                if db_metadata.get(u'is_deleted', False) is True:
-                    # If it was synchronized by Onitu, notify the Plug
-                    if metadata is not None:
-                        plug.logger.debug(u"Delete detected on Dropbox of "
-                                          u"file {}".format(metadata.filename))
-                        plug.delete_file(metadata)
-                    continue
-                # Get the timestamps
-                onitu_ts = metadata.extra.get(u'modified', None)
-                if onitu_ts:
-                    onitu_ts = time.strptime(onitu_ts,
-                                             TIMESTAMP_FMT)
-                dropbox_ts = time.strptime(db_metadata[u'modified'],
-                                           TIMESTAMP_FMT)
-                # If Dropbox timestamp is more recent
-                if not onitu_ts or dropbox_ts > onitu_ts:
-                    plug.logger.debug(u"Updating metadata of file '{}'"
-                                      .format(rootless_filename))
-                    # write=False because metadata.write() will be performed
-                    # anyway in plug.update_file
-                    update_metadata_info(metadata, db_metadata, write=False)
-                    plug.update_file(metadata)
+                                           path_prefix=path_prefix)
             # 'has_more' is set when where Dropbox couldn't send all data
             # in one shot. It's a special case where we're allowed to
             # immediately do another delta with the same cursor to retrieve
             # the remaining data.
-            has_more = changes[u'has_more']
-        plug.logger.debug(u"New cursor: '{}' Old cursor: '{}'"
-                          .format(changes[u'cursor'], self.cursor))
-        if changes[u'cursor'] != self.cursor:
-            plug.entry_db.put(u'dropbox_cursor', changes[u'cursor'])
-            plug.logger.debug(u"Setting '{}' as new cursor"
-                              .format(changes[u'cursor']))
-            self.cursor = changes[u'cursor']
+            has_more = self.process_changes(changes)
 
     def run(self):
         while not self.stop.isSet():
             try:
                 self.check_dropbox()
             except urllib3.exceptions.MaxRetryError as mre:
-                plug.logger.error(u"Cannot poll changes on Dropbox - {}"
+                plug.logger.error("Cannot poll changes on Dropbox - {}"
                                   .format(mre))
             except EscalatorClosed:
                 # We are closing
@@ -409,12 +416,12 @@ class CheckChanges(threading.Thread):
 
 
 def start(*args, **kwargs):
-    if plug.options[u'changes_timer'] < 0:
+    if plug.options['changes_timer'] < 0:
         raise DriverError(
-            u"The change timer option must be a positive integer")
+            "The change timer option must be a positive integer")
     connect_client()
     # Start the watching-for-new-files thread
-    check = CheckChanges(plug.options[u'changes_timer'])
+    check = CheckChanges(plug.options['changes_timer'])
     check.daemon = True
     check.start()
     plug.listen()
