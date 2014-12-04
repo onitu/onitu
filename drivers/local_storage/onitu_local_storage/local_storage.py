@@ -248,6 +248,34 @@ if IS_WINDOWS:
                 if j > 1 and Rtime - j >= 1:
                         del writingDict[i]
         return writingDict
+    def file_action(filename, abs_path, action, ignoreNotif, writingDict, transferSet, actions_names, Rtime):
+        if (actions_names.get(action) == 'write' or actions_names.get(action) == 'create') and filename not in ignoreNotif:
+            if os.access(abs_path, os.R_OK):
+                writingDict[abs_path] =  Rtime
+        elif actions_names.get(action) == 'delete' and filename not in ignoreNotif:
+            metadata = plug.get_metadata(filename)
+            delete(metadata, abs_path)
+        elif actions_names.get(action) == 'moveFrom' and filename not in ignoreNotif:
+            old_path = filename
+            old_metadata = plug.get_metadata(old_path)
+            moving = True
+            if old_metadata.filename.endswith(TMP_EXT):
+               ignoreNotif[old_metadata.filename[:len(TMP_EXT)]] = False
+            else:
+                ignoreNotif[old_metadata.filename] = False
+        elif actions_names.get(action) == 'moveTo' and moving == True:
+            new_metadata = plug.get_metadata(filename)
+            ignoreNotif[str(filename)] = False
+            move(old_metadata, filename)
+            moving = False
+            if old_metadata.filename.endswith(TMP_EXT):
+                del ignoreNotif[old_metadata.filename[:len(TMP_EXT)]]
+            else:
+                del ignoreNotif[old_metadata.filename]
+                ignoreNotif[str(filename)] = Rtime
+        if (actions_names.get(action) == 'create' or actions_names.get(action) == 'write') and filename not in transferSet and filename in ignoreNotif:
+            if ignoreNotif[filename] != False:
+               transferSet.add(filename)
 
     def win32watcherThread(root, file_lock):
         dirHandle = win32file.CreateFile(
@@ -299,12 +327,14 @@ if IS_WINDOWS:
 
             data = win32file.GetOverlappedResult(dirHandle, overlapped, True)
             events = win32file.FILE_NOTIFY_INFORMATION(buf, data)
-            print(events, ignoreNotif)
             Rtime = time()
             transferSet = set()
             for action, file_ in events:
-                print("action :", actions_names.get(action), file_)
                 abs_path = root / file_
+                if (abs_path.isdir() and len(os.listdir(abs_path)) != 0):
+                    for file in abs_path.walkfiles():
+                        filename = root.relpathto(file)
+                        file_action(filename, file, action, ignoreNotif, writingDict, transferSet, actions_names, Rtime)
                 if (abs_path.isdir() or abs_path.ext == TMP_EXT or
                     os.path.exists(abs_path) and (not (win32api.GetFileAttributes(abs_path)
                          & win32con.FILE_ATTRIBUTE_NORMAL) and not (win32api.GetFileAttributes(abs_path)
@@ -312,35 +342,8 @@ if IS_WINDOWS:
                     continue
                 filename = root.relpathto(abs_path)
                 try:
-                    plug.logger.warning("action :", actions_names.get(action), filename)
                     with file_lock:
-                        if (actions_names.get(action) == 'write' or actions_names.get(action) == 'create') and filename not in ignoreNotif:
-                            if os.access(abs_path, os.R_OK):
-                                writingDict[abs_path] =  Rtime
-                        elif actions_names.get(action) == 'delete' and filename not in ignoreNotif:
-                            metadata = plug.get_metadata(filename)
-                            delete(metadata, abs_path)
-                        elif actions_names.get(action) == 'moveFrom' and filename not in ignoreNotif:
-                            old_path = filename
-                            old_metadata = plug.get_metadata(old_path)
-                            moving = True
-                            if old_metadata.filename.endswith(TMP_EXT):
-                                ignoreNotif[old_metadata.filename[:len(TMP_EXT)]] = False
-                            else:
-                                ignoreNotif[old_metadata.filename] = False
-                        elif actions_names.get(action) == 'moveTo' and moving == True:
-                            new_metadata = plug.get_metadata(filename)
-                            ignoreNotif[str(filename)] = False
-                            move(old_metadata, filename)
-                            moving = False
-                            if old_metadata.filename.endswith(TMP_EXT):
-                                del ignoreNotif[old_metadata.filename[:len(TMP_EXT)]]
-                            else:
-                                del ignoreNotif[old_metadata.filename]
-                            ignoreNotif[str(filename)] = Rtime
-                    if (actions_names.get(action) == 'create' or actions_names.get(action) == 'write') and filename not in transferSet and filename in ignoreNotif:
-                        if ignoreNotif[filename] != False:
-                           transferSet.add(filename)
+                        file_action(filename, abs_path, action, ignoreNotif, writingDict, transferSet, actions_names, Rtime)
                 except EscalatorClosed:
                     return
             for file in transferSet:
