@@ -1,3 +1,4 @@
+import urllib
 import base64
 import os
 import requests
@@ -5,6 +6,7 @@ import hashlib
 import threading
 import time
 import datetime
+import json
 
 from onitu.plug import Plug, ServiceError, DriverError
 from onitu.escalator.client import EscalatorClosed
@@ -12,6 +14,7 @@ from onitu.utils import b, u, n
 
 plug = Plug()
 hubic = None
+redirect_uri = ""
 
 # 25Mo (To avoid lot of segmented files)
 MIN_CHUNK_SIZE = 25000000
@@ -112,6 +115,43 @@ class Hubic:
                 u"Cannot get object details on file '{}': {}".format(path, e)
             )
         return res.headers
+
+
+    # ############################## OAUTH ####################################
+    def get_oauth_url(self, r_uri):
+        url = "https://api.hubic.com/oauth/auth/?client_id=" + self.client_id
+        url += "&redirect_uri=" + urllib.quote_plus(r_uri)
+        url += "&scope=usage.r,account.r,getAllLinks.r,credentials.r,activate.w,links.drw"
+        url += "&response_type=code"
+
+        self.redirect_uri = r_uri
+
+        return url
+
+    def obtain_access_token(self, code, redirect_uri):
+        application_token = base64.b64encode(self.client_id + ":" + self.client_secret)
+        url = "https://api.hubic.com/oauth/token/"
+        response = requests.post(
+            url,
+            data={
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": redirect_uri,
+            },
+            headers={
+            'Authorization': 'Basic ' + application_token
+            }
+        )
+
+        print response
+
+        if response.status_code == 400:
+            raise Exception('An invalid request was submitted')
+        elif not response.ok:
+            raise Exception('The provided email address and/or pass are incorrect')
+
+        self.refresh_token = response.json()["refresh_token"]
+        return self.refresh_token
 
 
 # ############################## WATCHER ######################################
@@ -317,6 +357,35 @@ def get_chunk(metadata, offset, size):
             )
         )
 
+@plug.handler()
+def get_oauth_url(redirect_uri):
+    global hubic
+
+    url = hubic.get_oauth_url(redirect_uri)
+
+    print "SENDING THE URL"
+    print url
+    return url
+
+@plug.handler()
+def set_oauth_token(query_param):
+    global hubic
+
+    query_param = json.loads(query_param)
+
+    print "GOT THE CODE"
+    print query_param
+
+    code = query_param["code"]
+    redirect_uri = query_param["redirect_uri"]
+
+    access_token = hubic.obtain_access_token(code, redirect_uri)
+
+    print "GOT ACCESS TOKEN"
+    print access_token
+
+    db = plug.entry_db
+    db.put("accessToken", access_token)
 
 # ############################## START #######################################
 
@@ -327,9 +396,8 @@ def start():
     # Clean the root
     root = plug.root.strip('/')
 
-    onitu_client_id = 'api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl'
-    onitu_client_secret = ('CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV4'
-                           '9e7SpBsHDAKdtm5WeR5KEaDvc')
+    onitu_client_id = "api_hubic_6zKwMZlx43Q41TML6UctAYEcdwn9hwsX"
+    onitu_client_secret = "Pa4qfzZzlOTfCrLYbUYEpCBTZdxlrKPR1GK11cTLCros5YzY3HYJob7SjbXBu0j3"
 
     hubic = Hubic(onitu_client_id, onitu_client_secret,
                   plug.options[u'refresh_token'], root)
