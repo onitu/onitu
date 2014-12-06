@@ -3,6 +3,7 @@ import evernote.edam.type.ttypes as Types
 
 from datetime import timedelta
 from evernote.edam.error.ttypes import EDAMUserException, EDAMSystemException
+from evernote.edam.error.ttypes import EDAMErrorCode
 from evernote.api.client import EvernoteClient
 from evernote.edam.notestore.ttypes import NoteFilter, NotesMetadataResultSpec
 from evernote.edam.type.ttypes import NoteSortOrder
@@ -23,8 +24,156 @@ changes_timer = None
 onitu_recent_search = None
 onitu_search = None
 notebook_onitu = None
-dev_token = None
 plug = Plug()
+
+# ############################## EVERNOTE ####################################
+
+
+def connect_client():
+    global note_store
+
+    plug.logger.debug("Connecting to Evernote")
+    try:
+        client = EvernoteClient(token=plug.options['token'])
+        note_store = client.get_note_store()
+    except (EDAMUserException, EDAMSystemException) as e:
+        raise ServiceError(
+            "Cannot connect to Evernote: {}".format(e)
+            )
+
+
+def create_notebook(name):
+    plug.logger.debug("Creating notebook {}".format(name))
+    return note_store.createNotebook(plug.options['token'],
+                                     Types.Notebook(name=name))
+
+
+def create_root_notebook():
+    """Creates the notebook named by the Onitu root if it doesn't already exist
+    We take care of stripping the slashes before and after"""
+    # Clean the root before trying to create the Onitu notebook
+    global root
+    root = plug.options['root']
+    if root.startswith('/'):
+        root = root[1:]
+    if root.endswith('/'):
+        root = root[:-1]
+    global notebook_onitu
+    try:
+        notebook_onitu = create_notebook(root)
+    except EDAMUserException as eue:
+        # DATA_CONFLICT "Notebook.name" = name already in use
+        # We want to create the notebook if it doesn't already exist
+        # So in our case this is ok, raise the error otherwise
+        if not (eue.errorCode == EDAMErrorCode.DATA_CONFLICT
+                and eue.parameter == "Notebook.name"):
+            raise ServiceError("Error creating '{}' notebook: {}", root, eue)
+        else:
+            plug.logger.debug("Notebook {} already exists".format(root))
+            for n in note_store.listNotebooks():
+                if n.name == root:
+                    plug.logger.debug("Found {} notebook".format(root))
+                    notebook_onitu = n
+                    break
+            # If the given notebook has been said existing BUT we can't find it
+            # For example if it has been deleted between when we asked and
+            # when we retrieved the list... In this case trying again will
+            # create it the next time.
+            if notebook_onitu is None:
+                raise ServiceError("Couldn't fetch notebook {}, "
+                                   "please try again".format(root))
+
+
+def create_note(metadata, content):
+    ''' Return the note created which contains its guid'''
+    global note_store
+
+    filename = '{}/{}'.format(root, '/', metadata.filename)
+    filename = metadata.filename
+    note_title = filename
+
+    note = Types.Note()
+    note.title = note_title
+    global notebook_onitu
+    note.notebookGuid = notebook_onitu.guid
+
+    # To include an attachment such as an image in a note, first create a Resource
+    # for the attachment. At a minimum, the Resource contains the binary attachment
+    # data, an MD5 hash of the binary data, and the attachment MIME type.
+    # It can also include attributes such as filename and location.
+    md5 = hashlib.md5()
+    md5.update(content)
+    md5_hash = md5.digest()
+
+    data = Types.Data()
+    data.size = len(content)
+    data.bodyHash = md5_hash
+    data.body = content
+
+    attr = Types.ResourceAttributes()
+    attr.fileName = filename
+
+    resource = Types.Resource()
+    resource.mime = metadata.mimetype
+    resource.data = data
+    resource.attributes = attr
+
+    note.resources = [resource]
+
+    hash_hex = binascii.hexlify(md5_hash)
+
+    # The content of an Evernote note is represented using Evernote Markup Language
+    # (ENML). The full ENML specification can be found in the Evernote API Overview
+    # at http://dev.evernote.com/documentation/cloud/chapters/ENML.php
+    note.content = '<?xml version="1.0" encoding="UTF-8"?>'
+    note.content += '<!DOCTYPE en-note SYSTEM ' \
+        '"http://xml.evernote.com/pub/enml2.dtd">'
+    note.content += '<en-note>This note was created by onitu to store your '
+    note.content += metadata.filename + ' file.<br/><br/>'
+    note.content += '<en-media type="' + metadata.mimetype + '" hash="' + hash_hex + '"/>'
+    note.content += '</en-note>'
+
+    return note_store.createNote(note)
+
+
+# ############################# ONITU HANDLERS ###################################
+
+#Unexpected error calling 'move_file': 'str' object has no attribute 'write' ?
+# with updateresource we cannot update the content, only metadata
+@plug.handler()
+def move_file(old_metadata, new_metadata):
+    global note_store
+    global dev_token
+
+    note = note_store.getNote(dev_token, old_metadata.extra['guid'], False, False, True, False)
+
+    res = note.resources[0] #Types.Resource()
+    attr = Types.ResourceAttributes()
+    attr.fileName = new_metadata.filename
+    print
+    print "MOVE: New filename =" + attr.fileName
+    print
+
+#    res.guid = note.resources[0].guid
+    res.attributes = attr
+    res.mime = new_metadata.mimetype
+    note_store.updateResource(dev_token, res)
+
+@plug.handler()
+def get_file(metadata):
+    note = note_store.getNote(dev_token, metadata.extra['guid'], False, False, False, True)
+    return note_store.getResourceData(dev_token, note.resources[0].guid)
+
+@plug.handler()
+def upload_file(metadata, content):
+    note = create_note(metadata, content)
+    metadata.extra['guid'] = note.guid
+    metadata.extra['revision'] = note.updated / 1000
+    metadata.write()
+
+@plug.handler()
+def delete_file(metadata):
+    res = note_store.deleteNote(dev_token, metadata.extra['guid'])
 
 # ############################## WATCHER ######################################
 
@@ -169,149 +318,18 @@ class CheckChanges(threading.Thread):
     def stop(self):
         self.stop.set()
 
-# ############################## EVERNOTE ####################################
-
-def create_note(metadata, content):
-    ''' Return the note created which contains its guid'''
-    global note_store
-
-    filename = '{}/{}'.format(root, '/', metadata.filename)
-    filename = metadata.filename
-    note_title = filename
-
-    note = Types.Note()
-    note.title = note_title
-    global notebook_onitu
-    note.notebookGuid = notebook_onitu.guid
-
-    # To include an attachment such as an image in a note, first create a Resource
-    # for the attachment. At a minimum, the Resource contains the binary attachment
-    # data, an MD5 hash of the binary data, and the attachment MIME type.
-    # It can also include attributes such as filename and location.
-    md5 = hashlib.md5()
-    md5.update(content)
-    md5_hash = md5.digest()
-
-    data = Types.Data()
-    data.size = len(content)
-    data.bodyHash = md5_hash
-    data.body = content
-
-    attr = Types.ResourceAttributes()
-    attr.fileName = filename
-
-    resource = Types.Resource()
-    resource.mime = metadata.mimetype
-    resource.data = data
-    resource.attributes = attr
-
-    note.resources = [resource]
-
-    hash_hex = binascii.hexlify(md5_hash)
-
-    # The content of an Evernote note is represented using Evernote Markup Language
-    # (ENML). The full ENML specification can be found in the Evernote API Overview
-    # at http://dev.evernote.com/documentation/cloud/chapters/ENML.php
-    note.content = '<?xml version="1.0" encoding="UTF-8"?>'
-    note.content += '<!DOCTYPE en-note SYSTEM ' \
-        '"http://xml.evernote.com/pub/enml2.dtd">'
-    note.content += '<en-note>This note was created by onitu to store your '
-    note.content += metadata.filename + ' file.<br/><br/>'
-    note.content += '<en-media type="' + metadata.mimetype + '" hash="' + hash_hex + '"/>'
-    note.content += '</en-note>'
-
-    return note_store.createNote(note)
-
-# ############################# ONITU BASIC ###################################
-
-#Unexpected error calling 'move_file': 'str' object has no attribute 'write' ?
-# with updateresource we cannot update the content, only metadata
-@plug.handler()
-def move_file(old_metadata, new_metadata):
-    global note_store
-    global dev_token
-
-    note = note_store.getNote(dev_token, old_metadata.extra['guid'], False, False, True, False)
-
-    res = note.resources[0] #Types.Resource()
-    attr = Types.ResourceAttributes()
-    attr.fileName = new_metadata.filename
-    print
-    print "MOVE: New filename =" + attr.fileName
-    print
-
-#    res.guid = note.resources[0].guid
-    res.attributes = attr
-    res.mime = new_metadata.mimetype
-    note_store.updateResource(dev_token, res)
-
-@plug.handler()
-def get_file(metadata):
-    note = note_store.getNote(dev_token, metadata.extra['guid'], False, False, False, True)
-    return note_store.getResourceData(dev_token, note.resources[0].guid)
-
-@plug.handler()
-def upload_file(metadata, content):
-    note = create_note(metadata, content)
-    metadata.extra['guid'] = note.guid
-    metadata.extra['revision'] = note.updated / 1000
-    metadata.write()
-
-@plug.handler()
-def delete_file(metadata):
-    res = note_store.deleteNote(dev_token, metadata.extra['guid'])
-
-def create_notebook(name):
-    notebook = Types.Notebook()
-    notebook.name = name
-    return note_store.createNotebook(dev_token, notebook)
-
-def create_main_notebook(name):
-    try:
-        return create_notebook(name)
-    except EDAMUserException:
-        '''
-        BAD_DATA_FORMAT "Notebook.name" - invalid length or pattern
-        BAD_DATA_FORMAT "Notebook.stack" - invalid length or pattern
-        BAD_DATA_FORMAT "Publishing.uri" - if publishing set but bad uri
-        BAD_DATA_FORMAT "Publishing.publicDescription" - if too long
-        DATA_CONFLICT "Notebook.name" - name already in use
-        DATA_CONFLICT "Publishing.uri" - if URI already in use
-        DATA_REQUIRED "Publishing.uri" - if publishing set but uri missing
-        LIMIT_REACHED "Notebook" - at max number of notebooks
-        '''
-        global note_store
-        notebooks = note_store.listNotebooks()
-        for n in notebooks:
-            if (n.name == name):
-                return n
 
 def start():
     global changes_timer
     changes_timer = plug.options['changes_timer']
+    if changes_timer < 0:
+        raise DriverError("Changes timer must be a positive value")
 
-    # Clean the root
-    global root
-    root = plug.options['root']
-    if root.startswith('/'):
-        root = root[1:]
-    if root.endswith('/'):
-        root = root[:-1]
-
-    global dev_token
-    global note_store
-    dev_token = plug.options['token']
-    try:
-        client = EvernoteClient(token=dev_token)
-        note_store = client.get_note_store()
-    except (EDAMUserException, EDAMSystemException) as e:
-        raise ServiceError(
-            "Cannot connect to evernote: {}".format(e)
-            )
-
+    # Start the Evernote connection and retrieve our note store
+    connect_client()
+    plug.logger.debug("Connection successful")
     # Try to create the onitu notebook
-    global notebook_onitu
-    notebook_onitu = create_main_notebook(root)
+    create_root_notebook()
 
     # Launch the changes detection
     check = CheckChanges(root, plug.options['changes_timer'])
