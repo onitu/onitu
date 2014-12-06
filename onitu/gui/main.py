@@ -9,10 +9,10 @@ class OnituGui(QWidget):
         self.closing = False
 
         menu = QMenu(self)
-        exitAction = menu.addAction("Exit Onitu")
-        startAction = menu.addAction("Start the server")
-        stopAction = menu.addAction("Stop the server")
-        configAction = menu.addAction("Configurations")
+        exitAction = menu.addAction(self.tr("Exit Onitu"))
+        startAction = menu.addAction(self.tr("Start the server"))
+        stopAction = menu.addAction(self.tr("Stop the server"))
+        configAction = menu.addAction(self.tr("Configurations"))
 
         exitAction.triggered.connect(self.close_onitu)
         startAction.triggered.connect(self.start_onitu)
@@ -23,7 +23,6 @@ class OnituGui(QWidget):
         self.tray.setIcon(QIcon("onitu.png"))
         self.tray.setContextMenu(menu)
         self.tray.show()
-        self.tray.setToolTip("unko!")
 
     def close_onitu(self):
         self.closing = True
