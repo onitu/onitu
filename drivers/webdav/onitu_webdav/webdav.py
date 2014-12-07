@@ -49,13 +49,16 @@ def create_dirs(webdav, path):
 
 @plug.handler()
 def get_file(metadata):
-    return
     try:
-        f = sftp.open(metadata.filename, 'r')
-        data = f.read()
+        path = '/'.join([root, metadata.filename])
+        print "get file path: {}".format(path)
+        local_file = "/tmp/{}".format(os.path.basename(metadata.filename))
+        webdav.download(path, local_file)
+        with open(local_file, 'r') as f:
+            data = f.read()
         return data
 
-    except IOError as e:
+    except easywebdav.client.OperationFailed as e:
         raise ServiceError(
             "Error getting file '{}': {}".format(metadata.filename, e)
         )
@@ -196,7 +199,7 @@ def start():
     timer = plug.options['changes_timer']
 
     global prefix
-    prefix = "{}://{}:{}{}".format(
+    prefix = "{}://{}:{}{}/".format(
         protocol,
         hostname,
         port,
