@@ -1,16 +1,13 @@
-Getting started with the SFTP driver
-====================================
-
-You can use a password or your private key to setup your SFTP Driver.
-
-If you set a password in the setup.json file, the private_key_path and private_key_passphrase will be ignored.
+Getting started with the Webdav driver
+======================================
 
 All the defaults variables are optional:
 
+protocol: "http"
+username: ""
 password: ""
-private_key_path: ~/.ssh/id_rsa
-private_key_passphrase: ""
-port: 22
+port: 8008
+changes_timer: 60
 
 An example of setup.json which use a private key (uses the default value) with an empty password (default value), a default port.
 
@@ -24,13 +21,13 @@ An example of setup.json which use a private key (uses the default value) with a
         "root": "example/loc"
       }
     },
-    "FTP": {
-      "driver": "sftp",
+    "WEBDAV": {
+      "driver": "webdav",
       "options": {
-        "root": "/home/myname/sftp/",
+        "root": "/onitu",
         "hostname": "localhost",
-        "username": "myname",
-        "changes_timer": 10
+        "changes_timer": 2,
+        "protocol": "http"
       }
     }
   },
@@ -38,7 +35,7 @@ An example of setup.json which use a private key (uses the default value) with a
   "rules": [
     {
       "match": {"path": "/"},
-      "sync": ["LOC", "FTP"]
+      "sync": ["LOC", "ONITU"]
     }
   ]
 

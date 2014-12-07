@@ -26,7 +26,7 @@
     },
     "password": {
       "name": "Password",
-      "description": "The password for the webdav connection (if empty or missing, no auth will be used)",
+      "description": "The password for the webdav connection",
       "type": "string",
       "default": ""
     },

@@ -15,7 +15,6 @@ events_to_ignore = set()
 
 def create_dirs(webdav, path):
     path = '/'.join([root, path])
-    print "create dirs '{}'".format(path)
     webdav.mkdirs(path)
 
 
@@ -114,6 +113,7 @@ class CheckChanges(threading.Thread):
             onitu_rev = metadata.extra.get('revision', 0.)
 
             if f.mtime > onitu_rev:
+                # TODO: is it the same thing with a webdav server on windows?
                 if f.contenttype == "httpd/unix-directory":
                     self.check_folder(filepath)
                 else:
