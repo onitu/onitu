@@ -1,3 +1,4 @@
+import evernote.edam.userstore.UserStore as UserStore
 import evernote.edam.userstore.constants as UserStoreConstants
 import evernote.edam.type.ttypes as Types
 
@@ -6,7 +7,12 @@ from evernote.edam.error.ttypes import EDAMUserException, EDAMSystemException
 from evernote.edam.error.ttypes import EDAMErrorCode
 from evernote.api.client import EvernoteClient
 from evernote.edam.notestore.ttypes import NoteFilter, NotesMetadataResultSpec
+from evernote.edam.notestore.ttypes import SyncState, SyncChunkFilter
 from evernote.edam.type.ttypes import NoteSortOrder
+from evernote.edam.limits.constants import EDAM_USER_NOTES_MAX
+
+import thrift.protocol.TBinaryProtocol as TBinaryProtocol
+import thrift.transport.THttpClient as THttpClient
 
 import threading
 import hashlib
@@ -17,12 +23,15 @@ import datetime
 
 from path import path
 
-from onitu.plug import Plug, ServiceError
+from onitu.plug import Plug, DriverError, ServiceError
+from onitu.utils import u,b
 
 root = None
+token = None
 changes_timer = None
 onitu_recent_search = None
 onitu_search = None
+notestore_onitu = None
 notebook_onitu = None
 plug = Plug()
 
@@ -30,21 +39,34 @@ plug = Plug()
 
 
 def connect_client():
-    global note_store
-
-    plug.logger.debug("Connecting to Evernote")
+    global notestore_onitu
+    global token
+    plug.logger.debug("Connecting to Evernote...")
+    token = b(plug.options['token'])
     try:
-        client = EvernoteClient(token=plug.options['token'])
-        note_store = client.get_note_store()
+        client = EvernoteClient(token=token)
+        notestore_onitu = client.get_note_store()
     except (EDAMUserException, EDAMSystemException) as e:
         raise ServiceError(
             "Cannot connect to Evernote: {}".format(e)
-            )
+        )
+    plug.logger.debug("Connection successful")
+    # plug.logger.debug("EXPERIMENTAL")
+    # userStoreHttpClient = THttpClient.THttpClient("https://www.evernote.com/edam/user")
+    # userStoreProtocol = TBinaryProtocol.TBinaryProtocol(userStoreHttpClient)
+    # userStore = UserStore.Client(userStoreProtocol)
+    # plug.logger.debug("EXPERIMENTAL")
+    # noteStoreUrl = userStore.getNoteStoreUrl(token)
+    # plug.logger.debug("EXPERIMENTAL")
+    # noteStoreHttpClient = THttpClient.THttpClient(noteStoreUrl)
+    # noteStoreProtocol = TBinaryProtocol.TBinaryProtocol(noteStoreHttpClient)
+    # noteStore = NoteStore.Client(noteStoreProtocol)
+    # plug.logger.debug("END EXPERIMENTAL")
 
 
 def create_notebook(name):
-    plug.logger.debug("Creating notebook {}".format(name))
-    return note_store.createNotebook(plug.options['token'],
+    plug.logger.debug(u"Creating notebook {}".format(name))
+    return notestore_onitu.createNotebook(token,
                                      Types.Notebook(name=name))
 
 
@@ -53,40 +75,27 @@ def create_root_notebook():
     We take care of stripping the slashes before and after"""
     # Clean the root before trying to create the Onitu notebook
     global root
-    root = plug.options['root']
-    if root.startswith('/'):
+    root = u(plug.options['root'])
+    if root.startswith(u'/'):
         root = root[1:]
-    if root.endswith('/'):
+    if root.endswith(u'/'):
         root = root[:-1]
     global notebook_onitu
-    try:
-        notebook_onitu = create_notebook(root)
-    except EDAMUserException as eue:
-        # DATA_CONFLICT "Notebook.name" = name already in use
-        # We want to create the notebook if it doesn't already exist
-        # So in our case this is ok, raise the error otherwise
-        if not (eue.errorCode == EDAMErrorCode.DATA_CONFLICT
-                and eue.parameter == "Notebook.name"):
-            raise ServiceError("Error creating '{}' notebook: {}", root, eue)
-        else:
-            plug.logger.debug("Notebook {} already exists".format(root))
-            for n in note_store.listNotebooks():
-                if n.name == root:
-                    plug.logger.debug("Found {} notebook".format(root))
-                    notebook_onitu = n
-                    break
-            # If the given notebook has been said existing BUT we can't find it
-            # For example if it has been deleted between when we asked and
-            # when we retrieved the list... In this case trying again will
-            # create it the next time.
-            if notebook_onitu is None:
-                raise ServiceError("Couldn't fetch notebook {}, "
-                                   "please try again".format(root))
-
+    for n in notestore_onitu.listNotebooks():
+        if n.name == root:
+            plug.logger.debug(u"Found {} notebook".format(root))
+            notebook_onitu = n
+            break
+    # The notebook does not exist: create it
+    if notebook_onitu is None:
+        try:
+            notebook_onitu = create_notebook(root)
+        except (EDAMUserException, Errors.EDAMSystemException) as exc:
+            raise ServiceError(u"Error creating '{}' notebook: {}", root, exc)
 
 def create_note(metadata, content):
-    ''' Return the note created which contains its guid'''
-    global note_store
+    """ Return the note created which contains its guid"""
+    global notestore_onitu
 
     filename = '{}/{}'.format(root, '/', metadata.filename)
     filename = metadata.filename
@@ -133,7 +142,7 @@ def create_note(metadata, content):
     note.content += '<en-media type="' + metadata.mimetype + '" hash="' + hash_hex + '"/>'
     note.content += '</en-note>'
 
-    return note_store.createNote(note)
+    return notestore_onitu.createNote(note)
 
 
 # ############################# ONITU HANDLERS ###################################
@@ -142,10 +151,10 @@ def create_note(metadata, content):
 # with updateresource we cannot update the content, only metadata
 @plug.handler()
 def move_file(old_metadata, new_metadata):
-    global note_store
+    global notestore_onitu
     global dev_token
 
-    note = note_store.getNote(dev_token, old_metadata.extra['guid'], False, False, True, False)
+    note = notestore_onitu.getNote(dev_token, old_metadata.extra['guid'], False, False, True, False)
 
     res = note.resources[0] #Types.Resource()
     attr = Types.ResourceAttributes()
@@ -157,12 +166,16 @@ def move_file(old_metadata, new_metadata):
 #    res.guid = note.resources[0].guid
     res.attributes = attr
     res.mime = new_metadata.mimetype
-    note_store.updateResource(dev_token, res)
+    notestore_onitu.updateResource(dev_token, res)
 
 @plug.handler()
 def get_file(metadata):
-    note = note_store.getNote(dev_token, metadata.extra['guid'], False, False, False, True)
-    return note_store.getResourceData(dev_token, note.resources[0].guid)
+    guid = metadata.extra.get('evernote_guid', None)
+    if guid is None:
+        raise DriverError("No GUID for file '{}'!".format(metadata.filename))
+    # Only request the note content (Evernote API doesn't work with kwargs...)
+    note = notestore_onitu.getNote(guid, True, False, False, False)
+    return note.content
 
 @plug.handler()
 def upload_file(metadata, content):
@@ -173,45 +186,153 @@ def upload_file(metadata, content):
 
 @plug.handler()
 def delete_file(metadata):
-    res = note_store.deleteNote(dev_token, metadata.extra['guid'])
+    res = notestore_onitu.deleteNote(dev_token, metadata.extra['guid'])
+
 
 # ############################## WATCHER ######################################
 
-
 class CheckChanges(threading.Thread):
-    """A class spawned in a thread to poll for changes on the HUBIC bucket.
-    HUBIC hasn't any bucket watching system in its API, so the best we can
-    do is periodically polling the bucket's contents and compare the
-    timestamps."""
-
+    """A class spawned in a thread to poll for changes on the Evernote notebook
+    Evernote lets us know if we're up-to-date with a sync state number. Once we
+    see our number doesn't match anymore the server's one, we start an
+    update."""
+    
     def __init__(self, root, timer):
         threading.Thread.__init__(self)
         self.stop = threading.Event()
         self.timer = timer
         self.root = root
-        self.last_check = 0
-        self.basic_filters = "notebook:{} resource:*".format(notebook_onitu.name)
+        # The last update count of the notebook we're aware of.
+        #         self.updateCount = plug.entry_db.get('updateCount', default=0)
+        self.updateCount = 0
+        # We don't want to paginate. Ask all teh notes in one time
+        self.maxNotes = EDAM_USER_NOTES_MAX
+        # Filter to include only notes from our notebook
+        self.noteFilter = NoteFilter(order=NoteSortOrder.RELEVANCE,
+                                     notebookGuid=notebook_onitu.guid)
+        # Note spec to filter even more the findNotesMetadata result
+        self.resultSpec = NotesMetadataResultSpec(includeTitle=True, 
+                                                  includeContentLength=True,
+                                                  includeCreated=True,
+                                                  includeUpdated=True,
+                                                  includeDeleted=True,
+                                                  includeUpdateSequenceNum=True)
+        self.first_start = True
+        self.note_store = notestore_onitu
 
-        escalator = plug.escalator
-        try:
-            self.last_check = escalator.get('evernote_last_check')
-            self.first_start = False
-        except KeyError:
-            self.first_start = True
-            self.last_check = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-            escalator.put('evernote_last_check', self.last_check)
 
-        client = EvernoteClient(token=dev_token)
-        self.note_store = client.get_note_store()
+    def update_note(self, noteMetadata, onituMetadata):
+        """Update a given note's information, content and also its
+        resource files. We come to this function when we already know the
+        server copy is more recent than ours. But to ensure it is a change of
+        content, we store the hash, and we compare the current with the one
+        we stored when a file gets updated."""
+        # First just check the hash
+        plug.logger.debug("Getting content hash of {}".format(noteMetadata.title))
+        note = notestore_onitu.getNote(noteMetadata.guid, False, False, False,
+                                       False)
+        onituHash = onituMetadata.extra.get('evernote_hash', "")
+        # The content hash changed: notify an update
+        if note.contentHash != onituHash:
+            # Update the Onitu note metadata
+            onituMetadata.size = note.contentLength
+            onituMetadata.extra['evernote_guid'] = note.guid
+            onituMetadata.extra['evernote_hash'] = note.contentHash
+            onituMetadata.extra['evernote_USN'] = note.updateSequenceNum
+            plug.update_file(onituMetadata)
+            plug.logger.debug(u"Note {} updated".format(note.title))
+        else:
+            plug.logger.debug(u"Update on note {} isn't content-related, "
+                              u"skipped".format(note.title))
+        plug.logger.debug("NOTE {} HASH: {} LENGTH: {}".format(note.title, note.contentHash, note.contentLength))
 
+
+        
     def check_changes(self):
+        plug.logger.debug("CHECKONS!")
         self.check_updated()
-        self.check_deleted()
-        self.first_start = False
 
-        self.last_check = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-        escalator = plug.escalator
-        escalator.put('evernote_last_check', self.last_check)
+        plug.logger.debug("Done checking changes")
+
+ #       self.check_deleted()
+
+
+
+    def check_updated(self):
+        """Checks for updated notes on the Onitu notebook.
+        Loops the findNotesMetadata operation until everything is gone."""
+        remaining = 1
+        offset = 0
+        while remaining:
+            # Ask as much notes as possible in one shot
+            res = notestore_onitu.findNotesMetadata(self.noteFilter, offset,
+                                                    self.maxNotes,
+                                                    self.resultSpec)
+            plug.logger.debug("{}".format(res.totalNotes))
+            for noteMetadata in res.notes:
+                # The note content and its resources are in a specific folder
+                onituMetadata = plug.get_metadata(noteMetadata.title)
+                # Update Sequence Num is like a kind of operation counter.
+                # If it is higher than what we had, something new happened.
+                # The flaw in this logic is that it can have nothing to do with
+                # the logic Onitu is interested in, e.g. the note has a new tag
+                # AFAIK there is no better solution right now.
+                usn = noteMetadata.updateSequenceNum
+                onitu_usn = onituMetadata.extra.get('evernote_USN', 0)
+                if onitu_usn < usn:
+                    self.update_note(noteMetadata, onituMetadata)
+            # Update the offset to ask the rest of the notes next time
+            offset = res.startIndex + len(res.notes)
+            remaining = res.totalNotes - offset
+        # dev_token = plug.options['token']
+        # result_spec = NotesMetadataResultSpec()
+        # result_spec.includeCreated = True
+        # result_spec.includeUpdated = True
+        # result_spec.includeTitle = True
+
+        # note_updated = NoteFilter(order=NoteSortOrder.UPDATED, inactive=False)
+        # note_updated.words = self.basic_filters
+        # if self.first_start is False:
+        #     note_updated.words += " updated:{}".format(self.last_check)
+
+        # page_size = 200
+        # i = 0
+        # while 42:
+        #     res = self.note_store.findNotesMetadata(dev_token, note_updated, i, page_size, result_spec)
+        #     for n in res.notes:
+        #         try:
+        #             res_guid = escalator.get('note_guid:{}'.format(n.guid))
+        #         except KeyError:
+        #             res_guid = None
+
+        #         if res_guid is None:
+        #             note = self.note_store.getNote(dev_token, n.guid, False, True, False, False)
+        #             res_guid = note.resources[0].guid  # Only one resource per note
+
+        #         resource = self.note_store.getResource(dev_token, res_guid, False, False, True, False)
+        #         filename = resource.attributes.fileName
+
+        #         metadata = plug.get_metadata(filename)
+        #         onitu_rev = metadata.extra.get('revision', 0.)
+        #         print "REVIEW OF FILE " + filename + " --- Title= " + n.title
+
+        #         # n.updated contains miliseconds
+        #         if (n.updated / 1000) > onitu_rev:
+        #             print
+        #             print "DOWNLOAD " + filename + " --- Title= " + n.title
+        #             print
+        #             escalator.put('note_guid:{}'.format(n.guid), res_guid)
+        #             metadata.extra['revision'] = (n.updated / 1000)
+        #             metadata.extra['guid'] = n.guid
+        #             metadata.size = resource.data.size
+        #             metadata.write()
+        #             plug.update_file(metadata)
+
+        #     # update the range that we want or break iff there is no more notes
+        #     if (res.totalNotes == 0) or (i + len(res.notes) >= res.totalNotes):
+        #         break
+        #     i = i + page_size
+
 
     def check_deleted(self):
         escalator = plug.escalator
@@ -259,60 +380,28 @@ class CheckChanges(threading.Thread):
                 break
             i = i + page_size
 
-    def check_updated(self):
-        escalator = plug.escalator
-
-        result_spec = NotesMetadataResultSpec()
-        result_spec.includeCreated = True
-        result_spec.includeUpdated = True
-        result_spec.includeTitle = True
-
-        note_updated = NoteFilter(order=NoteSortOrder.UPDATED, inactive=False)
-        note_updated.words = self.basic_filters
-        if self.first_start is False:
-            note_updated.words += " updated:{}".format(self.last_check)
-
-        page_size = 200
-        i = 0
-        while 42:
-            res = self.note_store.findNotesMetadata(dev_token, note_updated, i, page_size, result_spec)
-            for n in res.notes:
-                try:
-                    res_guid = escalator.get('note_guid:{}'.format(n.guid))
-                except KeyError:
-                    res_guid = None
-
-                if res_guid is None:
-                    note = self.note_store.getNote(dev_token, n.guid, False, True, False, False)
-                    res_guid = note.resources[0].guid  # Only one resource per note
-
-                resource = self.note_store.getResource(dev_token, res_guid, False, False, True, False)
-                filename = resource.attributes.fileName
-
-                metadata = plug.get_metadata(filename)
-                onitu_rev = metadata.extra.get('revision', 0.)
-                print "REVIEW OF FILE " + filename + " --- Title= " + n.title
-
-                # n.updated contains miliseconds
-                if (n.updated / 1000) > onitu_rev:
-                    print
-                    print "DOWNLOAD " + filename + " --- Title= " + n.title
-                    print
-                    escalator.put('note_guid:{}'.format(n.guid), res_guid)
-                    metadata.extra['revision'] = (n.updated / 1000)
-                    metadata.extra['guid'] = n.guid
-                    metadata.size = resource.data.size
-                    metadata.write()
-                    plug.update_file(metadata)
-
-            # update the range that we want or break iff there is no more notes
-            if (res.totalNotes == 0) or (i + len(res.notes) >= res.totalNotes):
-                break
-            i = i + page_size
-
     def run(self):
         while not self.stop.isSet():
-            self.check_changes()
+            try:
+                # Let's see if we're up-to-date
+                global notebook_onitu
+                #notebook_onitu = 
+                currentState = notestore_onitu.getSyncState()
+                curUpdateCount = currentState.updateCount
+                if curUpdateCount > self.updateCount: # Not up to date
+                    plug.logger.debug("Server count {} is more recent than "
+                                      "mine ({}), updating myself"
+                                      .format(curUpdateCount,
+                                              self.updateCount))
+                    self.check_changes()
+                    # Update ourselves
+                    self.updateCount = curUpdateCount
+#                    plug.entry_db.put('updateCount', curUpdateCount);
+                else:
+                    plug.logger.debug("I'm up to date")
+            except (EDAMUserException, EDAMSystemException) as exc:
+                raise ServiceError("Error while polling Evernote changes: {}"
+                                   .format(exc))
             self.stop.wait(self.timer)
 
     def stop(self):
@@ -324,10 +413,9 @@ def start():
     changes_timer = plug.options['changes_timer']
     if changes_timer < 0:
         raise DriverError("Changes timer must be a positive value")
-
+    
     # Start the Evernote connection and retrieve our note store
     connect_client()
-    plug.logger.debug("Connection successful")
     # Try to create the onitu notebook
     create_root_notebook()
 
