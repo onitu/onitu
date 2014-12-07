@@ -1,0 +1,39 @@
+{
+  "name": "webdav",
+  "description": "Store files on a remote machine using webdav.",
+  "options": {
+    "root": {
+      "name": "Root",
+      "description": "The root of the directories under Onitu's watch",
+      "type": "string"
+    },
+    "hostname": {
+      "name": "Hostname",
+      "description": "The hostname for the webdav connection",
+      "type": "string"
+    },
+    "username": {
+      "name": "Username",
+      "description": "The username for the webdav connection",
+      "type": "string"
+    },
+    "password": {
+      "name": "Password",
+      "description": "The password for the webdav connection (if empty or missing, no auth will be used)",
+      "type": "string",
+      "default": ""
+    },
+    "port": {
+      "name": "Port number",
+      "description": "The port number for the webdav connection",
+      "type": "integer",
+      "default": 22
+    },
+    "changes_timer": {
+      "name": "Timer for modification check",
+      "description": "Time in seconds between two checks for files modifications",
+      "type": "integer",
+      "default": 60
+    }
+  }
+}
