@@ -155,12 +155,6 @@ def start():
         root
     )
 
-    print hostname
-    print username
-    print password
-    print protocol
-    print port
-
     global webdav
     webdav = easywebdav.connect(
         hostname,
