@@ -7,6 +7,12 @@
       "description": "The root of the directories under Onitu's watch",
       "type": "string"
     },
+    "protocol": {
+      "name": "Protocol",
+      "description": "The protocol for the webdav connection",
+      "type": "string",
+      "default": "http"
+    },
     "hostname": {
       "name": "Hostname",
       "description": "The hostname for the webdav connection",
@@ -15,7 +21,8 @@
     "username": {
       "name": "Username",
       "description": "The username for the webdav connection",
-      "type": "string"
+      "type": "string",
+      "default": ""
     },
     "password": {
       "name": "Password",
@@ -27,7 +34,7 @@
       "name": "Port number",
       "description": "The port number for the webdav connection",
       "type": "integer",
-      "default": 22
+      "default": 8008
     },
     "changes_timer": {
       "name": "Timer for modification check",

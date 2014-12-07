@@ -1,54 +1,55 @@
 import os
 import threading
 
-import paramiko
+import easywebdav
 
-from stat import S_ISDIR
 from onitu.plug import Plug, ServiceError
 from onitu.escalator.client import EscalatorClosed
 
 plug = Plug()
 root = None
-sftp = None
-transport = None
+webdav = None
+prefix = None
 events_to_ignore = set()
 
 
-def create_dirs(sftp, path):
-    parent_exists = True
-    tmp_path = './'
-    dirs = path.split('/')
+def create_dirs(webdav, path):
+    print "create dirs '{}'".format(path)
+    webdav.mkdirs(path)
+    # parent_exists = True
+    # tmp_path = './'
+    # dirs = path.split('/')
 
-    for d in dirs:
-        tmp_path = os.path.join(tmp_path, d)
+    # for d in dirs:
+    #     tmp_path = os.path.join(tmp_path, d)
 
-        # If the parent exists, we check if the current path exists
-        if parent_exists is True:
-            try:
-                sftp.stat(tmp_path)
-            # The current path doesn't exists, so we create it
-            except IOError:
-                try:
-                    parent_exists = False
-                    sftp.mkdir(tmp_path)
-                except IOError as e:
-                    raise ServiceError(
-                        "Error creating dir '{}': {}".format(tmp_path, e)
-                        )
-        # If the parent doesn't exist, we can create the current dir without
-        # check if it exists
-        else:
-            try:
-                sftp.mkdir(tmp_path)
-            except IOError as e:
-                raise ServiceError(
-                    "Error creating dir '{}': {}".format(tmp_path, e)
-                    )
+    #     # If the parent exists, we check if the current path exists
+    #     if parent_exists is True:
+    #         try:
+    #             sftp.stat(tmp_path)
+    #         # The current path doesn't exists, so we create it
+    #         except IOError:
+    #             try:
+    #                 parent_exists = False
+    #                 sftp.mkdir(tmp_path)
+    #             except IOError as e:
+    #                 raise ServiceError(
+    #                     "Error creating dir '{}': {}".format(tmp_path, e)
+    #                     )
+    #     # If the parent doesn't exist, we can create the current dir without
+    #     # check if it exists
+    #     else:
+    #         try:
+    #             sftp.mkdir(tmp_path)
+    #         except IOError as e:
+    #             raise ServiceError(
+    #                 "Error creating dir '{}': {}".format(tmp_path, e)
+    #                 )
 
 
 @plug.handler()
 def get_file(metadata):
-
+    return
     try:
         f = sftp.open(metadata.filename, 'r')
         data = f.read()
@@ -62,12 +63,15 @@ def get_file(metadata):
 
 @plug.handler()
 def start_upload(metadata):
+    print "start upload"
     events_to_ignore.add(metadata.filename)
-    create_dirs(sftp, os.path.dirname(metadata.filename))
+    create_dirs(webdav, os.path.dirname(metadata.filename))
 
 
 @plug.handler()
 def end_upload(metadata):
+    print "end upload"
+    return
     try:
         stat_res = sftp.stat(metadata.filename)
         metadata.extra['revision'] = stat_res.st_mtime
@@ -85,6 +89,8 @@ def end_upload(metadata):
 
 @plug.handler()
 def upload_file(metadata, content):
+    print "upload file"
+    return
     try:
         f = sftp.open(metadata.filename, 'w+')
         f.write(content)
@@ -97,6 +103,8 @@ def upload_file(metadata, content):
 
 @plug.handler()
 def abort_upload(metadata):
+    print "abort upload"
+    return
 
     # Temporary solution to avoid problems
     try:
@@ -109,14 +117,16 @@ def abort_upload(metadata):
 
 @plug.handler()
 def close():
+    print "close"
+    return
     sftp.close()
     transport.close()
 
 
-def update_file(metadata, stat_res):
+def update_file(metadata, f):
     try:
-        metadata.size = stat_res.st_size
-        metadata.extra['revision'] = stat_res.st_mtime
+        metadata.size = f.size
+        metadata.extra['revision'] = f.mtime
         metadata.write()
         plug.update_file(metadata)
     except (IOError, OSError) as e:
@@ -127,38 +137,35 @@ def update_file(metadata, stat_res):
 
 class CheckChanges(threading.Thread):
 
-    def __init__(self, timer, sftp):
+    def __init__(self, timer, webdav):
         super(CheckChanges, self).__init__()
         self.stop = threading.Event()
         self.timer = timer
-        self.sftp = sftp
+        self.webdav = webdav
 
     def check_folder(self, path=''):
+        path = '/'.join([root, path])
+        print "root: {}, path: {}".format(root, path)
         try:
-            filelist = sftp.listdir(path)
-        except IOError as e:
+            filelist = self.webdav.ls(path)
+        except easywebdav.client.OperationFailed as e:
             raise ServiceError(
                 "Error listing file in '{}': {}".format(path, e)
             )
 
-        for f in filelist:
-            filepath = os.path.join(path, f)
-            try:
-                stat_res = sftp.stat(filepath)
-
-            except IOError as e:
-                plug.logger.warn("Cant find file `{}` : {}",
-                                 filepath, e)
-                return
+        for f in filelist[1:]:
+            print f.name
+            filepath = f.name.replace(prefix, "")
+            print filepath
 
             metadata = plug.get_metadata(filepath)
             onitu_rev = metadata.extra.get('revision', 0.)
 
-            if stat_res.st_mtime > onitu_rev:
-                if S_ISDIR(stat_res.st_mode):
+            if f.mtime > onitu_rev:
+                if f.contenttype == "httpd/unix-directory":
                     self.check_folder(filepath)
                 else:
-                    update_file(metadata, stat_res)
+                    update_file(metadata, f)
 
     def run(self):
         while not self.stop.isSet():
@@ -181,49 +188,38 @@ def start():
     if root.endswith('/'):
         root = root[:-1]
 
+    protocol = plug.options['protocol']
     hostname = plug.options['hostname']
     username = plug.options['username']
     password = plug.options['password']
     port = plug.options['port']
     timer = plug.options['changes_timer']
-    private_key_passphrase = plug.options['private_key_passphrase']
-    private_key_path = plug.options.get('private_key_path', '~/.ssh/id_rsa')
-    private_key_file = os.path.expanduser(private_key_path)
 
-    private_key_error = None
-    try:
-        private_key = paramiko.RSAKey.from_private_key_file(
-            private_key_file, password=private_key_passphrase)
-    except IOError as e:
-        private_key_error = e
+    global prefix
+    prefix = "{}://{}:{}{}".format(
+        protocol,
+        hostname,
+        port,
+        root
+    )
 
-    global transport
-    transport = paramiko.Transport((hostname, port))
-    try:
-        if password != '':
-            transport.connect(username=username, password=password)
-        else:
-            if private_key_error is not None:
-                plug.logger.error("SFTP driver connection failed : {}",
-                                  private_key_error)
-                transport.close()
-                return
-            transport.connect(username=username, pkey=private_key)
-    except paramiko.AuthenticationException as e:
-        plug.logger.error("SFTP driver connection failed : {}", e)
-        transport.close()
-        return
+    print hostname
+    print username
+    print password
+    print protocol
+    print port
 
-    global sftp
-    sftp = paramiko.SFTPClient.from_transport(transport)
-
-    try:
-        sftp.chdir(root)
-    except IOError as e:
-        plug.logger.error("{}: {}", root, e)
+    global webdav
+    webdav = easywebdav.connect(
+        hostname,
+        username=username,
+        password=password,
+        protocol=protocol,
+        port=port
+    )
 
     # Launch the changes detection
-    check_changes = CheckChanges(timer, sftp)
+    check_changes = CheckChanges(timer, webdav)
     check_changes.daemon = True
     check_changes.start()
 
