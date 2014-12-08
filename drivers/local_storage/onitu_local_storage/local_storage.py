@@ -15,11 +15,11 @@ if IS_WINDOWS:
     from pywintypes import OVERLAPPED
     from time import time, sleep
     from win32event import (
-    CreateEvent,
-    WaitForMultipleObjects,
-    INFINITE,
-    WAIT_TIMEOUT,
-    WAIT_OBJECT_0)
+        CreateEvent,
+        WaitForMultipleObjects,
+        INFINITE,
+        WAIT_TIMEOUT,
+        WAIT_OBJECT_0)
 else:
     import pyinotify
 
@@ -30,6 +30,8 @@ root = None
 
 if IS_WINDOWS:
     ignoreNotif = dict()
+    FILE_LIST_DIRECTORY = 0x0001
+
 
 def to_tmp(filename):
     return filename.parent / ('.' + filename.name + TMP_EXT)
@@ -170,7 +172,8 @@ def end_upload(metadata):
     metadata.extra['revision'] = mtime
     metadata.write()
     if IS_WINDOWS:
-        if metadata.filename in ignoreNotif and ignoreNotif[metadata.filename] == False:
+        if metadata.filename in ignoreNotif and \
+           not ignoreNotif[metadata.filename]:
             sleep(0.2)
             ignoreNotif[metadata.filename] = time()
 
@@ -228,11 +231,9 @@ def move_file(old_metadata, new_metadata):
     del ignoreNotif[old_metadata.filename]
 
 if IS_WINDOWS:
-    FILE_LIST_DIRECTORY = 0x0001
-				
-    def verifDictModifFile(writingDict, Rtime, cleanOld = False):
+    def verifDictModifFile(writingDict, Rtime, cleanOld=False):
         for i, j in list(writingDict.items()):
-            if cleanOld == False:
+            if cleanOld is False:
                 if Rtime - j >= 0.0:
                         try:
                             fd = os.open(i, os.O_RDONLY)
@@ -248,34 +249,43 @@ if IS_WINDOWS:
                 if j > 1 and Rtime - j >= 1:
                         del writingDict[i]
         return writingDict
-    def file_action(filename, abs_path, action, ignoreNotif, writingDict, transferSet, actions_names, Rtime):
-        if (actions_names.get(action) == 'write' or actions_names.get(action) == 'create') and filename not in ignoreNotif:
+
+    def fileAction(filename, abs_path, action, ignoreNotif, writingDict,
+                   transferSet, actions_names, Rtime):
+        if (actions_names.get(action) == 'write' or
+            actions_names.get(action) == 'create') and \
+           filename not in ignoreNotif:
             if os.access(abs_path, os.R_OK):
-                writingDict[abs_path] =  Rtime
-        elif actions_names.get(action) == 'delete' and filename not in ignoreNotif:
+                writingDict[abs_path] = Rtime
+        elif actions_names.get(action) == 'delete' and \
+                filename not in ignoreNotif:
             metadata = plug.get_metadata(filename)
             delete(metadata, abs_path)
-        elif actions_names.get(action) == 'moveFrom' and filename not in ignoreNotif:
+        elif actions_names.get(action) == 'moveFrom' and \
+                filename not in ignoreNotif:
             old_path = filename
-            old_metadata = plug.get_metadata(old_path)
-            moving = True
-            if old_metadata.filename.endswith(TMP_EXT):
-               ignoreNotif[old_metadata.filename[:len(TMP_EXT)]] = False
+            fileAction.oldMetadata = plug.get_metadata(old_path)
+            fileAction.moving = True
+            if fileAction.oldMetadata.filename.endswith(TMP_EXT):
+                ignoreNotif[fileAction.oldMetadata.filename[:len(TMP_EXT)]] = \
+                    False
             else:
-                ignoreNotif[old_metadata.filename] = False
-        elif actions_names.get(action) == 'moveTo' and moving == True:
+                ignoreNotif[fileAction.oldMetadata.filename] = False
+        elif actions_names.get(action) == 'moveTo' and fileAction.moving:
             new_metadata = plug.get_metadata(filename)
             ignoreNotif[str(filename)] = False
-            move(old_metadata, filename)
-            moving = False
-            if old_metadata.filename.endswith(TMP_EXT):
-                del ignoreNotif[old_metadata.filename[:len(TMP_EXT)]]
+            move(fileAction.oldMetadata, filename)
+            fileAction.moving = False
+            if fileAction.oldMetadata.filename.endswith(TMP_EXT):
+                del ignoreNotif[fileAction.oldMetadata.filename[:len(TMP_EXT)]]
             else:
-                del ignoreNotif[old_metadata.filename]
+                del ignoreNotif[fileAction.oldMetadata.filename]
                 ignoreNotif[str(filename)] = Rtime
-        if (actions_names.get(action) == 'create' or actions_names.get(action) == 'write') and filename not in transferSet and filename in ignoreNotif:
-            if ignoreNotif[filename] != False:
-               transferSet.add(filename)
+        if (actions_names.get(action) == 'create' or
+            actions_names.get(action) == 'write') and \
+                filename not in transferSet and filename in ignoreNotif:
+            if ignoreNotif[filename] is not False:
+                transferSet.add(filename)
 
     def win32watcherThread(root, file_lock):
         dirHandle = win32file.CreateFile(
@@ -284,7 +294,8 @@ if IS_WINDOWS:
             win32con.FILE_SHARE_READ | win32con.FILE_SHARE_WRITE,
             None,
             win32con.OPEN_EXISTING,
-            win32con.FILE_FLAG_BACKUP_SEMANTICS | win32con.FILE_FLAG_OVERLAPPED,
+            win32con.FILE_FLAG_BACKUP_SEMANTICS |
+            win32con.FILE_FLAG_OVERLAPPED,
             None
         )
         actions_names = {
@@ -295,7 +306,7 @@ if IS_WINDOWS:
             5: 'moveTo'
         }
         global ignoreNotif
-        moving = False
+        fileAction.moving = False
         old_path = None
         old_metadata = None
         writingDict = dict()
@@ -331,19 +342,31 @@ if IS_WINDOWS:
             transferSet = set()
             for action, file_ in events:
                 abs_path = root / file_
-                if (abs_path.isdir() and len(os.listdir(abs_path)) != 0):
+                if actions_names[action] != 'write' and abs_path.isdir() and \
+                   os.access(abs_path, os.R_OK) and \
+                   len(os.listdir(abs_path)) != 0:
                     for file in abs_path.walkfiles():
                         filename = root.relpathto(file)
-                        file_action(filename, file, action, ignoreNotif, writingDict, transferSet, actions_names, Rtime)
+                    try:
+                        with file_lock:
+                            fileAction(filename, file, action, ignoreNotif,
+                                       writingDict, transferSet, actions_names,
+                                       Rtime)
+                    except EscalatorClosed:
+                        return
                 if (abs_path.isdir() or abs_path.ext == TMP_EXT or
-                    os.path.exists(abs_path) and (not (win32api.GetFileAttributes(abs_path)
-                         & win32con.FILE_ATTRIBUTE_NORMAL) and not (win32api.GetFileAttributes(abs_path)
+                    os.path.exists(abs_path) and
+                    (not (win32api.GetFileAttributes(abs_path)
+                          & win32con.FILE_ATTRIBUTE_NORMAL) and
+                    not (win32api.GetFileAttributes(abs_path)
                          & win32con.FILE_ATTRIBUTE_ARCHIVE))):
                     continue
                 filename = root.relpathto(abs_path)
                 try:
                     with file_lock:
-                        file_action(filename, abs_path, action, ignoreNotif, writingDict, transferSet, actions_names, Rtime)
+                        fileAction(filename, abs_path, action, ignoreNotif,
+                                   writingDict, transferSet, actions_names,
+                                   Rtime)
                 except EscalatorClosed:
                     return
             for file in transferSet:
