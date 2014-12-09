@@ -143,8 +143,6 @@ def hubic_obtain_access_token(code, redirect_uri):
         }
     )
 
-    print response
-
     if response.status_code == 400:
         raise Exception('An invalid request was submitted')
     elif not response.ok:
@@ -359,24 +357,16 @@ def get_chunk(metadata, offset, size):
 def get_oauth_url(redirect_uri):
     url = hubic_get_oauth_url(redirect_uri)
 
-    print "SENDING THE URL"
-    print url
     return url
 
 @plug.handler()
 def set_oauth_token(query_param):
     query_param = json.loads(query_param)
 
-    print "GOT THE CODE"
-    print query_param
-
     code = query_param["code"]
     redirect_uri = query_param["redirect_uri"]
 
     access_token = hubic_obtain_access_token(code, redirect_uri)
-
-    # print "GOT ACCESS TOKEN"
-    # print access_token
 
     db = plug.entry_db
     db.put("accessToken", access_token)
