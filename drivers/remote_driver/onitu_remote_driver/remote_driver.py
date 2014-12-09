@@ -4,6 +4,7 @@ import zmq
 import msgpack
 
 from onitu.plug import Plug, DriverError, ServiceError
+from onitu.utils import b
 from .remote import Remote
 from .serializers import serializers
 
@@ -20,11 +21,11 @@ def cmd_handler(name, *args_serializers):
         with handlers_lock:
             msg = [name] + [(ser, serializers.get(ser, lambda x: x)(arg))
                             for (ser, arg) in zip(args_serializers, args)]
-            handlers_socket.send_multipart((plug.options['remote_id'],
-                                            msgpack.packb(msg)))
+            handlers_socket.send_multipart((b(plug.options['remote_id']),
+                                            msgpack.packb(msg, use_bin_type=True)))
             plug.logger.debug('===={}====', msg)
             _, resp = handlers_socket.recv_multipart()
-            status, resp = msgpack.unpackb(resp)
+            status, resp = msgpack.unpackb(resp, encoding='utf-8')
             if status:
                 E = exceptions_status.get(status, DriverError)
                 raise E(*resp)
@@ -45,15 +46,15 @@ move_file = cmd_handler('move_file', 'metadata', 'metadata')
 def start():
     global remote_socket, handlers_socket
 
-    print "Launching driver"
-    print plug.options
+    print("Launching driver")
+    print(plug.options)
 
     ctx = zmq.Context.instance()
     remote_socket = ctx.socket(zmq.REQ)
-    remote_socket.identity = plug.options['id']
+    remote_socket.identity = b(plug.options['id'])
     remote_socket.connect(plug.options['remote_uri'])
     handlers_socket = ctx.socket(zmq.REQ)
-    handlers_socket.identity = plug.options['id']
+    handlers_socket.identity = b(plug.options['id'])
     handlers_socket.connect(plug.options['handlers_uri'])
 
     remote = Remote(plug, remote_socket)
