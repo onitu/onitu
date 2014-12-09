@@ -82,6 +82,16 @@ class Plug(object):
         self.router = Router(self)
         self.dealer = Dealer(self)
 
+        # Start the Router eventhough Plug.listen has not been called yet.
+        # This way we will receive call from the API concerning OAuth
+        # authentication.
+        # However, this might cause some troubles if a service send requests
+        # before the driver is ready
+        self.router_thread = threading.Thread(
+            target=self.router.run, name='Router'
+        )
+        self.router_thread.start()
+
     def listen(self, wait=True):
         """Start listening to requests from other drivers or the
         :class:`.Referee`.
@@ -95,11 +105,6 @@ class Plug(object):
         .. autoclass:: onitu.plug.router.Router
         .. autoclass:: onitu.plug.dealer.Dealer
         """
-        self.router_thread = threading.Thread(
-            target=self.router.run, name='Router'
-        )
-        self.router_thread.start()
-
         self.dealer.resume_transfers()
 
         self.dealer_thread = threading.Thread(
