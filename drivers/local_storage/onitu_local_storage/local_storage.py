@@ -292,6 +292,9 @@ else:
             if abs_path.ext == TMP_EXT:
                 return
 
+            if abs_path.name.startwith('.'):
+                return
+
             filename = root.relpathto(abs_path)
 
             try:
