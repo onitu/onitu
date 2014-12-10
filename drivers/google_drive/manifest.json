@@ -5,7 +5,8 @@
     "root": {
       "name": "Root",
       "description": "The root of the directories under Onitu's watch",
-      "type": "string"
+      "type": "string",
+      "default": "onitu"
     },
     "refresh_token": {
       "name": "Refresh token",
@@ -15,18 +16,20 @@
     "client_id": {
       "name": "Client ID",
       "description": "API client key use to have authentification by Google Drive API",
-      "type": "string"
+      "type": "string",
+      "default": "6155769202.apps.googleusercontent.com"
     },
     "client_secret": {
       "name": "Client Secret",
       "description": "API client key's secret",
-      "type": "string"
+      "type": "string",
+      "default": "ZcxluuTcGL2WkurnYSJgJvbN"
     },
     "changes_timer": {
       "name": "Changes Timer",
       "description": "Time (in seconds) between each check for changes. Set it to a lower value if you want to detect checks quicker, or to a higher value if you want to make less requests.",
       "type": "float",
-      "default": 10
+      "default": 2
     }
   }
 }
