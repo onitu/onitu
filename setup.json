@@ -1,5 +1,5 @@
 {
-  "name": "example",
+  "name": "TA6",
 
   "entries": {
     "server": {
@@ -24,6 +24,14 @@
           "refresh_token": "ztEaw0hidSMDYidpoPn4UUueJDFewh2UJFeoM7i8DeHTkXLusMj868lqESUsRVDI",
           "changes_timer" : 5
       }
+    },
+    "flickr": {
+        "driver": "flickr",
+        "options": {
+            "root": "album-onitu",
+            "oauth_token": "72157648955146886-9f3dbcb0a5ad79b7",
+            "oauth_token_secret": "b691556beabdc4a6"
+        }
     }
   },
 
@@ -43,7 +51,7 @@
     },
     {
       "match": {"path": "/Photos/", "mime": ["image/jpeg"]},
-      "sync": ["server", "flickr", "remote-1"]
+      "sync": ["dropbox", "flickr"]
     }
   ]
 }
