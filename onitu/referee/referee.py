@@ -133,7 +133,9 @@ class Referee(object):
             metadata['filename'], new_metadata['filename'], source, folder
         )
 
-        self.notify(folder.targets(metadata, source), MOV, old_fid, new_fid)
+        self.notify(
+            folder.targets(new_metadata, source), MOV, old_fid, new_fid
+        )
 
     def _handle_update(self, fid, source):
         """Choose who are the entries that are concerned by the event
