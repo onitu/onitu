@@ -120,7 +120,9 @@ class Referee(object):
         try:
             metadata = self.escalator.get('file:{}'.format(old_fid))
         except KeyError:
-            return
+            # If we can't find the metadata, the source was the only
+            # owner, so we can handle it as a new file
+            return self._handle_update(new_fid, source)
 
         folder = self.folders[metadata['folder_name']]
 
