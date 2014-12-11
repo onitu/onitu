@@ -163,8 +163,14 @@ class Plug(object):
         self.notify_referee(metadata.fid, DEL, self.name)
 
     def move_file(self, metadata, new_path):
-        new_filename = metadata.folder.relpath(new_path)
-        new_metadata = metadata.clone(new_filename)
+        new_folder = self.get_folder(new_path)
+
+        if not new_folder:
+            self.delete_file(metadata)
+            return None
+
+        new_filename = new_folder.relpath(new_path)
+        new_metadata = metadata.clone(new_folder, new_filename)
         new_metadata.uptodate = (self.name,)
         new_metadata.write()
 
@@ -173,6 +179,21 @@ class Plug(object):
         self.notify_referee(metadata.fid, MOV, self.name, new_metadata.fid)
 
         return new_metadata
+
+    def get_folder(self, filename):
+        folder = None
+
+        # We select the folder containing the file which is
+        # the closer to the root
+        for candidate in self.folders.values():
+            if candidate.contains(filename):
+                if folder:
+                    if folder.contains(candidate.path):
+                        folder = candidate
+                else:
+                    folder = candidate
+
+        return folder
 
     def get_metadata(self, filename, folder=None):
         """
@@ -186,16 +207,9 @@ class Plug(object):
         :meth:`.Metadata.write` will be called.
         """
         if not folder:
-            # We select the folder containing the file which is
-            # the closer to the root
-            for candidate in self.folders.values():
-                if candidate.contains(filename):
-                    if folder:
-                        if folder.contains(candidate.path):
-                            folder = candidate
-                    else:
-                        folder = candidate
+            folder = self.get_folder(filename)
 
+            # No folder contain this file
             if not folder:
                 return None
 

@@ -114,7 +114,7 @@ class Metadata(object):
                 self.extra
             )
 
-    def clone(self, new_filename):
+    def clone(self, new_folder, new_filename):
         """
         Return a new Metadata object with the same properties than the current,
         but with a new filename. The object is not saved in the database, but
@@ -122,6 +122,8 @@ class Metadata(object):
         """
         values = self.dict()
         values['filename'] = new_filename
+        values['folder'] = new_folder
+        values['folder_name'] = new_folder.name
 
         clone = self.__class__(self.plug, **values)
 
