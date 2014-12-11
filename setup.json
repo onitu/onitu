@@ -20,7 +20,7 @@
     "hubic": {
       "driver": "hubic",
       "options": {
-        "root": "/onitu",
+        "root": "/hubic-ta6",
           "refresh_token": "ztEaw0hidSMDYidpoPn4UUueJDFewh2UJFeoM7i8DeHTkXLusMj868lqESUsRVDI",
           "changes_timer" : 5
       }
