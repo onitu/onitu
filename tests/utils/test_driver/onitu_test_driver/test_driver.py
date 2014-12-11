@@ -192,7 +192,11 @@ class Watcher(Thread):
                     self.handle_move(filename, new_filename)
 
         old_metadata = plug.get_metadata(source)
-        plug.move_file(old_metadata, target)
+        new_metadata = plug.move_file(old_metadata, target)
+        files.discard(old_metadata.path)
+
+        if new_metadata:
+            files.add(new_metadata.path)
 
     def handle_rmdir(self, path):
         for filename in list(files):

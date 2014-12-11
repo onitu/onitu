@@ -70,4 +70,32 @@ logs = {
             "'{src}' moved to '{dest}'"
         ),
     ),
+    'event_ignored_size': (
+        (
+            "Referee",
+            "Ignoring event for '{filename}' in folder {folder} due to its "
+            "size: {size} bytes"
+        ),
+    ),
+    'event_ignored_mimetype': (
+        (
+            "Referee",
+            "Ignoring event for '{filename}' in folder {folder} due to its "
+            "mimetype: {mimetype}"
+        ),
+    ),
+    'event_ignored_blacklisted': (
+        (
+            "Referee",
+            "Ignoring event for '{filename}' in folder {folder} because its "
+            "filename is blacklisted"
+        ),
+    ),
+    'event_ignored_not_whitelisted': (
+        (
+            "Referee",
+            "Ignoring event for '{filename}' in folder {folder} because its "
+            "filename is not whitelisted"
+        ),
+    ),
 }
