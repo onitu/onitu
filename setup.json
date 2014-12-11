@@ -2,33 +2,48 @@
   "name": "example",
 
   "entries": {
-    "A": {
+    "server": {
       "driver": "local_storage",
       "options": {
-        "root": "example/driver_a"
+        "root": "server"
       }
     },
-    "B": {
-      "driver": "local_storage",
+    "dropbox": {
+      "driver": "dropbox",
       "options": {
-        "root": "example/driver_b"
+        "root": "/onitu/",
+        "access_key": "1n8rl2za664hf6q6",
+        "access_secret": "lvw0p4e93tbfgze",
+        "changes_timer": 5
+      }
+    },
+    "hubic": {
+      "driver": "hubic",
+      "options": {
+        "root": "/onitu",
+          "refresh_token": "ztEaw0hidSMDYidpoPn4UUueJDFewh2UJFeoM7i8DeHTkXLusMj868lqESUsRVDI",
+          "changes_timer" : 5
       }
     }
   },
 
   "rules": [
     {
-      "match": {"path": "/"},
-      "sync": ["A"]
+      "match": {"path": "/Musique/", "mime": ["audio/mpeg"]},
+      "sync": ["server", "dropbox", "hubic", "remote-1"]
     },
     {
-      "match": {"path": "/backedup/", "mime": ["application/pdf"]},
-      "sync": ["B"]
+      "match": {"path": "/Documents/", "mime": ["application/pdf",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                 "application/vnd.ms-word",
+                 "application/vnd.oasis.opendocument.text",
+                 "application/vnd.oasis.opendocument.spreadsheet"
+            ]},
+      "sync": ["server", "dropbox", "hubic", "remote-1"]
     },
     {
-      "match": {"path": "/"},
-      "sync": ["remote-1"]
+      "match": {"path": "/Photos/", "mime": ["image/jpeg"]},
+      "sync": ["server", "flickr", "remote-1"]
     }
   ]
-
 }
