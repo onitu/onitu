@@ -40,7 +40,9 @@ class Referee(object):
         self.get_events_uri = functools.partial(get_events_uri, session)
 
         self.services = self.escalator.get('services', default=[])
-        self.folders = Folder.get_folders(self.escalator, self.services)
+        self.folders = Folder.get_folders(
+            self.escalator, self.services, self.logger
+        )
 
         self.handlers = {
             UP: self._handle_update,

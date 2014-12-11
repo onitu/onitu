@@ -2,11 +2,12 @@ from fnmatch import fnmatchcase
 
 
 class Folder(object):
-    def __init__(self, name, services,
+    def __init__(self, name, services, logger,
                  mimetypes=None, file_size=None,
                  blacklist=None, whitelist=None, **kwargs):
         self.name = name
         self.services = frozenset(services)
+        self.logger = logger
         self.options = kwargs
 
         self.mimetypes = mimetypes
@@ -29,7 +30,7 @@ class Folder(object):
         )
 
     @classmethod
-    def get_folders(cls, escalator, services):
+    def get_folders(cls, escalator, services, logger):
         service_folders = {
             s: escalator.get(u'service:{}:folders'.format(s), default=[])
             for s in services
@@ -40,21 +41,42 @@ class Folder(object):
         for key, options in escalator.range('folder:'):
             name = key.split(':')[-1]
             dest = filter(lambda s: name in service_folders[s], services)
-            folders[name] = cls(name, dest, **options)
+            folders[name] = cls(name, dest, logger, **options)
 
         return folders
 
     def targets(self, metadata, source):
+        filename = metadata['filename']
+
         if not self.check_size(metadata['size']):
+            self.logger.info(
+                "Ignoring event for '{}' in folder {} due to its size: "
+                "{} bytes",
+                filename, self.name, metadata['size']
+            )
             return
 
         if not self.check_mimetype(metadata['mimetype']):
+            self.logger.info(
+                "Ignoring event for '{}' in folder {} due to its mimetype: {}",
+                filename, self.name, metadata['mimetype']
+            )
             return
 
-        if self.blacklisted(metadata['filename']):
+        if self.blacklisted(filename):
+            self.logger.info(
+                "Ignoring event for '{}' in folder {} because its filename "
+                "is blacklisted",
+                filename, self.name
+            )
             return
 
-        if not self.whitelisted(metadata['filename']):
+        if not self.whitelisted(filename):
+            self.logger.info(
+                "Ignoring event for '{}' in folder {} because its filename "
+                "is not whitelisted",
+                filename, self.name
+            )
             return
 
         return self.services - frozenset((source,))
