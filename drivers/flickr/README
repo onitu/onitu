@@ -1,0 +1,13 @@
+Getting started with the Flickr driver
+======================================
+
+A Driver to synchronize your photos and videos with a Flickr account. This driver works only from onitu to Flickr (If you add some photos via your flickr web interface, they not be downloaded on onitu)
+
+Run the get_tokens.py script in order to let Onitu gain access to your Flickr account.
+
+The script will ask you to access a URL and accept the Onitu application.
+At this moment, when you click the accept button, flickr redirect you on a page.
+You need to copy the URL of this page and paste it in the script.
+The script can now display your tokens !
+
+You can now paste these tokens in your setup.json file and play with your new driver.

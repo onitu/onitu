@@ -1,0 +1,40 @@
+{
+  "name": "Flickr",
+  "description": "A Driver to synchronize your photos and videos with a Flickr account. This driver works only from onitu to Flickr (If you add some photos via your flickr web interface, they not be downloaded on onitu). Onitu add a tag to your file ('ONITU_TAG'), you musn't remove it, it's used to retrieve your files.",
+  "options": {
+
+    "root": {
+      "name": "Root",
+      "description": "The root of the directories under Onitu's watch",
+      "type": "string",
+      "default": ""
+    },
+
+    "oauth_token": {
+      "name": "Oauth token",
+      "description": "Your oauth token retrieved with get_token.py",
+      "type": "string"
+    },
+
+    "oauth_token_secret": {
+      "name": "Oauth token secret",
+      "description": "Your oauth token secret retrieved with get_token.py",
+      "type": "string"
+    },
+
+    "onitu_client_id": {
+      "name": "Onitu client id",
+      "description": "OPTIONAL: you can override this param to use onitu with your flickr application",
+      "type": "string",
+      "default": "66a1c393c8de67fbeef54bb785375e06"
+    },
+
+    "onitu_client_secret": {
+      "name": "Onitu client secret",
+      "description": "OPTIONAL: you can override this param to use onitu with your flickr application",
+      "type": "string",
+      "default": "5bfbc7256872d085"
+    }
+
+  }
+}
