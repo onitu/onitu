@@ -205,7 +205,7 @@ class Watcher(Thread):
 
     def handle_checksum(self, filename):
         metadata = plug.get_metadata(filename)
-        return hashlib.md5(read(metadata)).hexdigest()
+        return hashlib.md5(b(read(metadata))).hexdigest()
 
 
 def start():
