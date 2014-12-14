@@ -121,63 +121,55 @@ class Folder(object):
 
     def _to_bytes(self, size):
         units = {
-            'B': 1e0,
+            '': 1e0,
+            'b': 1e0,
             'o': 1e0,
 
-            'K': 1e3,
             'k': 1e3,
             'ko': 1e3,
             'kb': 1e3,
-            'KB': 1e3,
 
-            'M': 1e6,
             'm': 1e6,
             'mo': 1e6,
             'mb': 1e6,
-            'MB': 1e6,
 
-            'G': 1e9,
             'g': 1e9,
             'go': 1e9,
             'gb': 1e9,
-            'GB': 1e9,
 
-            'T': 1e12,
             't': 1e12,
             'to': 1e12,
             'tb': 1e12,
-            'TB': 1e12,
 
-            'P': 1e15,
             'p': 1e15,
             'po': 1e15,
             'pb': 1e15,
-            'PB': 1e15,
 
-            'Ki': 2 ** 10,
-            'Mi': 2 ** 20,
-            'Gi': 2 ** 30,
-            'Ti': 2 ** 40,
-            'Pi': 2 ** 50,
+            'ki': 2 ** 10,
+            'mi': 2 ** 20,
+            'gi': 2 ** 30,
+            'ti': 2 ** 40,
+            'pi': 2 ** 50,
         }
 
-        if not size:
+        if size is None:
             return None
 
         try:
-            return float(size)
+            return int(size)
         except ValueError:
             pass
 
-        size = size.strip()
-        unit = size.lstrip('0123456789.')
+        size = size.replace(' ', '')
+        unit = size.lstrip('0123456789.').lower()
+        size = size[:-len(unit)] if len(unit) else size
 
         if unit not in units:
             return None
 
         try:
-            return float(size[:-len(unit)]) * units[unit]
+            return int(float(size) * units[unit])
         except ValueError:
-            return None
+            pass
 
         return None
