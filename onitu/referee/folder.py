@@ -94,18 +94,7 @@ class Folder(object):
         if self.mimetypes is None:
             return True
 
-        for predicate in self.mimetypes:
-            if '/' not in predicate:
-                predicate += '/'
-
-            if predicate.endswith('/'):
-                if mimetype.startswith(predicate):
-                    return True
-            else:
-                if predicate == mimetype:
-                    return True
-
-        return False
+        return any(fnmatchcase(mimetype, c) for c in self.mimetypes)
 
     def blacklisted(self, filename):
         if self.blacklist is None:

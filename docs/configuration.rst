@@ -39,7 +39,7 @@ mode
 
 type
   :values:
-     To be defined. One or more media types as defined in rfc6838. Incomplete types such as "example" instead of "example/media_type" should be accepted.
+     To be defined. One or more media types as defined in rfc6838. Incomplete types such as "example/*" instead of "example/media_type", 'example/predicate.*' or '*/example' are be accepted.
   :default:
      If not specified all types will be accepted.
   :what:
