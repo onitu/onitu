@@ -14,14 +14,24 @@ class OnituGui(QWidget):
         self.bottom = True
         self.textEdit = QTextEdit()
         self.textEdit.verticalScrollBar().valueChanged.connect(self.scrollBarMoved)
+        self.startButton = QPushButton("Start Onitu")
+        self.startButton.clicked.connect(self.startOnitu)
+        self.stopButton = QPushButton("Stop Onitu")
+        self.stopButton.clicked.connect(self.stopOnitu)
+        self.exitButton = QPushButton("Exit Onitu GUI")
+        self.exitButton.clicked.connect(self.exitOnitu)
+        self.statusLabel = QLabel()
+        self.statusLabel.setTextFormat(Qt.RichText)
+        self.statusLabel.setText('<img src=":onitu.png"> Onitu status : Started')
+        self.statusLabel.setAlignment(Qt.AlignCenter)
 
         menu = QMenu(self)
-        exitAction = menu.addAction(self.tr("Exit Onitu"))
+        configAction = menu.addAction(self.tr("Log and informations"))
         startAction = menu.addAction(self.tr("Start the server"))
         stopAction = menu.addAction(self.tr("Stop the server"))
-        configAction = menu.addAction(self.tr("Log and Configurations"))
+        exitAction = menu.addAction(self.tr("Exit Onitu"))
 
-        exitAction.triggered.connect(self.closeOnitu)
+        exitAction.triggered.connect(self.exitOnitu)
         startAction.triggered.connect(self.startOnitu)
         stopAction.triggered.connect(self.stopOnitu)
         configAction.triggered.connect(self.openConfig)
@@ -44,34 +54,46 @@ class OnituGui(QWidget):
 
         self.onituProcess.readyReadStandardOutput.connect(self.processStandardOutput)
         self.onituProcess.readyReadStandardError.connect(self.processStandardError)
+        self.onituProcess.finished.connect(self.onituTerminated)
 
         self.guiSetup()
         self.startOnitu()
 
     def guiSetup(self):
         vLayout = QVBoxLayout()
+        hLayout = QHBoxLayout()
+        vLayout.addWidget(self.statusLabel)
+        hLayout.addWidget(self.startButton)
+        hLayout.addWidget(self.stopButton)
+        vLayout.addLayout(hLayout)
         vLayout.addWidget(self.textEdit)
+        vLayout.addWidget(self.exitButton)
         self.setLayout(vLayout)
         self.resize(500, 600)
 
-    def closeOnitu(self):
+    def exitOnitu(self):
         self.closing = True
         self.stopOnitu()
         self.close()
 
     def startOnitu(self):
         if (self.onituProcess.state() == QProcess.NotRunning):
+            self.statusLabel.setText('<img src=":onitu.png"> Onitu status : Started')
+
+            self.output = ""
             self.onituProcess.start("onitu")
             self.tray.setIcon(self.onituIcon)
 
     def stopOnitu(self):
         if (self.onituProcess.state() != QProcess.NotRunning):
-            self.onituProcess.kill()
+            self.statusLabel.setText('<img src=":onitu_stopped.png"> Onitu status : Stopped')
+
+            self.onituProcess.terminate()
             self.onituProcess.waitForFinished()
-            self.tray.setIcon(self.onituStoppedIcon)
-            self.output += "Onitu was stopped ----------" + os.linesep
-            self.textEdit.setText(unicode(self.output))
-            self.setScrollBarPosition()
+
+    def onituTerminated(self, exitCode):
+        self.tray.setIcon(self.onituStoppedIcon)
+        self.updateTextEdit("Onitu was stopped ----------" + os.linesep)
 
     def openConfig(self):
         self.show()
@@ -88,7 +110,6 @@ class OnituGui(QWidget):
 
     def updateTextEdit(self, textToAdd):
         self.output += textToAdd
-#        print textToAdd,
         self.textEdit.setText(unicode(self.output))
         self.setScrollBarPosition()
 
