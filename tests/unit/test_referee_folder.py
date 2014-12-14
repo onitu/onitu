@@ -144,3 +144,61 @@ def test_mimetypes():
     assert folder.check_mimetype('audio/x-flac') is False
     assert folder.check_mimetype('audio/mpeg') is False
     assert folder.check_mimetype('video/mpeg') is False
+
+
+def test_no_blacklist():
+    folder = Folder('folder', (), None, blacklist=None)
+
+    assert folder.blacklisted('foo.jpg') is False
+
+
+def test_blacklist():
+    folder = Folder('folder', (), None, blacklist=(
+        'foo.jpg',
+        'dir/*',
+        '*.mp3',
+        't?t?'
+    ))
+
+    assert folder.blacklisted('foo.jpg') is True
+    assert folder.blacklisted('foo.png') is False
+
+    assert folder.blacklisted('dir/bar') is True
+    assert folder.blacklisted('dir') is False
+
+    assert folder.blacklisted('bar.mp3') is True
+    assert folder.blacklisted('foo/bar/lol.mp3') is True
+
+    assert folder.blacklisted('toto') is True
+    assert folder.blacklisted('titi') is True
+    assert folder.blacklisted('tuto') is True
+    assert folder.blacklisted('tototo') is False
+
+
+def test_no_whitelist():
+    folder = Folder('folder', (), None, whitelist=None)
+
+    assert folder.whitelisted('foo.jpg') is True
+
+
+def test_whitelist():
+    folder = Folder('folder', (), None, whitelist=(
+        'foo.jpg',
+        'dir/*',
+        '*.mp3',
+        't?t?'
+    ))
+
+    assert folder.whitelisted('foo.jpg') is True
+    assert folder.whitelisted('foo.png') is False
+
+    assert folder.whitelisted('dir/bar') is True
+    assert folder.whitelisted('dir') is False
+
+    assert folder.whitelisted('bar.mp3') is True
+    assert folder.whitelisted('foo/bar/lol.mp3') is True
+
+    assert folder.whitelisted('toto') is True
+    assert folder.whitelisted('titi') is True
+    assert folder.whitelisted('tuto') is True
+    assert folder.whitelisted('tototo') is False
