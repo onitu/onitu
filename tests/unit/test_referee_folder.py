@@ -98,3 +98,49 @@ def test_min_and_max_size():
     assert folder.check_size(42) is False
     assert folder.check_size(123) is True
     assert folder.check_size(250) is False
+
+
+def test_no_mimetype():
+    folder = Folder('folder', (), None, mimetypes=None)
+
+    assert folder.check_mimetype('application/json') is True
+    assert folder.check_mimetype('image/png') is True
+
+
+def test_mimetypes():
+    folder = Folder('folder', (), None, mimetypes=(
+        'application/json',
+        'image/*',
+        'application/vnd.oasis.opendocument.*',
+        '*/ogg',
+    ))
+
+    assert folder.check_mimetype('application/json') is True
+    assert folder.check_mimetype('application/javascript') is False
+
+    assert folder.check_mimetype('image/jpeg') is True
+    assert folder.check_mimetype('image/gif') is True
+    assert folder.check_mimetype('image/png') is True
+    assert folder.check_mimetype('image/svg+xml') is True
+
+    assert folder.check_mimetype('application/x-iso9660-image') is False
+    assert folder.check_mimetype('application/x-msdownload') is False
+    assert folder.check_mimetype('application/xml') is False
+    assert folder.check_mimetype('text/html') is False
+    assert folder.check_mimetype('video/x-msvideo') is False
+
+    assert folder.check_mimetype(
+        'application/vnd.oasis.opendocument.spreadsheet') is True
+    assert folder.check_mimetype(
+        'application/vnd.oasis.opendocument.text') is True
+    assert folder.check_mimetype('application/msword') is False
+    assert folder.check_mimetype(
+        'application/vnd.openxmlformats-'
+        'officedocument.wordprocessingml.document') is False
+    assert folder.check_mimetype('application/vnd.ms-excel') is False
+
+    assert folder.check_mimetype('audio/ogg') is True
+    assert folder.check_mimetype('video/ogg') is True
+    assert folder.check_mimetype('audio/x-flac') is False
+    assert folder.check_mimetype('audio/mpeg') is False
+    assert folder.check_mimetype('video/mpeg') is False
