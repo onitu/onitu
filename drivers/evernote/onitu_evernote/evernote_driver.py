@@ -40,7 +40,7 @@ def update_resource_metadata(onituMetadata, resource):
     """Updates the Onitu metadata of a resource file. Quite not the same thing
     as updating a note."""
     # Data may not be set so be careful
-    if hasattr(resource, "data"):
+    if resource.data is not None:
         onituMetadata.size = resource.data.size
     onituMetadata.extra['evernote_guid'] = resource.guid
     # noteGuid helps us to remember if a file is a file's resource or not
@@ -110,54 +110,47 @@ def create_root_notebook():
             raise ServiceError(u"Error creating '{}' notebook: {}", root, exc)
 
 def create_note(metadata, content):
-    """ Return the note created which contains its guid"""
-    global notestore_onitu
-
-    filename = '{}/{}'.format(root, '/', metadata.filename)
-    filename = metadata.filename
-    note_title = filename
-
+    """Creates an Evernote note out of a new file, prior to uploading it."""
     note = Types.Note()
-    note.title = note_title
-    global notebook_onitu
+    note.title = metadata.filename
+    note.content = content
     note.notebookGuid = notebook_onitu.guid
 
     # To include an attachment such as an image in a note, first create a Resource
     # for the attachment. At a minimum, the Resource contains the binary attachment
     # data, an MD5 hash of the binary data, and the attachment MIME type.
     # It can also include attributes such as filename and location.
-    md5 = hashlib.md5()
-    md5.update(content)
-    md5_hash = md5.digest()
+    # md5 = hashlib.md5()
+    # md5.update(content)
+    # md5_hash = md5.digest()
 
-    data = Types.Data()
-    data.size = len(content)
-    data.bodyHash = md5_hash
-    data.body = content
+    # data = Types.Data()
+    # data.size = len(content)
+    # data.bodyHash = md5_hash
+    # data.body = content
 
-    attr = Types.ResourceAttributes()
-    attr.fileName = filename
+    # attr = Types.ResourceAttributes()
+    # attr.fileName = filename
 
-    resource = Types.Resource()
-    resource.mime = metadata.mimetype
-    resource.data = data
-    resource.attributes = attr
+    # resource = Types.Resource()
+    # resource.mime = metadata.mimetype
+    # resource.data = data
+    # resource.attributes = attr
 
-    note.resources = [resource]
+    # note.resources = [resource]
 
-    hash_hex = binascii.hexlify(md5_hash)
+    # hash_hex = binascii.hexlify(md5_hash)
 
-    # The content of an Evernote note is represented using Evernote Markup Language
-    # (ENML). The full ENML specification can be found in the Evernote API Overview
-    # at http://dev.evernote.com/documentation/cloud/chapters/ENML.php
-    note.content = '<?xml version="1.0" encoding="UTF-8"?>'
-    note.content += '<!DOCTYPE en-note SYSTEM ' \
-        '"http://xml.evernote.com/pub/enml2.dtd">'
-    note.content += '<en-note>This note was created by onitu to store your '
-    note.content += metadata.filename + ' file.<br/><br/>'
-    note.content += '<en-media type="' + metadata.mimetype + '" hash="' + hash_hex + '"/>'
-    note.content += '</en-note>'
-
+    # # The content of an Evernote note is represented using Evernote Markup Language
+    # # (ENML). The full ENML specification can be found in the Evernote API Overview
+    # # at http://dev.evernote.com/documentation/cloud/chapters/ENML.php
+    # note.content = '<?xml version="1.0" encoding="UTF-8"?>'
+    # note.content += '<!DOCTYPE en-note SYSTEM ' \
+    #     '"http://xml.evernote.com/pub/enml2.dtd">'
+    # note.content += '<en-note>This note was created by onitu to store your '
+    # note.content += metadata.filename + ' file.<br/><br/>'
+    # note.content += '<en-media type="' + metadata.mimetype + '" hash="' + hash_hex + '"/>'
+    # note.content += '</en-note>'
     return notestore_onitu.createNote(note)
 
 
@@ -209,10 +202,15 @@ def get_file(metadata):
 
 @plug.handler()
 def upload_file(metadata, content):
-    note = create_note(metadata, content)
-    metadata.extra['guid'] = note.guid
-    metadata.extra['revision'] = note.updated / 1000
-    metadata.write()
+    try:
+        # Create the note via the Evernote API
+        note = create_note(metadata, content)
+    except (EDAMUserException, EDAMSystemException,
+            EDAMNotFoundException) as exc:
+        raise ServiceError(u"Couldn't create note {}: {}"
+                           .format(metadata.filename, exc))
+    # If the evernote part was OK, update onitu metadata
+    update_note_metadata(metadata, note)
 
 @plug.handler()
 def delete_file(metadata):
@@ -243,9 +241,6 @@ class CheckChanges(threading.Thread):
         # Note spec to filter even more the findNotesMetadata result
         self.resultSpec = NotesMetadataResultSpec(includeTitle=True, 
                                                   includeContentLength=True,
-                                                  includeCreated=True,
-                                                  includeUpdated=True,
-                                                  includeDeleted=True,
                                                   includeUpdateSequenceNum=True)
         self.first_start = True
         self.note_store = notestore_onitu
@@ -275,10 +270,13 @@ class CheckChanges(threading.Thread):
                               u"I update the metadata but won't call "
                               u"plug.update_file".format(note.title))
         # Check the resources now
-        for resource in note.resources:
-            # TODO: File names could change! Find a way to manage that...
-            # Maybe an entry_db field keeping track of all the files that
-            # are actually resources ?
+        # TODO: File names could change! Find a way to manage that...
+        # Maybe an entry_db field keeping track of all the files that
+        # are actually resources ?
+        if note.resources is None:
+            return
+        for (idx, resource) in enumerate(note.resources):
+            resourceName = resource.attributes.fileName
             plug.logger.debug(u"Processing note {}'s resource {}"
                               .format(note.title, resource.attributes.fileName))
             resourceMetadata = plug.get_metadata(resource.attributes.fileName)
@@ -294,12 +292,8 @@ class CheckChanges(threading.Thread):
         time, so we have to do two separate passes."""
         plug.logger.debug("CHECKONS!")
         self.check_updated()
-
+        #        self.check_deleted()
         plug.logger.debug("Done checking changes")
-
- #       self.check_deleted()
-
-
 
     def check_updated(self):
         """Checks for updated notes on the Onitu notebook.
@@ -311,12 +305,14 @@ class CheckChanges(threading.Thread):
             res = notestore_onitu.findNotesMetadata(self.noteFilter, offset,
                                                     self.maxNotes,
                                                     self.resultSpec)
-            plug.logger.debug("{}".format(res.totalNotes))
+            plug.logger.debug(res.totalNotes)
             # In spite of one could think, res.notes actually are Evernote
             # NoteMetadata, not Note instances...
             for noteMetadata in res.notes:
                 # The note content and its resources are in a specific folder
-                onituMetadata = plug.get_metadata(noteMetadata.title)
+                # append .html to title because the note content is XHTML 
+                onituMetadata = plug.get_metadata("{}.html"
+                                                  .format(noteMetadata.title))
                 # Update Sequence Num is like a kind of operation counter.
                 # If it is higher than what we had, something new happened.
                 # The flaw in this logic is that it can have nothing to do with
@@ -337,57 +333,9 @@ class CheckChanges(threading.Thread):
             # Update the offset to ask the rest of the notes next time
             offset = res.startIndex + len(res.notes)
             remaining = res.totalNotes - offset
-        # dev_token = plug.options['token']
-        # result_spec = NotesMetadataResultSpec()
-        # result_spec.includeCreated = True
-        # result_spec.includeUpdated = True
-        # result_spec.includeTitle = True
-
-        # note_updated = NoteFilter(order=NoteSortOrder.UPDATED, inactive=False)
-        # note_updated.words = self.basic_filters
-        # if self.first_start is False:
-        #     note_updated.words += " updated:{}".format(self.last_check)
-
-        # page_size = 200
-        # i = 0
-        # while 42:
-        #     res = self.note_store.findNotesMetadata(dev_token, note_updated, i, page_size, result_spec)
-        #     for n in res.notes:
-        #         try:
-        #             res_guid = escalator.get('note_guid:{}'.format(n.guid))
-        #         except KeyError:
-        #             res_guid = None
-
-        #         if res_guid is None:
-        #             note = self.note_store.getNote(dev_token, n.guid, False, True, False, False)
-        #             res_guid = note.resources[0].guid  # Only one resource per note
-
-        #         resource = self.note_store.getResource(dev_token, res_guid, False, False, True, False)
-        #         filename = resource.attributes.fileName
-
-        #         metadata = plug.get_metadata(filename)
-        #         onitu_rev = metadata.extra.get('revision', 0.)
-        #         print "REVIEW OF FILE " + filename + " --- Title= " + n.title
-
-        #         # n.updated contains miliseconds
-        #         if (n.updated / 1000) > onitu_rev:
-        #             print
-        #             print "DOWNLOAD " + filename + " --- Title= " + n.title
-        #             print
-        #             escalator.put('note_guid:{}'.format(n.guid), res_guid)
-        #             metadata.extra['revision'] = (n.updated / 1000)
-        #             metadata.extra['guid'] = n.guid
-        #             metadata.size = resource.data.size
-        #             metadata.write()
-        #             plug.update_file(metadata)
-
-        #     # update the range that we want or break iff there is no more notes
-        #     if (res.totalNotes == 0) or (i + len(res.notes) >= res.totalNotes):
-        #         break
-        #     i = i + page_size
-
 
     def check_deleted(self):
+        """Checks for deleted notes on the Onitu notebook."""
         escalator = plug.escalator
 
         # The field that we want in the response
