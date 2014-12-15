@@ -2,10 +2,5 @@
   "name": "Local Storage",
   "description": "Store files on your local filesystem.",
   "options": {
-    "root": {
-      "name": "Root",
-      "description": "The root of the directories under Onitu's watch",
-      "type": "string"
-    }
   }
 }

@@ -1,6 +1,8 @@
 import re
 import pkg_resources
 
+from onitu.utils import get_random_string
+
 
 class Driver(object):
 
@@ -13,10 +15,15 @@ class Driver(object):
     requiring slow-downs. If 0, no speed-bumps are used (default).
     """
 
-    def __init__(self, type, name=None, speed_bump=False, **options):
+    def __init__(self, type, name=None, speed_bump=False, folders=None,
+                 **options):
         self.type = type
         self.name = name if name else type
         self.options = options
+
+        if folders is None:
+            folders = {'default': 'default_' + get_random_string(5)}
+        self.folders = folders
 
         if speed_bump and self.SPEED_BUMP > 0:
             self.options['chunk_size'] = self.SPEED_BUMP
@@ -28,11 +35,19 @@ class Driver(object):
 
     @property
     def dump(self):
-        return {'driver': self.type, 'options': self.options}
+        return {
+            'driver': self.type,
+            'root': self.root,
+            'options': self.options,
+            'folders': self.folders
+        }
 
     @property
     def id(self):
         return (self.type, self.name)
+
+    def path(self, folder, filename):
+        return self.folders[folder].rstrip('/') + '/' + filename
 
     def connect(self, session):
         pass

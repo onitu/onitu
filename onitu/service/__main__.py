@@ -8,8 +8,8 @@ from logbook.queues import ZeroMQHandler
 from onitu.utils import at_exit, get_available_drivers, get_logs_uri, u
 from onitu.escalator.client import EscalatorClosed
 
-driver_name = sys.argv[1]
-session = u(sys.argv[2])
+session = u(sys.argv[1])
+driver_name = sys.argv[2]
 name = u(sys.argv[3])
 
 drivers = get_available_drivers()

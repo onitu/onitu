@@ -5,7 +5,7 @@ import logbook
 from logbook.queues import ZeroMQSubscriber
 
 from tests.utils.launcher import Launcher
-from tests.utils.setup import Setup, Rule
+from tests.utils.setup import Setup
 from tests.utils.loop import BooleanLoop, CounterLoop
 from tests.utils.driver import LocalStorageDriver
 from tests.utils.benchmark import Benchmark, BenchmarkData
@@ -53,10 +53,6 @@ def setup_config(benchmark, num):
     setup = Setup()
     for rep in benchmark.reps:
         setup.add(rep)
-    rule = Rule().match_path('/')
-    for rep in benchmark.reps:
-        rule.sync(rep.name)
-    setup.add_rule(rule)
     setup.save(benchmark.json_file)
 
 

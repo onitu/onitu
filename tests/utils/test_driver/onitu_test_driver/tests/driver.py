@@ -16,7 +16,7 @@ class Driver(driver.Driver):
 
     @property
     def root(self):
-        return self.options['root']
+        return ''
 
     def connect(self, session):
         self.session = session

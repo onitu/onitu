@@ -56,7 +56,7 @@ class TransferWorker(Worker):
         if driver_chunk_size is not None:
             self.chunk_size = driver_chunk_size
 
-        self.transfer_key = (u'entry:{}:transfer:{}'
+        self.transfer_key = (u'service:{}:transfer:{}'
                              .format(self.dealer.name, self.fid))
 
     def do(self):
@@ -187,31 +187,17 @@ class DeletionWorker(Worker):
     def do(self):
         self.logger.debug("Deleting '{}'", self.filename)
 
-        self.update_metadata()
-
         try:
             self.call('delete_file', self.metadata)
         except AbortOperation:
             pass
 
+        self.metadata.delete()
+
         self.logger.info("'{}' deleted", self.filename)
 
-    def update_metadata(self):
-        self.metadata.owners = [e for e in self.metadata.owners
-                                if e != self.dealer.name]
-        self.metadata.write()
 
-        self.escalator.delete(
-            u'file:{}:entry:{}'.format(self.fid, self.dealer.name)
-        )
-
-        # If we were the last entry owning this file, we delete
-        # all the metadata
-        if not self.metadata.owners:
-            self.escalator.delete('file:{}'.format(self.fid))
-
-
-class MoveWorker(DeletionWorker):
+class MoveWorker(Worker):
     def __init__(self, dealer, fid, new_fid):
         super(MoveWorker, self).__init__(dealer, fid)
 
@@ -226,21 +212,21 @@ class MoveWorker(DeletionWorker):
         try:
             if 'move_file' in self.dealer.plug._handlers:
                 self.call('move_file', self.metadata, new_metadata)
-                self.update_metadata()
+                self.metadata.delete()
             else:
                 # If the driver don't have a handler for moving a file,
                 # we try to simulate it with a move and a deletion.
-                # We use the same entry for getting and uploading the
-                # file, eventhouht it can be an issue as we need twice
+                # We use the same service for getting and uploading the
+                # file, even thought it can be an issue as we need twice
                 # the size of the file available.
-                # If another entry has the file, maybe the Referee could
+                # If another service has the file, maybe the Referee could
                 # select a potential sender.
                 transfer = TransferWorker(
                     self.dealer, self.new_fid, self.dealer.name
                 )
                 transfer()
                 self.call('delete_file', self.metadata)
-
+                self.metadata.delete()
         except AbortOperation:
             pass
 

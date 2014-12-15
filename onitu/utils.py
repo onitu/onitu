@@ -5,8 +5,10 @@ parts of Onitu.
 import os
 import sys
 import uuid
+import string
 import signal
 import socket
+import random
 import tempfile
 import mimetypes
 import pkg_resources
@@ -23,22 +25,22 @@ NAMESPACE_ONITU = uuid.UUID('bcd336f2-d023-4856-bc92-e79dd24b64d7')
 UNICODE = unicode if PY2 else str
 
 
-def b(string):
+def b(chars):
     """
     Convert any string (bytes or unicode) to bytes
     """
-    if type(string) == UNICODE:
-        return string.encode('utf-8')
-    return string
+    if type(chars) == UNICODE:
+        return chars.encode('utf-8')
+    return chars
 
 
-def u(string):
+def u(chars):
     """
-    Convert any string (bytes or unicode) to unicode
+    Convert any chars (bytes or unicode) to unicode
     """
-    if type(string) == bytes:
-        return string.decode('utf-8')
-    return string
+    if type(chars) == bytes:
+        return chars.decode('utf-8')
+    return chars
 
 
 def n(string):
@@ -66,9 +68,9 @@ def at_exit(callback, *args, **kwargs):
         signal.signal(s, lambda *_, **__: callback(*args, **kwargs))
 
 
-def get_fid(filename):
+def get_fid(folder, filename):
     """
-    Get the file-id (fid) of the given filename.
+    Get the file-id (fid) of the given filename inside the given folder.
 
     The file-id is a UUID version 5, with the namespace define in
     :attr:`NAMESPACE_ONITU`.
@@ -77,9 +79,10 @@ def get_fid(filename):
     references to files inside Onitu.
     """
     if PY2:
+        folder = filename.encode('utf-8')
         filename = filename.encode('utf-8')
 
-    return str(uuid.uuid5(NAMESPACE_ONITU, filename))
+    return str(uuid.uuid5(NAMESPACE_ONITU, "{}:{}".format(folder, filename)))
 
 
 def get_mimetype(filename):
@@ -100,6 +103,15 @@ def get_mimetype(filename):
 
     return mimetype
 
+
+def get_random_string(length):
+    """
+    Return a string containing `length` random alphanumerical chars.
+    `length` must be inferior to 62.
+    """
+    return ''.join(
+        random.sample(string.ascii_letters + string.digits, length)
+    )
 
 if IS_WINDOWS:
     # We can't use IPC sockets on Windows as they are not supported

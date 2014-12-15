@@ -18,28 +18,18 @@ An example of setup.json file with hubic:
 {
   "name": "example",
 
-  "entries": {
+  "services": {
         "hubic": {
               "driver": "hubic",
+              "root": "/onitu_hubic",
               "options": {
-                    "root": "/onitu_hubic",
                     "refresh_token": "THE TOKEN RETRIEVED WITH GET_REFRESH_TOKEN.PY",
                     "changes_timer" : 60
               }
         },
         "local": {
+              "root": "/onitu_local"
               "driver": "local_storage",
-              "options": {
-                    "root": "/onitu_local"
-              }
         }
-  },
-
-  "rules": [
-    {
-      "match": {"path": "/"},
-      "sync": ["hubic", "local"]
-    }
-  ]
-
+  }
 }

@@ -11,6 +11,7 @@ from logbook import Logger
 from .metadata import Metadata
 from .router import Router
 from .dealer import Dealer
+from .folder import Folder
 from .exceptions import DriverError, AbortOperation
 
 from onitu.escalator.client import Escalator
@@ -45,7 +46,7 @@ class Plug(object):
         self.escalator = None
         self.options = {}
         self._handlers = {}
-        self._entry_db = None
+        self._service_db = None
 
         self.context = zmq.Context.instance()
 
@@ -62,9 +63,15 @@ class Plug(object):
         self.publisher = self.context.socket(zmq.PUSH)
         self.publisher.connect(get_events_uri(session, 'referee'))
 
-        self.options = self.escalator.get(
-            u'entry:{}:options'.format(name), default={}
+        self.root = self.escalator.get(
+            u'service:{}:root'.format(name), default=''
         )
+
+        self.options = self.escalator.get(
+            u'service:{}:options'.format(name), default={}
+        )
+
+        self.folders = Folder.get_folders(self.escalator, self.name)
 
         self.validate_options(manifest)
 
@@ -140,35 +147,55 @@ class Plug(object):
         self.dealer.stop_transfer(fid)
         # We make sure that the key has been deleted
         # (if this event occurs before the transfer was restarted)
-        self.escalator.delete(u'entry:{}:transfer:{}'.format(self.name, fid))
+        self.escalator.delete(u'service:{}:transfer:{}'.format(self.name, fid))
 
-        if self.name not in metadata.owners:
-            metadata.owners += (self.name,)
         metadata.uptodate = (self.name,)
         metadata.write()
 
         self.logger.debug(
-            "Notifying the Referee about '{}'", metadata.filename
+            "Notifying the Referee about '{}' in folder {}",
+            metadata.filename, metadata.folder
         )
         self.notify_referee(fid, UP, self.name)
 
     def delete_file(self, metadata):
+        metadata.delete()
         self.notify_referee(metadata.fid, DEL, self.name)
 
-    def move_file(self, metadata, new_filename):
-        new_metadata = metadata.clone(new_filename)
-        new_fid = new_metadata.fid
+    def move_file(self, metadata, new_path):
+        new_folder = self.get_folder(new_path)
 
-        if self.name not in new_metadata.owners:
-            new_metadata.owners += (self.name,)
+        if not new_folder:
+            self.delete_file(metadata)
+            return None
+
+        new_filename = new_folder.relpath(new_path)
+        new_metadata = metadata.clone(new_folder, new_filename)
         new_metadata.uptodate = (self.name,)
         new_metadata.write()
 
-        self.notify_referee(metadata.fid, MOV, self.name, new_fid)
+        metadata.delete()
+
+        self.notify_referee(metadata.fid, MOV, self.name, new_metadata.fid)
 
         return new_metadata
 
-    def get_metadata(self, filename):
+    def get_folder(self, filename):
+        folder = None
+
+        # We select the folder containing the file which is
+        # the closer to the root
+        for candidate in self.folders.values():
+            if candidate.contains(filename):
+                if folder:
+                    if folder.contains(candidate.path):
+                        folder = candidate
+                else:
+                    folder = candidate
+
+        return folder
+
+    def get_metadata(self, filename, folder=None):
         """
         :param filename: The name of the file, with the absolute path
                          from the driver's root
@@ -179,12 +206,20 @@ class Plug(object):
         If the file does not exists in Onitu, it will be created when
         :meth:`.Metadata.write` will be called.
         """
-        metadata = Metadata.get_by_filename(self, filename)
+        if not folder:
+            folder = self.get_folder(filename)
+
+            # No folder contain this file
+            if not folder:
+                return None
+
+            filename = folder.relpath(filename)
+
+        metadata = Metadata.get(self, folder, filename)
 
         if not metadata:
-            metadata = Metadata(plug=self, filename=filename)
+            metadata = Metadata(plug=self, folder=folder, filename=filename)
 
-        metadata.entry = self.name
         return metadata
 
     def validate_options(self, manifest):
@@ -295,22 +330,22 @@ class Plug(object):
         if self.escalator:
             self.escalator.close()
 
-        if self._entry_db:
-            self.entry_db.close()
+        if self._service_db:
+            self.service_db.close()
 
         self.context.term()
 
     @property
-    def entry_db(self):
+    def service_db(self):
         """
         This property is an intance of the database client
         :class:`.Escalator`, configured to store values only
-        for the current entry.
+        for the current service.
 
         It can be used by a driver like any :class:`.Escalator`
         instance.
         """
-        if not self._entry_db:
-            prefix = u'entry:{}:db:'.format(self.name)
-            self._entry_db = self.escalator.clone(prefix=prefix)
-        return self._entry_db
+        if not self._service_db:
+            prefix = u'service:{}:db:'.format(self.name)
+            self._service_db = self.escalator.clone(prefix=prefix)
+        return self._service_db

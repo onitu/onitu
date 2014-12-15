@@ -5,7 +5,7 @@ import zmq
 from threading import Thread, Event
 
 from onitu.plug import Plug
-from onitu.utils import _get_uri
+from onitu.utils import _get_uri, b
 from onitu.escalator.client import EscalatorClosed
 
 plug = Plug()
@@ -18,10 +18,8 @@ def read(metadata):
 
 
 def write(metadata, content):
-    files.add(metadata.filename)
-    if type(content) == type(u''):
-        content = content.encode()
-    metadata.extra['content'] = content
+    files.add(metadata.path)
+    metadata.extra['content'] = b(content)
     metadata.write()
 
 
@@ -30,7 +28,7 @@ def delete(metadata):
         del metadata.extra['content']
         metadata.write()
 
-    files.discard(metadata.filename)
+    files.discard(metadata.path)
 
 
 def move(old_metadata, new_metadata):
@@ -194,11 +192,11 @@ class Watcher(Thread):
                     self.handle_move(filename, new_filename)
 
         old_metadata = plug.get_metadata(source)
-        plug.move_file(old_metadata, target)
-        # We must get the metadata after notifying the Plug
-        # as Plug.move_file will create the Metadata
-        new_metadata = plug.get_metadata(target)
-        move(old_metadata, new_metadata)
+        new_metadata = plug.move_file(old_metadata, target)
+        files.discard(old_metadata.path)
+
+        if new_metadata:
+            files.add(new_metadata.path)
 
     def handle_rmdir(self, path):
         for filename in list(files):
@@ -207,10 +205,7 @@ class Watcher(Thread):
 
     def handle_checksum(self, filename):
         metadata = plug.get_metadata(filename)
-        content = read(metadata)
-        h = hashlib.md5()
-        h.update(content)
-        return h.hexdigest()
+        return hashlib.md5(b(read(metadata))).hexdigest()
 
 
 def start():

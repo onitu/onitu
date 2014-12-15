@@ -20,6 +20,7 @@ setup(
         "pyzmq>=14.1.1",
         "logbook>=0.7",
         "plyvel",
+        "pyyaml",
         "msgpack-python",
         "bottle"
     ],

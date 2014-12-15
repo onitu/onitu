@@ -1,9 +1,13 @@
-from multiprocessing.pool import ThreadPool
+import time
+import socket
 
 import zmq
+
+from multiprocessing.pool import ThreadPool
+
 from logbook import Logger
 
-from onitu.utils import get_events_uri
+from onitu.utils import get_events_uri, b
 
 from .workers import WORKERS, UP
 
@@ -27,10 +31,25 @@ class Dealer(object):
     def run(self):
         listener = None
 
+        uri = get_events_uri(self.plug.session, 'referee', 'publisher')
+
+        # If the URI is an IPC, we will never get messages if we connect before
+        # the publisher is bound. ZeroMQ does not provide any solution to see
+        # if the socket is bound, so we have to use a raw socket to find it out
+        if uri.startswith(u'ipc://'):
+            while True:
+                try:
+                    s = socket.socket(socket.AF_UNIX)
+                    s.connect(uri.replace('ipc://', ''))
+                    s.close()
+                    break
+                except socket.error:
+                    time.sleep(0.1)
+
         try:
-            uri = get_events_uri(self.plug.session, self.name, 'dealer')
-            listener = self.context.socket(zmq.PULL)
-            listener.bind(uri)
+            listener = self.context.socket(zmq.SUB)
+            listener.setsockopt(zmq.SUBSCRIBE, b(self.name))
+            listener.connect(uri)
 
             self.logger.info("Started")
 
@@ -44,14 +63,14 @@ class Dealer(object):
     def listen(self, listener):
         while True:
             events = self.escalator.range(
-                prefix=u'entry:{}:event:'.format(self.name)
+                prefix=u'service:{}:event:'.format(self.name)
             )
 
             for key, (cmd, args) in events:
                 fid = key.split(':')[-1]
                 self.call(cmd, fid, *args)
                 self.escalator.delete(
-                    u'entry:{}:event:{}'.format(self.name, fid)
+                    u'service:{}:event:{}'.format(self.name, fid)
                 )
 
             try:
@@ -59,6 +78,7 @@ class Dealer(object):
             except zmq.ZMQError as e:
                 if e.errno == zmq.ETERM:
                     break
+                raise
 
     def stop_transfer(self, fid):
         if fid in self.in_progress:
@@ -74,7 +94,7 @@ class Dealer(object):
         :meth:`.Plug.listen`.
         """
         transfers = self.escalator.range(
-            prefix=u'entry:{}:transfer:'.format(self.name)
+            prefix=u'service:{}:transfer:'.format(self.name)
         )
 
         if not transfers:

@@ -1,6 +1,5 @@
 import json
 
-from tests.utils.setup import Rule
 from tests.utils.testdriver import TestDriver
 
 from onitu.utils import u
@@ -11,7 +10,6 @@ def test_startup(setup, launcher):
 
     setup.add(rep1)
     setup.add(rep2)
-    setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
 
     try:
         launcher()
@@ -25,7 +23,7 @@ def test_no_setup(setup, launcher):
         with open(u(setup.filename)):
             pass
     except IOError as e:
-        error = "Can't process setup file '{}' : {}".format(setup.filename, e)
+        error = "Error parsing '{}' : {}".format(setup.filename, e)
 
     try:
         launcher(wait=False, stderr=True, save_setup=False)

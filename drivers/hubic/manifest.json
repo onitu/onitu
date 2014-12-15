@@ -2,11 +2,6 @@
   "name": "Hubic",
   "description": "Store files on your OVH Hubic repository.",
   "options": {
-    "root": {
-      "name": "Root",
-      "description": "The root of the directories under Onitu's watch",
-      "type": "string"
-    },
     "refresh_token": {
       "name": "Refresh token",
       "description": "Token used to authenticate with Hubic (retrieved with get_refresh_token.py)",

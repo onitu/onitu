@@ -22,6 +22,7 @@ root = None
 
 
 def to_tmp(filename):
+    filename = path(filename)
     return filename.parent / ('.' + filename.name + TMP_EXT)
 
 
@@ -31,23 +32,17 @@ def update(metadata, abs_path, mtime=None):
         metadata.extra['revision'] = mtime if mtime else abs_path.mtime
     except (IOError, OSError) as e:
         raise ServiceError(
-            u"Error updating file '{}': {}".format(metadata.filename, e)
+            u"Error updating file '{}': {}".format(metadata.path, e)
         )
     else:
         plug.update_file(metadata)
 
 
 def delete(metadata, _):
-    if plug.name not in metadata.owners:
-        return
-
     plug.delete_file(metadata)
 
 
 def move(old_metadata, old_path, new_path):
-    if plug.name not in old_metadata.owners:
-        return
-
     new_filename = root.relpathto(new_path)
     new_metadata = plug.move_file(old_metadata, new_filename)
     new_metadata.extra['revision'] = path(root / new_path).mtime
@@ -58,7 +53,7 @@ def delete_empty_dirs(filename):
     """
     Remove all the empty parent directories, stopping at the root
     """
-
+    filename = path(filename)
     parent = filename.parent
 
     while parent != root:
@@ -94,22 +89,19 @@ def check_changes():
 
 @plug.handler()
 def get_chunk(metadata, offset, size):
-    filename = root / metadata.filename
-
     try:
-        with open(filename, 'rb') as f:
+        with open(metadata.path, 'rb') as f:
             f.seek(offset)
             return f.read(size)
     except (IOError, OSError) as e:
         raise ServiceError(
-            u"Error getting file '{}': {}".format(filename, e)
+            u"Error getting file '{}': {}".format(metadata.path, e)
         )
 
 
 @plug.handler()
 def start_upload(metadata):
-    filename = root / metadata.filename
-    tmp_file = to_tmp(filename)
+    tmp_file = to_tmp(metadata.path)
 
     try:
         if not tmp_file.exists():
@@ -128,7 +120,7 @@ def start_upload(metadata):
 
 @plug.handler()
 def upload_chunk(metadata, offset, chunk):
-    tmp_file = to_tmp(root / metadata.filename)
+    tmp_file = to_tmp(metadata.path)
 
     try:
         with open(tmp_file, 'r+b') as f:
@@ -142,23 +134,22 @@ def upload_chunk(metadata, offset, chunk):
 
 @plug.handler()
 def end_upload(metadata):
-    filename = root / metadata.filename
-    tmp_file = to_tmp(filename)
+    tmp_file = to_tmp(metadata.path)
 
     try:
         if IS_WINDOWS:
             # On Windows we can't move a file
             # if dst exists
-            filename.unlink_p()
-        tmp_file.move(filename)
-        mtime = filename.mtime
+            path(metadata.path).unlink_p()
+        tmp_file.move(metadata.path)
+        mtime = os.path.getmtime(metadata.path)
 
         if IS_WINDOWS:
             win32api.SetFileAttributes(
-                filename, win32con.FILE_ATTRIBUTE_NORMAL)
+                metadata.path, win32con.FILE_ATTRIBUTE_NORMAL)
     except (IOError, OSError) as e:
         raise ServiceError(
-            u"Error for file '{}': {}".format(filename, e)
+            u"Error for file '{}': {}".format(metadata.path, e)
         )
 
     metadata.extra['revision'] = mtime
@@ -167,8 +158,7 @@ def end_upload(metadata):
 
 @plug.handler()
 def abort_upload(metadata):
-    filename = root / metadata.filename
-    tmp_file = to_tmp(filename)
+    tmp_file = to_tmp(metadata.path)
     try:
         tmp_file.unlink()
     except (IOError, OSError) as e:
@@ -179,35 +169,33 @@ def abort_upload(metadata):
 
 @plug.handler()
 def delete_file(metadata):
-    filename = root / metadata.filename
-
     try:
-        filename.unlink()
+        os.unlink(metadata.path)
     except (IOError, OSError) as e:
         raise ServiceError(
-            u"Error deleting file '{}': {}".format(filename, e)
+            u"Error deleting file '{}': {}".format(metadata.path, e)
         )
 
-    delete_empty_dirs(filename)
+    delete_empty_dirs(metadata.path)
 
 
 @plug.handler()
 def move_file(old_metadata, new_metadata):
-    old_filename = root / old_metadata.filename
-    new_filename = root / new_metadata.filename
+    old_path = path(old_metadata.path)
+    new_path = path(new_metadata.path)
 
-    parent = new_filename.dirname()
+    parent = new_path.dirname()
     if not parent.exists():
         parent.makedirs_p()
 
     try:
-        old_filename.rename(new_filename)
+        old_path.rename(new_path)
     except (IOError, OSError) as e:
         raise ServiceError(
-            u"Error moving file '{}': {}".format(old_filename, e)
+            u"Error moving file '{}': {}".format(old_path, e)
         )
 
-    delete_empty_dirs(old_filename)
+    delete_empty_dirs(old_path)
 
 
 if IS_WINDOWS:
@@ -314,7 +302,7 @@ else:
 
 def start():
     global root
-    root = path(u(plug.options['root']))
+    root = path(plug.root)
 
     if not root.access(os.W_OK | os.R_OK):
         raise DriverError(u"The root '{}' is not accessible".format(root))
