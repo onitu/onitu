@@ -207,14 +207,15 @@ class CheckChanges(threading.Thread):
         revision = ""
         if "revision" in metadata.extra:
             revision = metadata.extra["revision"]
-        plug.logger.debug(u"Change: {} {} {} {}",
-                          filepath, f,
-                          revision, f["md5Checksum"])
+        _, f = libdrive.get_information_by_id(access_token, f["id"])
+        print(f)
         if f["md5Checksum"] != revision:
             metadata.size = int(f["fileSize"])
             metadata.extra["revision"] = f["md5Checksum"]
             if f["mimeType"] is not "application/vnd.google-apps.folder":
                 metadata.extra["downloadUrl"] = f["downloadUrl"]
+            metadata.extra["id"] = f["id"]
+            metadata.extra["parent_id"] = f["parents"][0]["id"]
             plug.update_file(metadata)
 
     def check_folder_list_file(self, path, path_id):
@@ -317,19 +318,23 @@ class CheckChanges(threading.Thread):
                                               self.lasterChangeId)
                 if self.lasterChangeId == data["largestChangeId"]:
                     return
-                plug.logger.debug("new change detected")
+                plug.logger.debug(u"new change detected")
                 for change in data["items"]:
                     if change["deleted"] is True:
                         fileId = change["fileId"]
                         bufDel[change["fileId"]] = change["fileId"]
                         if fileId in buf:
                             del buf[fileId]
+                        plug.logger.debug(u"File deleted change {}",
+                                          change)
                     else:
                         b, tmp = self.add_to_buf(change, buf)
                         if b:
                             if tmp["id"] in bufDel:
                                 del bufDel[tmp["id"]]
                             buf[tmp["id"]] = tmp
+                            plug.logger.debug(u"File change {}",
+                                              change)
                 self.lasterChangeId = data["largestChangeId"]
                 page_token = data.get("nextPageToken")
                 if not page_token:
@@ -346,8 +351,8 @@ class CheckChanges(threading.Thread):
                     filepath = f["title"]
                 else:
                     filepath = path + "/" + f["title"]
-                plug.logger.debug(u"file change path: {}".format(path))
                 self.update_metadata(filepath, f)
+                plug.logger.debug(u"file change path: {}".format(path))
             for id_file in bufDel:
                 db = plug.entry_db
                 if db.exists('listes:{}'.format(id_file)):
@@ -355,6 +360,8 @@ class CheckChanges(threading.Thread):
                     m = Metadata.get_by_id(plug, fid)
                     if m is not None:
                         plug.delete_file(m)
+                        plug.logger.debug(u"file delete path: {}".format(path))
+
 
     def run(self):
         while not self.stop.isSet():
