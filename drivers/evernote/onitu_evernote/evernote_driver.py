@@ -163,7 +163,7 @@ def move_file(old_metadata, new_metadata):
     global notestore_onitu
     global dev_token
 
-    note = notestore_onitu.getNote(dev_token, old_metadata.extra['guid'], False, False, True, False)
+    note = notestore_onitu.getNote(token, old_metadata.extra['guid'], False, False, True, False)
 
     res = note.resources[0] #Types.Resource()
     attr = Types.ResourceAttributes()
@@ -214,8 +214,15 @@ def upload_file(metadata, content):
 
 @plug.handler()
 def delete_file(metadata):
-    res = notestore_onitu.deleteNote(dev_token, metadata.extra['guid'])
-
+    """Handler to delete a file. This gets called for the notes AND for the
+    resources. But we can't do the same thing for both, so it contains
+    specific checks."""
+    resourceNoteGuid = metadata.extra.get('evernote_note_guid', None)
+    # We didn't store any owning note GUID for this file so it must be a note
+    if not resourceNoteGuid:
+        res = notestore_onitu.deleteNote(token, metadata.extra['evernote_guid'])
+    else:  # it is a resource of a file
+        raise DriverError("NOT IMPLEMENTED")
 
 # ############################## WATCHER ######################################
 
@@ -407,7 +414,7 @@ class CheckChanges(threading.Thread):
                                    .format(exc))
             except ResponseNotReady:
                 plug.logger.warning("Cannot poll changes because notebook data"
-                                    "isn't ready. Will retry later...")
+                                    " isn't ready. Will retry later...")
             self.stop.wait(self.timer)
 
     def stop(self):
