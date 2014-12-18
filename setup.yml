@@ -24,8 +24,9 @@ services:
   B:
     driver: local_storage
     root: example/service_b
-    backup:
-      mode: ro
+    folders:
+      backup:
+        mode: ro
   C:
     driver: local_storage
     root: example/service_c
