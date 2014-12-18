@@ -1,9 +1,8 @@
 import threading
 
 import zmq
-import msgpack
 
-from onitu.utils import b
+from onitu.utils import b, pack_obj, pack_msg, unpack_msg
 from .serializers import metadata_serializer, metadata_unserialize
 
 remote_commands = {}
@@ -31,7 +30,7 @@ class Remote(threading.Thread):
             except zmq.ZMQError as e:
                 if e.errno == zmq.ETERM:
                     break
-            msg = msgpack.unpackb(msg, use_list=False, encoding='utf-8')
+            msg = unpack_msg(msg)
             command = remote_commands.get(msg[0], None)
             if command:
                 command(self.plug, self.socket, *msg[1:])
@@ -42,7 +41,7 @@ class Remote(threading.Thread):
 @remote_command()
 def get_metadata(plug, remote_socket, filename):
     metadata = plug.get_metadata(filename)
-    m = msgpack.packb(metadata_serializer(metadata), use_bin_type=True)
+    m = pack_obj(metadata_serializer(metadata))
     remote_socket.send_multipart((b(plug.options['remote_id']), m))
 
 
@@ -93,7 +92,7 @@ def escalator(plug, remote_socket, method, args, kwargs):
                 elif cmd == 'delete':
                     batch.delete(*args, **kwargs)
         remote_socket.send_multipart((b(plug.options['remote_id']),
-                                      msgpack.packb(None, use_bin_type=True)))
+                                      pack_obj(None)))
         return
     action = actions.get(method)
     if action is None:
@@ -103,7 +102,7 @@ def escalator(plug, remote_socket, method, args, kwargs):
             resp = action(*args, **kwargs)
         except Exception as e:
             remote_socket.send_multipart((b(plug.options['remote_id']),
-                                          msgpack.packb((0, e.args), use_bin_type=True)))
+                                          pack_msg(0, e.args)))
         else:
             remote_socket.send_multipart((b(plug.options['remote_id']),
-                                          msgpack.packb((1, resp), use_bin_type=True)))
+                                          pack_msg(1, resp)))

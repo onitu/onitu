@@ -13,6 +13,7 @@ import tempfile
 import mimetypes
 import traceback
 import pkg_resources
+import msgpack
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
@@ -51,6 +52,27 @@ def n(string):
     that change behavior when switching py2/py3.
     """
     return (b if PY2 else u)(string)
+
+
+def pack_obj(obj):
+    """
+    Encode an unique object with msgpack
+    """
+    return msgpack.packb(obj, use_bin_type=True)
+
+
+def pack_msg(*args):
+    """
+    Encore a message (list of arguments) with msgpack
+    """
+    return msgpack.packb(args, use_bin_type=True)
+
+
+def unpack_msg(packed):
+    """
+    Decode a packed message with msgpack
+    """
+    return msgpack.unpackb(packed, use_list=False, encoding='utf-8')
 
 
 def at_exit(callback, *args, **kwargs):
