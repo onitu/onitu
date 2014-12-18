@@ -3,7 +3,7 @@ from threading import Thread
 import zmq
 
 from onitu.escalator import protocol
-from onitu.utils import u
+from onitu.utils import u, pack_obj
 
 
 class Multipart(list):
@@ -133,7 +133,7 @@ class Worker(Thread):
               include_start, include_stop,
               include_key, include_value,
               reverse):
-        values = Multipart(protocol.msg.pack_arg(v) for v in
+        values = Multipart(pack_obj(v) for v in
                            db.iterator(prefix=prefix,
                                        start=start,
                                        stop=stop,

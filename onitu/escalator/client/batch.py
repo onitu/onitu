@@ -1,7 +1,7 @@
 import zmq
 
 from onitu.escalator import protocol
-from onitu.utils import b
+from onitu.utils import b, pack_obj
 
 
 class WriteBatch(object):
@@ -36,7 +36,7 @@ class WriteBatch(object):
 
     def put(self, key, value, pack=True):
         if pack:
-            value = protocol.msg.pack_arg(value)
+            value = pack_obj(value)
         self._request(protocol.cmd.PUT, b(key), value)
 
     def delete(self, key):

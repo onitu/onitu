@@ -3,7 +3,7 @@ from threading import Lock
 import zmq
 
 from onitu.escalator import protocol
-from onitu.utils import get_escalator_uri, b, u
+from onitu.utils import get_escalator_uri, b, u, pack_obj, unpack_msg
 
 from .batch import WriteBatch
 
@@ -42,7 +42,7 @@ class Escalator(object):
                 protocol.msg.extract_response(self.socket.recv())
                 l = []
                 while self.socket.get(zmq.RCVMORE):
-                    l.append(protocol.msg.unpack_msg(self.socket.recv()))
+                    l.append(unpack_msg(self.socket.recv()))
                 return l
             except zmq.ZMQError:
                 self.socket.close()
@@ -72,7 +72,7 @@ class Escalator(object):
             value = self._request(protocol.cmd.GET, b(key))[0]
 
             if kwargs.get('pack', True):
-                value = protocol.msg.unpack_msg(value)
+                value = unpack_msg(value)
         except protocol.status.KeyNotFound:
             if 'default' in kwargs:
                 value = kwargs['default']
@@ -86,7 +86,7 @@ class Escalator(object):
 
     def put(self, key, value, pack=True):
         if pack:
-            value = protocol.msg.pack_arg(value)
+            value = pack_obj(value)
         self._request(protocol.cmd.PUT, b(key), value)
 
     def delete(self, key):
@@ -104,11 +104,10 @@ class Escalator(object):
                                      reverse)
         if pack and include_value:
             if include_key:
-                values = tuple((u(key), protocol.msg.unpack_msg(value))
+                values = tuple((u(key), unpack_msg(value))
                                for key, value in values)
             else:
-                values = tuple(protocol.msg.unpack_msg(value)
-                               for value in values)
+                values = tuple(unpack_msg(value) for value in values)
         return values
 
     def write_batch(self, transaction=False):

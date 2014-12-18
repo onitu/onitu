@@ -1,18 +1,5 @@
-import msgpack
-
+from onitu.utils import pack_msg, unpack_msg
 from . import status as protocol_status
-
-
-def pack_arg(arg):
-    return msgpack.packb(arg, use_bin_type=True)
-
-
-def pack_msg(*args):
-    return msgpack.packb(args, use_bin_type=True)
-
-
-def unpack_msg(packed):
-    return msgpack.unpackb(packed, use_list=False, encoding='utf-8')
 
 
 def format_request(cmd, uid, *args):
