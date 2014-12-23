@@ -7,6 +7,6 @@ class OnituIconOverlayExtension(GObject.GObject, Nautilus.InfoProvider):
 
     def update_file_info(self, file):
         if os.path.splitext(file.get_name())[1] == ".onitu":
-            file.add_emblem("multimedia")
+            file.add_emblem("onitu_sync")
         elif (file.get_string_attribute("onitu_local_storage") != ""):
-            file.add_emblem("onitu")
+            file.add_emblem("onitu_sync")
