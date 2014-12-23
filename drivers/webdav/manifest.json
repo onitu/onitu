@@ -2,11 +2,6 @@
   "name": "webdav",
   "description": "Store files on a remote machine using webdav.",
   "options": {
-    "root": {
-      "name": "Root",
-      "description": "The root of the directories under Onitu's watch",
-      "type": "string"
-    },
     "protocol": {
       "name": "Protocol",
       "description": "The protocol for the webdav connection",

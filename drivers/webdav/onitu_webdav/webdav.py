@@ -3,8 +3,11 @@ import threading
 
 import easywebdav
 
+from path import path
+
 from onitu.plug import Plug, ServiceError
 from onitu.escalator.client import EscalatorClosed
+from onitu.utils import u
 
 plug = Plug()
 root = None
@@ -14,67 +17,68 @@ events_to_ignore = set()
 
 
 def create_dirs(webdav, path):
-    path = '/'.join([root, path])
+    plug.logger.debug("create dirs: {}", path)
     webdav.mkdirs(path)
 
 
 @plug.handler()
 def get_file(metadata):
     try:
-        path = '/'.join([root, metadata.filename])
+        plug.logger.debug("get file, metadata {}", metadata.path)
         # TODO: we should not have a local file.
         local_file = "/tmp/{}.onitu-tmp".format(
-            os.path.basename(metadata.filename)
+            os.path.basename(metadata.path)
         )
-        webdav.download(path, local_file)
+        webdav.download(metadata.path, local_file)
         with open(local_file, 'r') as f:
             data = f.read()
         return data
 
     except easywebdav.client.OperationFailed as e:
         raise ServiceError(
-            "Error getting file '{}': {}".format(metadata.filename, e)
+            "Error getting file '{}': {}".format(metadata.path, e)
         )
 
 
 @plug.handler()
 def start_upload(metadata):
-    events_to_ignore.add(metadata.filename)
-    create_dirs(webdav, os.path.dirname(metadata.filename))
+    plug.logger.debug("start upload: {}", metadata.path)
+    events_to_ignore.add(metadata.path)
+    create_dirs(webdav, os.path.dirname(metadata.path))
+
+
+@plug.handler()
+def upload_file(metadata, content):
+    try:
+        plug.logger.debug("upload file, metadata {}", metadata.path)
+        local_file = "/tmp/{}.onitu-tmp".format(
+            os.path.basename(metadata.path)
+        )
+        with open(local_file, 'w') as f:
+            f.write(content)
+        webdav.upload(local_file, metadata.path)
+    except easywebdav.client.OperationFailed as e:
+        raise ServiceError(
+            "Error writting file '{}': {}".format(metadata.path, e)
+        )
 
 
 @plug.handler()
 def end_upload(metadata):
     try:
-        path = '/'.join([root, metadata.filename])
-        f = webdav.ls(path)[0]
+        plug.logger.debug("end upload, metadata {}", metadata.path)
+        f = webdav.ls(metadata.path)[0]
         metadata.extra['revision'] = f.mtime
         metadata.write()
 
     except easywebdav.client.OperationFailed as e:
         raise ServiceError(
             "Error while updating metadata on file '{}': {}".format(
-                metadata.filename, e)
+                metadata.path, e)
         )
     finally:
-        if metadata.filename in events_to_ignore:
-            events_to_ignore.remove(metadata.filename)
-
-
-@plug.handler()
-def upload_file(metadata, content):
-    try:
-        path = '/'.join([root, metadata.filename])
-        local_file = "/tmp/{}.onitu-tmp".format(
-            os.path.basename(metadata.filename)
-        )
-        with open(local_file, 'w') as f:
-            f.write(content)
-        webdav.upload(local_file, path)
-    except easywebdav.client.OperationFailed as e:
-        raise ServiceError(
-            "Error writting file '{}': {}".format(metadata.filename, e)
-        )
+        if metadata.path in events_to_ignore:
+            events_to_ignore.remove(metadata.path)
 
 
 def update_file(metadata, f):
@@ -85,7 +89,7 @@ def update_file(metadata, f):
         plug.update_file(metadata)
     except easywebdav.client.OperationFailed as e:
         raise ServiceError(
-            "Error updating file '{}': {}".format(metadata.filename, e)
+            "Error updating file '{}': {}".format(metadata.path, e)
         )
 
 
@@ -98,7 +102,7 @@ class CheckChanges(threading.Thread):
         self.webdav = webdav
 
     def check_folder(self, path=''):
-        path = '/'.join([root, path])
+        plug.logger.debug("check folder: path {}", path)
         try:
             filelist = self.webdav.ls(path)
         except easywebdav.client.OperationFailed as e:
@@ -107,16 +111,19 @@ class CheckChanges(threading.Thread):
             )
 
         for f in filelist[1:]:
-            filepath = f.name.replace(prefix, "")
+            filepath = u(f.name.replace(prefix, ""))
 
-            metadata = plug.get_metadata(filepath)
-            onitu_rev = metadata.extra.get('revision', 0.)
+            # TODO: is it the same thing with a webdav server on windows?
+            if f.contenttype == "httpd/unix-directory":
+                self.check_folder(filepath)
+            else:
+                relpath = root.relpathto(filepath)
+                metadata = plug.get_metadata(relpath)
+                if metadata is None:
+                    continue
+                onitu_rev = metadata.extra.get('revision', 0.)
 
-            if f.mtime > onitu_rev:
-                # TODO: is it the same thing with a webdav server on windows?
-                if f.contenttype == "httpd/unix-directory":
-                    self.check_folder(filepath)
-                else:
+                if f.mtime > onitu_rev:
                     update_file(metadata, f)
 
     def run(self):
@@ -136,9 +143,10 @@ def start():
     global root
 
     # Clean the root
-    root = plug.options['root']
+    root = plug.root
     if root.endswith('/'):
         root = root[:-1]
+    root = path(root)
 
     protocol = plug.options['protocol']
     hostname = plug.options['hostname']
@@ -148,11 +156,10 @@ def start():
     timer = plug.options['changes_timer']
 
     global prefix
-    prefix = "{}://{}:{}{}/".format(
+    prefix = "{}://{}:{}".format(
         protocol,
         hostname,
-        port,
-        root
+        port
     )
 
     global webdav
