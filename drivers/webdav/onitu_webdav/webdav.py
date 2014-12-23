@@ -1,5 +1,6 @@
 import os
 import threading
+import datetime
 
 import easywebdav
 
@@ -9,6 +10,7 @@ from onitu.plug import Plug, ServiceError
 from onitu.escalator.client import EscalatorClosed
 from onitu.utils import u
 
+TIMESTAMP_FMT = '%a, %d %b %Y %H:%M:%S %Z'
 plug = Plug()
 root = None
 webdav = None
@@ -54,9 +56,9 @@ def upload_file(metadata, content):
         local_file = "/tmp/{}.onitu-tmp".format(
             os.path.basename(metadata.path)
         )
-        with open(local_file, 'w') as f:
+        with open(u(local_file), 'w') as f:
             f.write(content)
-        webdav.upload(local_file, metadata.path)
+        webdav.upload(content, metadata.path)
     except easywebdav.client.OperationFailed as e:
         raise ServiceError(
             "Error writting file '{}': {}".format(metadata.path, e)
@@ -121,9 +123,14 @@ class CheckChanges(threading.Thread):
                 metadata = plug.get_metadata(relpath)
                 if metadata is None:
                     continue
-                onitu_rev = metadata.extra.get('revision', 0.)
-
-                if f.mtime > onitu_rev:
+                mtime_onitu = metadata.extra.get(
+                    'revision',
+                    datetime.datetime.min
+                )
+                mtime_local = datetime.datetime.strptime(
+                    f.mtime, TIMESTAMP_FMT
+                )
+                if mtime_local > mtime_onitu:
                     update_file(metadata, f)
 
     def run(self):
