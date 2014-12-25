@@ -7,7 +7,7 @@ setup(
     description="Store files on a remote machine using webdav through onitu.",
     license="MIT",
     packages=find_packages(),
-    install_requires=["easywebdav"],
+    install_requires=["pycurl", "lxml", "webdavclient"],
     package_data={'': ['manifest.json']},
     entry_points={
         'onitu.drivers': [

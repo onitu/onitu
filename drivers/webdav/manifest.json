@@ -2,13 +2,12 @@
   "name": "webdav",
   "description": "Store files on a remote machine using webdav.",
   "options": {
-    "protocol": {
-      "name": "Protocol",
-      "description": "The protocol for the webdav connection",
-      "type": "string",
-      "default": "http"
-    },
     "hostname": {
+      "name": "Hostname",
+      "description": "The hostname for the webdav connection",
+      "type": "string"
+    },
+    "root": {
       "name": "Hostname",
       "description": "The hostname for the webdav connection",
       "type": "string"
@@ -24,12 +23,6 @@
       "description": "The password for the webdav connection",
       "type": "string",
       "default": ""
-    },
-    "port": {
-      "name": "Port number",
-      "description": "The port number for the webdav connection",
-      "type": "integer",
-      "default": 8008
     },
     "changes_timer": {
       "name": "Timer for modification check",
