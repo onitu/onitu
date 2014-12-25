@@ -23,7 +23,7 @@ import thrift.protocol.TBinaryProtocol as TBinaryProtocol
 import thrift.transport.THttpClient as THttpClient
 
 from onitu.plug import Plug, DriverError, ServiceError
-from onitu.utils import u,b
+from onitu.utils import u, b
 
 root = None
 token = None
@@ -110,6 +110,16 @@ def create_root_notebook():
             raise ServiceError(u"Error creating '{}' notebook: {}", root, exc)
 
 
+def enclose_content_with_markup(content):
+    """Enclose some given content with the Evernote boilerplate markup.
+    It is useful when creating new notes without this markup, since Evernote
+    raises errors in those cases."""
+    content = """<?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">
+    <en-note>{}</en-note>""".format(content)
+    return content
+
+
 def update_note_content(metadata, content, note=None, commit=False):
     """Updates the content of an Evernote note with the given content.
     Also provides content hash and length. An existing note can be passed, so
@@ -133,44 +143,7 @@ def create_note(metadata, content):
     note.title = metadata.filename
     note = update_note_content(metadata, content, note)
     note.notebookGuid = notebook_onitu.guid
-
-    # To include an attachment such as an image in a note, first create a Resource
-    # for the attachment. At a minimum, the Resource contains the binary attachment
-    # data, an MD5 hash of the binary data, and the attachment MIME type.
-    # It can also include attributes such as filename and location.
-    # md5 = hashlib.md5()
-    # md5.update(content)
-    # md5_hash = md5.digest()
-
-    # data = Types.Data()
-    # data.size = len(content)
-    # data.bodyHash = md5_hash
-    # data.body = content
-
-    # attr = Types.ResourceAttributes()
-    # attr.fileName = filename
-
-    # resource = Types.Resource()
-    # resource.mime = metadata.mimetype
-    # resource.data = data
-    # resource.attributes = attr
-
-    # note.resources = [resource]
-
-    # hash_hex = binascii.hexlify(md5_hash)
-
-    # # The content of an Evernote note is represented using Evernote Markup Language
-    # # (ENML). The full ENML specification can be found in the Evernote API Overview
-    # # at http://dev.evernote.com/documentation/cloud/chapters/ENML.php
-    # note.content = '<?xml version="1.0" encoding="UTF-8"?>'
-    # note.content += '<!DOCTYPE en-note SYSTEM ' \
-    #     '"http://xml.evernote.com/pub/enml2.dtd">'
-    # note.content += '<en-note>This note was created by onitu to store your '
-    # note.content += metadata.filename + ' file.<br/><br/>'
-    # note.content += '<en-media type="' + metadata.mimetype + '" hash="' + hash_hex + '"/>'
-    # note.content += '</en-note>'
     return notestore_onitu.createNote(note)
-
 
 # ############################# ONITU HANDLERS ###################################
 
@@ -181,7 +154,8 @@ def move_file(old_metadata, new_metadata):
     global notestore_onitu
     global dev_token
 
-    note = notestore_onitu.getNote(token, old_metadata.extra['guid'], False, False, True, False)
+    note = notestore_onitu.getNote(token, old_metadata.extra['guid'],
+                                   False, False, True, False)
 
     res = note.resources[0] #Types.Resource()
     attr = Types.ResourceAttributes()
@@ -215,12 +189,15 @@ def get_file(metadata):
             EDAMNotFoundException) as exc:
         raise ServiceError(u"Could not get file {}: {}"
                            .format(metadata.filename, exc))
+    except Exception as e:
+        raise DriverError("Unexpected exception: {}".format(e))
     return data
 
 
 @plug.handler()
 def upload_file(metadata, content):
-    try:
+    # Define a helper nested function to easily handle retries
+    def upload_note(metadata, content):
         if metadata.extra.get('evernote_guid', None) is None:
             # Create the note via the Evernote API in case of new file
             plug.logger.debug(u"Creating note {}".format(metadata.filename))
@@ -230,24 +207,53 @@ def upload_file(metadata, content):
             plug.logger.debug(u"Updating note {}".format(metadata.filename))
             note = update_note_content(metadata, content)
             note = notestore_onitu.updateNote(token, note)
-        # update onitu metadata in both cases
-        update_note_metadata(metadata, note)
-    except (EDAMUserException, EDAMSystemException,
-            EDAMNotFoundException) as exc:
-        raise ServiceError(u"Couldn't create note {}: {}"
+        return note
+    # If upload_file modifies the content of the note, we have to call
+    # update_file in the end to notify the other drivers
+    update = False
+    try:
+        note = upload_note(metadata, content)
+    except EDAMUserException as eue:
+        # Evernote can raise content-related errors when the user updates the
+        # note's contents. E.g. when creating a new note, the user may
+        # forget to enclose the content evernote boilerplate markup. It's
+        # likely to raise an error in case of empty note or premature content
+        # start. We must detect those cases and try to add the markup ourselves
+        knownErrors = ['Content is not allowed in prolog.',
+                       'Premature end of file.']
+        if (eue.errorCode == EDAMErrorCode.ENML_VALIDATION
+            and eue.parameter in knownErrors):
+            plug.logger.warning("Catched content-related exception, trying to"
+                                " fix by enclosing content in Evernote markup")
+            content = enclose_content_with_markup(content)
+            note = upload_note(metadata, content)  # Try again
+            update = True
+        else:  # A UserException we don't know
+            raise ServiceError(u"Couldn't upload note {}: {}"
+                               .format(metadata.filename, eue))
+    except (EDAMSystemException, EDAMNotFoundException) as exc:
+        raise ServiceError(u"Couldn't upload note {}: {}"
                            .format(metadata.filename, exc))
+    except Exception as e:
+        raise DriverError("Unexpected error {}".format(e))
     # If the evernote part was OK, update onitu metadata
-    update_note_metadata(metadata, note)
+    # Call plug.update_file if we modified the content by enclosing ENML markup
+    update_note_metadata(metadata, note, updateFile=update)
+    plug.logger.debug(u"Upload of file {} completed".format(metadata.filename))
+
 
 @plug.handler()
 def delete_file(metadata):
     """Handler to delete a file. This gets called for the notes AND for the
     resources. But we can't do the same thing for both, so it contains
-    specific checks."""
+    specific checks. Ideally, when we delete a note, the driver should delete
+    all resource files of this note, but it's a bit complex to keep track of
+    all the necessary files, so it's not currently implemented."""
     resourceNoteGuid = metadata.extra.get('evernote_note_guid', None)
     # We didn't store any owning note GUID for this file so it must be a note
     if not resourceNoteGuid:
-        res = notestore_onitu.deleteNote(token, metadata.extra['evernote_guid'])
+        res = notestore_onitu.deleteNote(token,
+                                         metadata.extra['evernote_guid'])
     else:  # it is a resource of a file
         # Get the note and manually remove the resource in the resource list
         raise DriverError("NOT IMPLEMENTED")
@@ -266,8 +272,8 @@ class CheckChanges(threading.Thread):
         self.timer = timer
         self.root = root
         # The last update count of the notebook we're aware of.
-#        self.notebookUSN = plug.entry_db.get('notebook_USN', default=0)
-        self.notebookUSN = 0
+        self.notebookUSN = plug.entry_db.get('notebook_USN', default=0)
+        #self.notebookUSN = 0
         # We don't want to paginate. Ask all teh notes in one time
         self.maxNotes = EDAM_USER_NOTES_MAX
         # Filter to include only notes from our notebook
@@ -344,10 +350,15 @@ class CheckChanges(threading.Thread):
             # In spite of one could think, res.notes actually are Evernote
             # NoteMetadata, not Note instances...
             for noteMetadata in res.notes:
-                # The note content and its resources are in a specific folder
-                # append .html to title because the note content is XHTML
-                onituMetadata = plug.get_metadata("{}.html"
-                                                  .format(noteMetadata.title))
+                # Why we don't append .html: it causes name inconsistencies,
+                # e.g. if we create a note called 'empty' on Onitu side, and
+                # modify it on Evernote side, on the way back onitu will create
+                # a new file called 'empty.html'. It's not first priority now
+                # but it may be discussed in the future.
+                filename = noteMetadata.title
+                #                if not filename.endswith(".html"):
+                #                   filename += ".html"
+                onituMetadata = plug.get_metadata(filename)
                 # Update Sequence Num is like a kind of operation counter.
                 # If it is higher than what we had, something new happened.
                 # The flaw in this logic is that it can have nothing to do with
@@ -355,7 +366,8 @@ class CheckChanges(threading.Thread):
                 # AFAIK there is no better solution right now.
                 usn = noteMetadata.updateSequenceNum
                 onitu_usn = onituMetadata.extra.get('evernote_USN', 0)
-                plug.logger.debug(u"Has USN {}, server has {} for {}".format(onitu_usn, usn, noteMetadata.title))
+                plug.logger.debug(u"Has USN {}, server has {} for {}"
+                                  .format(onitu_usn, usn, noteMetadata.title))
                 if onitu_usn < usn:
                     try:
                         self.update_note(noteMetadata, onituMetadata)
@@ -427,7 +439,11 @@ class CheckChanges(threading.Thread):
                     notebook_onitu.guid)
                 syncState = notestore_onitu.getSyncState()
                 # There has been a new transaction on the notebook
-                plug.logger.debug("My USN: {} EN USN: {} syncstate updatecount: {}".format(self.notebookUSN, notebook_onitu.updateSequenceNum, syncState.updateCount))
+                plug.logger.debug("My USN: {} EN USN: {}"
+                                  " syncstate updatecount: {}"
+                                  .format(self.notebookUSN,
+                                          notebook_onitu.updateSequenceNum,
+                                          syncState.updateCount))
 #                if self.notebookUSN < notebook_onitu.updateSequenceNum:
                 if self.notebookUSN < syncState.updateCount:
                     plug.logger.debug("Notebook USN {} is more recent than "
@@ -436,9 +452,8 @@ class CheckChanges(threading.Thread):
                                               self.notebookUSN))
                     self.check_changes()
                     # Update ourselves
-                    self.notebookUSN = syncState.updateCount  #notebook_onitu.updateSequenceNum
+                    self.notebookUSN = syncState.updateCount
                     plug.entry_db.put('notebook_USN',
-                                      #notebook_onitu.updateSequenceNum)
                                       syncState.updateCount)
                 else:
                     plug.logger.debug("I'm up to date")
@@ -448,10 +463,10 @@ class CheckChanges(threading.Thread):
             except ResponseNotReady:
                 plug.logger.warning("Cannot poll changes because notebook data"
                                     " isn't ready. Will retry later...")
-            except AttributeError as ae:
+            except Exception as e:
                 # Some weird things can happen in the Thrift lib.
                 # Usually retry later is fine.
-                plug.logger.warning(ae)
+                plug.logger.warning("Unexpected error : {}".format(e))
             self.stop.wait(self.timer)
 
     def stop(self):
