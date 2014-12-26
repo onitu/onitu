@@ -79,7 +79,7 @@ def get_fid(folder, filename):
     references to files inside Onitu.
     """
     if PY2:
-        folder = filename.encode('utf-8')
+        folder = unicode(folder).encode('utf-8')
         filename = filename.encode('utf-8')
 
     return str(uuid.uuid5(NAMESPACE_ONITU, "{}:{}".format(folder, filename)))
