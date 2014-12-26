@@ -1,26 +1,14 @@
 import threading
 import hashlib
-import os
-import binascii
-import time
-import datetime
-from datetime import timedelta
-from path import path
 from httplib import ResponseNotReady
 
-import evernote.edam.userstore.UserStore as UserStore
-import evernote.edam.userstore.constants as UserStoreConstants
 import evernote.edam.type.ttypes as Types
 from evernote.edam.error.ttypes import EDAMUserException, EDAMSystemException
 from evernote.edam.error.ttypes import EDAMNotFoundException, EDAMErrorCode
 from evernote.api.client import EvernoteClient
 from evernote.edam.notestore.ttypes import NoteFilter, NotesMetadataResultSpec
-from evernote.edam.notestore.ttypes import SyncState, SyncChunkFilter
 from evernote.edam.type.ttypes import NoteSortOrder
 from evernote.edam.limits.constants import EDAM_USER_NOTES_MAX
-
-import thrift.protocol.TBinaryProtocol as TBinaryProtocol
-import thrift.transport.THttpClient as THttpClient
 
 from onitu.plug import Plug, DriverError, ServiceError
 from onitu.utils import u, b
@@ -250,13 +238,31 @@ def delete_file(metadata):
     all resource files of this note, but it's a bit complex to keep track of
     all the necessary files, so it's not currently implemented."""
     resourceNoteGuid = metadata.extra.get('evernote_note_guid', None)
-    # We didn't store any owning note GUID for this file so it must be a note
-    if not resourceNoteGuid:
-        res = notestore_onitu.deleteNote(token,
-                                         metadata.extra['evernote_guid'])
-    else:  # it is a resource of a file
-        # Get the note and manually remove the resource in the resource list
-        raise DriverError("NOT IMPLEMENTED")
+    try:
+        # We didn't store any owning note GUID for this file so it must be a note
+        if not resourceNoteGuid:
+            plug.logger.debug(u"Removing note {} (GUID {})"
+                              .format(metadata.filename, guid))
+            res = notestore_onitu.deleteNote(token,
+                                             metadata.extra['evernote_guid'])
+        else:  # it is a resource of a file
+            guid = metadata.extra['evernote_guid']  # guid of the resource
+            plug.logger.debug(u"Removing note resource {} (GUID {})"
+                              .format(metadata.filename, guid))
+            # Get the note and manually remove the resource in the resource list
+            # Yep, that's dirty, because e.g. the note's markup keeps
+            # referencing a broken resource, but since there's no dedicated API
+            # call, it is the official best practice...
+            note = notestore_onitu.getNote(token, resourceNoteGuid,
+                                           False, False, False, False)
+            # Reconstruct the list omitting the concerned resource.
+            note.resources = [rc for rc in note.resources if rc.guid != guid]
+            note = notestore_onitu.updateNote(token, note)
+    except (EDAMUserException, EDAMSystemException,
+            EDAMNotFoundException) as exc:
+        raise ServiceError(u"Unable to delete file {}: {}"
+                           .format(metadata.filename, exc))
+
 
 # ############################## WATCHER ######################################
 
