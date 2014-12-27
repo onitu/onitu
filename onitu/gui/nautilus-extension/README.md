@@ -8,7 +8,7 @@ Create these dirs:
 mkdir -p ~/.icons/hicolor/48x48/emblems
 
 Copy icons:
-cp ../icons/* ~/.icons/hicolor/48x48/emblems
+cp icons/* ~/.icons/hicolor/48x48/emblems
 
 Create these dirs:
 mkdir -p ~/.local/share/nautilus-python/extensions
