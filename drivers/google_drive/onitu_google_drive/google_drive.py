@@ -192,7 +192,7 @@ class CheckChanges(threading.Thread):
 
     def update_metadata(self, filepath, f):
         db = plug.entry_db
-        plug.logger.debug("Update metadata: {} {}", filepath, f)
+        plug.logger.debug("Update metadata ?: {} {}", filepath, f)
         try:
             fid = db.get('listes:{}'.format(f["id"]))
             metadata = Metadata.get_by_id(plug, fid)
@@ -208,7 +208,6 @@ class CheckChanges(threading.Thread):
         if "revision" in metadata.extra:
             revision = metadata.extra["revision"]
         _, f = libdrive.get_information_by_id(access_token, f["id"])
-        print(f)
         if f["md5Checksum"] != revision:
             metadata.size = int(f["fileSize"])
             metadata.extra["revision"] = f["md5Checksum"]
@@ -217,6 +216,7 @@ class CheckChanges(threading.Thread):
             metadata.extra["id"] = f["id"]
             metadata.extra["parent_id"] = f["parents"][0]["id"]
             plug.update_file(metadata)
+            plug.logger.debug("Updated metadata!")
 
     def check_folder_list_file(self, path, path_id):
         _, filelist = libdrive.get_files_by_path(access_token, path_id)
@@ -237,7 +237,9 @@ class CheckChanges(threading.Thread):
     def add_to_buf(self, change, buf):
         cc = change["file"]["mimeType"]
         if cc != ft:
+
             t = {}
+            plug.logger.debug(u"{}".format(t))
             t["id"] = change["file"]["id"]
             t["title"] = change["file"]["title"]
             t["parents"] = change["file"]["parents"][0]["id"]
@@ -251,18 +253,6 @@ class CheckChanges(threading.Thread):
                 plug.logger.debug(u"File with change {}".format(t["title"]))
                 return (True, t)
         return (False, None)
-
-    def add_to_bufdel(self, change):
-        cc = change["mimeType"]
-        if cc != ft:
-            t = {}
-            t["id"] = change["id"]
-            t["title"] = change["title"]
-            t["parents"] = change["parents"][0]["id"]
-            t["md5Checksum"] = change["md5Checksum"]
-            t["fileSize"] = change["fileSize"]
-            return t
-        return None
 
     def check_if_path_exist(self, path_id):
         if path_id in tree:
@@ -322,7 +312,14 @@ class CheckChanges(threading.Thread):
                 for change in data["items"]:
                     if change["deleted"] is True:
                         fileId = change["fileId"]
-                        bufDel[change["fileId"]] = change["fileId"]
+                        bufDel[fileId] = fileId
+                        if fileId in buf:
+                            del buf[fileId]
+                        plug.logger.debug(u"File deleted change {}",
+                                          change)
+                    elif change["file"]["labels"]["trashed"] is True:
+                        fileId = change["file"]["id"]
+                        bufDel[fileId] = fileId
                         if fileId in buf:
                             del buf[fileId]
                         plug.logger.debug(u"File deleted change {}",
