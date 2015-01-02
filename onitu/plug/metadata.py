@@ -108,6 +108,10 @@ class Metadata(object):
     def write(self):
         """Write the metadata of the current file in the database."""
         with self.plug.escalator.write_batch() as batch:
+            batch.put(
+                u'path:{}:{}'.format(self.folder_name, self.filename),
+                self.fid
+            )
             batch.put('file:{}'.format(self.fid), self.dict())
             batch.put(
                 u'file:{}:service:{}'.format(self.fid, self.plug.name),
@@ -151,3 +155,6 @@ class Metadata(object):
         )
         if not other_services:
             self.plug.escalator.delete('file:{}'.format(self.fid))
+            self.plug.escalator.delete(
+                u'path:{}:{}'.format(self.folder_name, self.filename)
+            )
