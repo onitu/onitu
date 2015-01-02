@@ -1,3 +1,4 @@
+import os
 import sys
 
 import zmq
@@ -53,7 +54,13 @@ def cleanup():
 
 
 session = u(sys.argv[1])
-databases = Databases('dbs')
+config_dir = u(sys.argv[2])
+databases_dir = os.path.join(config_dir, 'dbs')
+
+if not os.path.exists(databases_dir):
+    os.makedirs(databases_dir)
+
+databases = Databases(databases_dir)
 
 at_exit(cleanup)
 
