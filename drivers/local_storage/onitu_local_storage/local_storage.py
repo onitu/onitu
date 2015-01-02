@@ -50,11 +50,18 @@ def move(old_metadata, old_path, new_path):
 
 
 def check_changes():
+    expected_files = set()
+
+    for folder in plug.folders.values():
+        expected_files.update(folder.join(f) for f in plug.list(folder).keys())
+
     for abs_path in root.walkfiles():
         if abs_path.ext == TMP_EXT:
             continue
 
         filename = abs_path.relpath(root).normpath()
+
+        expected_files.discard(filename)
 
         metadata = plug.get_metadata(filename)
         revision = metadata.extra.get('revision', 0.)
@@ -69,6 +76,10 @@ def check_changes():
 
         if mtime > revision:
             update(metadata, abs_path, mtime)
+
+    for filename in expected_files:
+        metadata = plug.get_metadata(filename)
+        plug.delete_file(metadata)
 
 
 @plug.handler()
