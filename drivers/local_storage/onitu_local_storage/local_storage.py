@@ -49,22 +49,6 @@ def move(old_metadata, old_path, new_path):
     new_metadata.write()
 
 
-def delete_empty_dirs(filename):
-    """
-    Remove all the empty parent directories, stopping at the root
-    """
-    filename = path(filename)
-    parent = filename.parent
-
-    while parent != root:
-        try:
-            parent.rmdir()
-        except OSError:
-            break
-
-        parent = parent.parent
-
-
 def check_changes():
     for abs_path in root.walkfiles():
         if abs_path.ext == TMP_EXT:
@@ -176,8 +160,6 @@ def delete_file(metadata):
             u"Error deleting file '{}': {}".format(metadata.path, e)
         )
 
-    delete_empty_dirs(metadata.path)
-
 
 @plug.handler()
 def move_file(old_metadata, new_metadata):
@@ -194,8 +176,6 @@ def move_file(old_metadata, new_metadata):
         raise ServiceError(
             u"Error moving file '{}': {}".format(old_path, e)
         )
-
-    delete_empty_dirs(old_path)
 
 
 if IS_WINDOWS:
@@ -264,6 +244,7 @@ else:
             self.process_event(event.pathname, update)
 
         def process_IN_DELETE(self, event):
+            print("DELETION", event.pathname)
             self.process_event(event.pathname, delete)
 
         def process_IN_MOVED_TO(self, event):
