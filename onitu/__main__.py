@@ -8,6 +8,7 @@ This module starts Onitu. It does the following:
 - launch the different elements using the Circus library
 """
 
+import os
 import sys
 import argparse
 
@@ -29,6 +30,23 @@ from .utils import get_circusctl_endpoint, get_pubsub_endpoint, u
 # exit before being killed. This avoid any hang during
 # shutdown
 GRACEFUL_TIMEOUT = 1.
+
+
+# The default directory where Onitu store its informations
+if IS_WINDOWS:
+    DEFAULT_CONFIG_DIR = os.path.join(
+        os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'onitu'
+    )
+elif sys.platform == 'darwin':
+    DEFAULT_CONFIG_DIR = os.path.join(
+        os.path.expanduser('~/Library/Application Support'), 'onitu'
+    )
+else:
+    DEFAULT_CONFIG_DIR = os.path.join(
+        os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config')),
+        'onitu'
+    )
+
 
 session = None
 setup = None
@@ -136,7 +154,7 @@ def get_logs_dispatcher(uri, debug=False):
 
 
 def get_setup(setup_file):
-    if setup_file.endswith('.yml') or setup_file.endswith('.yaml'):
+    if setup_file.endswith(('.yml', '.yaml')):
         try:
             import yaml
         except ImportError:
@@ -170,9 +188,9 @@ def main():
 
     parser = argparse.ArgumentParser("onitu")
     parser.add_argument(
-        '--setup', default='setup.yml', type=u,
+        '--setup', type=u,
         help="A YAML or JSON file with Onitu's configuration "
-             "(defaults to setup.yml)"
+             "(defaults to the setup.yml file in your config directory)"
     )
     parser.add_argument(
         '--no-dispatcher', action='store_true',
@@ -181,13 +199,38 @@ def main():
     parser.add_argument(
         '--debug', action='store_true', help="Enable debugging logging"
     )
+    parser.add_argument(
+        '--config-dir', default=DEFAULT_CONFIG_DIR, type=u,
+        help="The directory where Onitu store its informations and gets the "
+             "default setup. Defaults to {}".format(DEFAULT_CONFIG_DIR)
+    )
     args = parser.parse_args()
 
-    setup = get_setup(args.setup)
+    config_dir = args.config_dir
+
+    if not os.path.exists(config_dir):
+        os.makedirs(config_dir)
+
+    if not args.setup:
+        setup_file = os.path.join(config_dir, 'setup.yml')
+
+        if not os.path.exists(setup_file):
+            logger.error("You must create a setup.yml file in {}".format(
+                config_dir
+            ))
+            return 1
+    else:
+        setup_file = args.setup
+
+    setup = get_setup(setup_file)
     if not setup:
         return 1
 
     session = setup.get('name')
+
+    if not session:
+        logger.error("Your setup must have a name.")
+        return 1
 
     logs_uri = get_logs_uri(session)
     if not args.no_dispatcher:
@@ -202,7 +245,9 @@ def main():
                     {
                         'name': 'Escalator',
                         'cmd': sys.executable,
-                        'args': ('-m', 'onitu.escalator.server', session),
+                        'args': (
+                            '-m', 'onitu.escalator.server', session, config_dir
+                        ),
                         'copy_env': True,
                         'graceful_timeout': GRACEFUL_TIMEOUT
                     },
