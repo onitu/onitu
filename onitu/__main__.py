@@ -16,7 +16,8 @@ import circus
 
 from itertools import chain
 
-from logbook import Logger, INFO, DEBUG, NullHandler, NestedSetup
+from logbook import Logger, INFO, DEBUG, NestedSetup
+from logbook import NullHandler, RotatingFileHandler
 from logbook.queues import ZeroMQHandler, ZeroMQSubscriber
 from logbook.more import ColorizedStderrHandler
 from tornado import gen
@@ -138,7 +139,7 @@ def start_watcher(name, module, *args, **kwargs):
     yield watcher.start()
 
 
-def get_logs_dispatcher(uri, debug=False):
+def get_logs_dispatcher(config_dir, uri, debug=False):
     """Configure the dispatcher that will print the logs received
     on the ZeroMQ channel.
     """
@@ -147,8 +148,14 @@ def get_logs_dispatcher(uri, debug=False):
     if not debug:
         handlers.append(NullHandler(level=DEBUG))
 
-    handlers.append(ColorizedStderrHandler(level=INFO))
+    handlers.append(RotatingFileHandler(
+        os.path.join(config_dir, 'onitu.log'),
+        level=INFO,
+        max_size=1048576,  # 1 Mb
+        bubble=True
+    ))
 
+    handlers.append(ColorizedStderrHandler(level=INFO, bubble=True))
     subscriber = ZeroMQSubscriber(uri, multi=True)
     return subscriber.dispatch_in_background(setup=NestedSetup(handlers))
 
@@ -234,7 +241,9 @@ def main():
 
     logs_uri = get_logs_uri(session)
     if not args.no_dispatcher:
-        dispatcher = get_logs_dispatcher(debug=args.debug, uri=logs_uri)
+        dispatcher = get_logs_dispatcher(
+            config_dir, logs_uri, debug=args.debug
+        )
     else:
         dispatcher = None
 
