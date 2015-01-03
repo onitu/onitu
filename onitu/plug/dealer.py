@@ -7,7 +7,7 @@ from multiprocessing.pool import ThreadPool
 
 from logbook import Logger
 
-from onitu.utils import get_events_uri, b
+from onitu.utils import get_events_uri, b, log_traceback
 
 from .workers import WORKERS, UP
 
@@ -54,8 +54,8 @@ class Dealer(object):
             self.logger.info("Started")
 
             self.listen(listener)
-        except Exception as e:
-            self.logger.error("Unexpected error: {}", e)
+        except Exception:
+            log_traceback(self.logger)
         finally:
             if listener:
                 listener.close()

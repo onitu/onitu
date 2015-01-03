@@ -15,7 +15,7 @@ from .folder import Folder
 from .exceptions import DriverError, AbortOperation
 
 from onitu.escalator.client import Escalator
-from onitu.utils import get_events_uri
+from onitu.utils import get_events_uri, log_traceback
 from onitu.referee import UP, DEL, MOV
 
 
@@ -322,11 +322,8 @@ class Plug(object):
                 handler_name, e
             )
             raise AbortOperation()
-        except Exception as e:
-            self.logger.error(
-                "Unexpected error calling '{}': {}",
-                handler_name, e
-            )
+        except Exception:
+            log_traceback(self.logger)
             raise AbortOperation()
 
     def notify_referee(self, fid, *args):
