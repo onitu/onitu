@@ -66,11 +66,29 @@ class Dealer(object):
                 prefix=u'service:{}:event:'.format(self.name)
             )
 
+            # We copy the current events in another key. That way, we keep in
+            # the db the events not handled yet, but if a new event with the
+            # same fid comes before we finished handling the first one we
+            # don't erase it
+            for key, event in events:
+                self.escalator.delete(key)
+
+                fid = key.split(':')[-1]
+                self.escalator.put(
+                    u'service:{}:inprogress:{}'.format(self.name, fid), event
+                )
+
+            # We get the inprogress events from the DB, so that if old events
+            # are still there (maybe after a crash) we are sure to handle them
+            events = self.escalator.range(
+                u'service:{}:inprogress:'.format(self.name)
+            )
+
             for key, (cmd, args) in events:
                 fid = key.split(':')[-1]
                 self.call(cmd, fid, *args)
                 self.escalator.delete(
-                    u'service:{}:event:{}'.format(self.name, fid)
+                    u'service:{}:inprogress:{}'.format(self.name, fid)
                 )
 
             try:
