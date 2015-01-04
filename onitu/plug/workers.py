@@ -3,7 +3,7 @@ from threading import Event
 import zmq
 
 from onitu.referee import UP, DEL, MOV
-from onitu.utils import get_events_uri
+from onitu.utils import get_events_uri, log_traceback
 
 from .metadata import Metadata
 from .exceptions import AbortOperation
@@ -27,16 +27,19 @@ class Worker(object):
         self.escalator = self.dealer.escalator.clone(context=self.context)
 
     def __call__(self):
-        self.metadata = Metadata.get_by_id(self.dealer.plug, self.fid)
-        self.filename = self.metadata.filename
+        try:
+            self.metadata = Metadata.get_by_id(self.dealer.plug, self.fid)
+            self.filename = self.metadata.filename
 
-        self.do()
+            self.do()
+        except Exception:
+            log_traceback(self.logger)
+        finally:
+            self.escalator.close()
+            self.context.destroy()
 
-        self.escalator.close()
-        self.context.destroy()
-
-        if self.fid in self.dealer.in_progress:
-            self.dealer.in_progress.pop(self.fid)
+            if self.fid in self.dealer.in_progress:
+                self.dealer.in_progress.pop(self.fid)
 
     def stop(self):
         self._stop.set()
