@@ -65,6 +65,9 @@ def start_setup(*args, **kwargs):
     with escalator.write_batch() as batch:
         # TODO: handle folders from previous run
         for name, options in setup.get('folders', {}).items():
+            if options is None:
+                options = {}
+
             batch.put(u'folder:{}'.format(name), options)
 
     services = setup.get('services', {})
@@ -95,10 +98,9 @@ def load_service(escalator, service, conf):
     escalator.put(u'service:{}:driver'.format(service), conf['driver'])
     escalator.put(u'service:{}:root'.format(service), conf.get('root', ''))
 
-    if 'options' in conf:
-        escalator.put(
-            u'service:{}:options'.format(service), conf['options']
-        )
+    escalator.put(
+        u'service:{}:options'.format(service), conf.get('options', {})
+    )
 
     folders = conf.get('folders', {})
     escalator.put(u'service:{}:folders'.format(service), list(folders.keys()))
