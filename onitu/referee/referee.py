@@ -69,6 +69,8 @@ class Referee(object):
                 raise
         except EscalatorClosed:
             pass
+        except Exception:
+            log_traceback(self.logger)
         finally:
             if listener:
                 listener.close()
@@ -83,8 +85,6 @@ class Referee(object):
                     if cmd in self.handlers:
                         fid = key.split(':')[-1]
                         self.handlers[cmd](fid, *args[1:])
-                except Exception:
-                    log_traceback(self.logger)
                 finally:
                     self.escalator.delete(key)
 
