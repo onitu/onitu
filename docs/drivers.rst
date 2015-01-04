@@ -122,6 +122,14 @@ At this stage, the list of the handlers that can be defined is the following :
   perturbations.
 
 
+.. function:: normalize_path(path)
+
+    Called when a folder is initialized. This handler should normalize the given path to make sure it will be valid when used latter on.
+    For example it can expand the user directory (`~/`) or remove trailing slashes, according to the needs and possibilities of the service.
+
+    :param path: The path to normalize.
+    :type path: string
+
 The Plug
 ========
 

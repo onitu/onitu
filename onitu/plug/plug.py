@@ -67,7 +67,7 @@ class Plug(object):
             u'service:{}:options'.format(name), default={}
         )
 
-        self.folders = Folder.get_folders(self.escalator, self.name)
+        self.folders = Folder.get_folders(self)
 
         self.validate_options(manifest)
 
