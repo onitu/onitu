@@ -96,7 +96,6 @@ def load_service(escalator, service, conf):
         return
 
     escalator.put(u'service:{}:driver'.format(service), conf['driver'])
-    escalator.put(u'service:{}:root'.format(service), conf.get('root', ''))
 
     escalator.put(
         u'service:{}:options'.format(service), conf.get('options', {})

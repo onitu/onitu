@@ -63,10 +63,6 @@ class Plug(object):
         self.publisher = self.context.socket(zmq.PUSH)
         self.publisher.connect(get_events_uri(session, 'referee'))
 
-        self.root = self.escalator.get(
-            u'service:{}:root'.format(name), default=''
-        )
-
         self.options = self.escalator.get(
             u'service:{}:options'.format(name), default={}
         )
