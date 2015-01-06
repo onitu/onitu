@@ -359,3 +359,13 @@ class Plug(object):
             prefix = u'service:{}:db:'.format(self.name)
             self._service_db = self.escalator.clone(prefix=prefix)
         return self._service_db
+
+    @property
+    def folders_to_watch(self):
+        """
+        Return the list of the folders which should be watched by the driver
+        """
+        return tuple(
+            folder for folder in self.folders.values()
+            if not any(f.contains(folder.path) for f in self.folders.values())
+        )

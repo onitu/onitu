@@ -41,4 +41,4 @@ class Folder(object):
         return os.path.join(self.path, filename)
 
     def contains(self, filename):
-        return filename.startswith(self.path)
+        return filename != self.path and filename.startswith(self.path)
