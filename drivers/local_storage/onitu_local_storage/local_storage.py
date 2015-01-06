@@ -18,18 +18,16 @@ else:
 TMP_EXT = '.onitu-tmp'
 
 plug = Plug()
-root = None
 
 
 def to_tmp(filename):
-    filename = path(filename)
     return filename.parent / ('.' + filename.name + TMP_EXT)
 
 
-def update(metadata, abs_path, mtime=None):
+def update(metadata, mtime=None):
     try:
-        metadata.size = abs_path.size
-        metadata.extra['revision'] = mtime if mtime else abs_path.mtime
+        metadata.size = metadata.path.size
+        metadata.extra['revision'] = mtime if mtime else metadata.path.mtime
     except (IOError, OSError) as e:
         raise ServiceError(
             u"Error updating file '{}': {}".format(metadata.path, e)
@@ -38,48 +36,53 @@ def update(metadata, abs_path, mtime=None):
         plug.update_file(metadata)
 
 
-def delete(metadata, _):
+def delete(metadata):
     plug.delete_file(metadata)
 
 
-def move(old_metadata, old_path, new_path):
-    new_filename = root.relpathto(new_path)
+def move(old_metadata, new_filename):
     new_metadata = plug.move_file(old_metadata, new_filename)
-    new_metadata.extra['revision'] = path(root / new_path).mtime
+    new_metadata.extra['revision'] = path(new_filename).mtime
     new_metadata.write()
 
 
-def check_changes():
+def check_changes(folder):
     expected_files = set()
 
-    for folder in plug.folders.values():
-        expected_files.update(folder.join(f) for f in plug.list(folder).keys())
+    expected_files.update(plug.list(folder).keys())
 
-    for abs_path in root.walkfiles():
-        if abs_path.ext == TMP_EXT:
+    for filename in folder.path.walkfiles():
+        if filename.ext == TMP_EXT:
             continue
-
-        filename = abs_path.relpath(root).normpath()
 
         expected_files.discard(filename)
 
-        metadata = plug.get_metadata(filename)
+        metadata = plug.get_metadata(filename, folder)
         revision = metadata.extra.get('revision', 0.)
 
         try:
-            mtime = abs_path.mtime
+            mtime = filename.mtime
         except (IOError, OSError) as e:
             raise ServiceError(
-                u"Error updating file '{}': {}".format(filename, e)
+                u"Error updating file '{}': {}".format(metadata.path, e)
             )
             mtime = 0.
 
         if mtime > revision:
-            update(metadata, abs_path, mtime)
+            update(metadata, mtime)
 
     for filename in expected_files:
-        metadata = plug.get_metadata(filename)
+        metadata = plug.get_metadata(filename, folder)
         plug.delete_file(metadata)
+
+
+@plug.handler()
+def normalize_path(p):
+    normalized = path(p).expanduser().normpath()
+    if not normalized.isabs():
+        raise DriverError(u"The folder path '{}' is not absolute.".format(p))
+
+    return normalized
 
 
 @plug.handler()
@@ -135,9 +138,9 @@ def end_upload(metadata):
         if IS_WINDOWS:
             # On Windows we can't move a file
             # if dst exists
-            path(metadata.path).unlink_p()
+            metadata.path.unlink_p()
         tmp_file.move(metadata.path)
-        mtime = os.path.getmtime(metadata.path)
+        mtime = metadata.path.mtime
 
         if IS_WINDOWS:
             win32api.SetFileAttributes(
@@ -174,18 +177,15 @@ def delete_file(metadata):
 
 @plug.handler()
 def move_file(old_metadata, new_metadata):
-    old_path = path(old_metadata.path)
-    new_path = path(new_metadata.path)
-
-    parent = new_path.dirname()
+    parent = new_metadata.path.dirname()
     if not parent.exists():
         parent.makedirs_p()
 
     try:
-        old_path.rename(new_path)
+        old_metadata.path.rename(new_metadata.path)
     except (IOError, OSError) as e:
         raise ServiceError(
-            u"Error moving file '{}': {}".format(old_path, e)
+            u"Error moving file '{}': {}".format(old_metadata.path, e)
         )
 
 
@@ -243,19 +243,23 @@ if IS_WINDOWS:
                         except EscalatorClosed:
                             return
 
-    def watch_changes():
+    def watch_changes(folder):
         file_lock = threading.Lock()
         notifier = threading.Thread(target=win32watcherThread,
-                                    args=(root.abspath(), file_lock))
+                                    args=(folder.path, file_lock))
         notifier.setDaemon(True)
         notifier.start()
 else:
     class Watcher(pyinotify.ProcessEvent):
+        def __init__(self, folder, *args, **kwargs):
+            super(Watcher, self).__init__(*args, **kwargs)
+
+            self.folder = folder
+
         def process_IN_CLOSE_WRITE(self, event):
             self.process_event(event.pathname, update)
 
         def process_IN_DELETE(self, event):
-            print("DELETION", event.pathname)
             self.process_event(event.pathname, delete)
 
         def process_IN_MOVED_TO(self, event):
@@ -266,39 +270,40 @@ else:
             else:
                 self.process_event(event.src_pathname, move, u(event.pathname))
 
-        def process_event(self, abs_path, callback, *args):
-            abs_path = path(u(abs_path))
+        def process_event(self, filename, callback, *args):
+            filename = path(self.folder.relpath(u(filename)))
 
-            if abs_path.ext == TMP_EXT:
+            if filename.ext == TMP_EXT:
                 return
 
-            filename = root.relpathto(abs_path)
-
             try:
-                metadata = plug.get_metadata(filename)
-                callback(metadata, abs_path, *args)
+                metadata = plug.get_metadata(filename, self.folder)
+                callback(metadata, *args)
             except EscalatorClosed:
                 return
 
-    def watch_changes():
+    def watch_changes(folder):
         manager = pyinotify.WatchManager()
-        notifier = pyinotify.ThreadedNotifier(manager, Watcher())
+        notifier = pyinotify.ThreadedNotifier(manager, Watcher(folder))
         notifier.daemon = True
         notifier.start()
 
         mask = (pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE |
                 pyinotify.IN_DELETE | pyinotify.IN_MOVED_TO |
                 pyinotify.IN_MOVED_FROM)
-        manager.add_watch(root, mask, rec=True, auto_add=True)
+        manager.add_watch(folder.path, mask, rec=True, auto_add=True)
 
 
 def start():
-    global root
-    root = path(plug.root)
+    for folder in plug.folders_to_watch:
+        try:
+            folder.path.makedirs_p()
+        except OSError as e:
+            raise DriverError(
+                u"Cannot create the folder '{}': {}".format(folder.path, e)
+            )
 
-    if not root.access(os.W_OK | os.R_OK):
-        raise DriverError(u"The root '{}' is not accessible".format(root))
+        watch_changes(folder)
+        check_changes(folder)
 
-    watch_changes()
-    check_changes()
     plug.listen()
