@@ -1,4 +1,9 @@
 import os.path
+import tempfile
+import json
+import path
+import urllib2
+
 from gi.repository import Nautilus, GObject
 
 class OnituIconOverlayExtension(GObject.GObject, Nautilus.InfoProvider):
@@ -6,7 +11,20 @@ class OnituIconOverlayExtension(GObject.GObject, Nautilus.InfoProvider):
         pass
 
     def update_file_info(self, file):
-        if os.path.splitext(file.get_name())[1] == ".onitu":
-            file.add_emblem("onitu_sync")
-        elif (file.get_string_attribute("onitu_local_storage") != ""):
+
+        tmp_dir = tempfile.gettempdir()
+        tmp_filename = tmp_dir + '/onitu_synced_files'
+
+        try:
+            with open(tmp_filename, "r") as jsonFile:
+                data = json.load(jsonFile)
+        except IOError as e:
+            data = dict()
+
+        file_path = urllib2.unquote(file.get_uri()[7:])
+        status = data.get(file_path)
+
+        if status == "pending":
+            file.add_emblem("onitu_pending")
+        elif status == "synced":
             file.add_emblem("onitu_sync")
