@@ -12,7 +12,7 @@
       "name": "Timer for modification check",
       "description": "Time in seconds between two checks for files modifications",
       "type": "integer",
-      "default": 15
+      "default": 10
     },
     "token": {
       "name": "Your evenote token",

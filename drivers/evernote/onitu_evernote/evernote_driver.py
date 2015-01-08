@@ -24,7 +24,7 @@ plug = Plug()
 
 # ############################## EVERNOTE ####################################
 
-def update_resource_metadata(onituMetadata, resource):
+def update_resource_metadata(onituMetadata, resource, updateFile=False):
     """Updates the Onitu metadata of a resource file. Quite not the same thing
     as updating a note."""
     # Data may not be set so be careful
@@ -34,7 +34,8 @@ def update_resource_metadata(onituMetadata, resource):
     # noteGuid helps us to remember if a file is a file's resource or not
     onituMetadata.extra['evernote_note_guid'] = resource.noteGuid
     onituMetadata.extra['evernote_USN'] = resource.updateSequenceNum
-    plug.update_file(onituMetadata)
+    if updateFile:
+        plug.update_file(onituMetadata)
 
 
 def update_note_metadata(onituMetadata, note, updateFile=False):
@@ -184,7 +185,7 @@ def get_file(metadata):
 
 @plug.handler()
 def upload_file(metadata, content):
-    # Define a helper nested function to easily handle retries
+    # A couple of helper nested functions to easily handle retries
     def upload_note(metadata, content):
         if metadata.extra.get('evernote_guid', None) is None:
             # Create the note via the Evernote API in case of new file
@@ -196,11 +197,40 @@ def upload_file(metadata, content):
             note = update_note_content(metadata, content)
             note = notestore_onitu.updateNote(token, note)
         return note
+    def upload_resource(metadata, content):
+        """The process of updating a resource is quite the same than to delete
+        one."""
+        guid = metadata.extra['evernote_guid']  # guid of the resource
+        plug.logger.debug(u"Updating note resource {} (GUID {})"
+                          .format(metadata.filename, guid))
+        # Get the note and manually update the resource in the resource list
+        # Yep, that's dirty, because there's no dedicated API
+        # call, but it is the official best practice...
+        note = notestore_onitu.getNote(token, resourceNoteGuid,
+                                       False, False, False, False)
+        resource = None
+        # Reconstruct the list omitting the concerned resource.
+        for rsc in note.resources:
+            if rsc.guid == guid:
+                rsc.data = content
+                resource = rsc
+                break
+        if resource is None:
+            raise DriverError(u"No Evernote Resource GUID for file {} !"
+                              .format(metadata.filename))
+        note = notestore_onitu.updateNote(token, note)
+        plug.logger.debug("Successfully updated the resource")
+        return resource
+    # TODO Correctly manage upload_file
     # If upload_file modifies the content of the note, we have to call
     # update_file in the end to notify the other drivers
     update = False
     try:
-        note = upload_note(metadata, content)
+        # If it's a resource
+        if metadata.extra.get('evernote_note_guid', None) is not None:
+            resource = upload_resource(metadata, content)
+        else:
+            note = upload_note(metadata, content)
     except EDAMUserException as eue:
         # Evernote can raise content-related errors when the user updates the
         # note's contents. E.g. when creating a new note, the user may
@@ -225,8 +255,11 @@ def upload_file(metadata, content):
     except Exception as e:
         raise DriverError("Unexpected error {}".format(e))
     # If the evernote part was OK, update onitu metadata
-    # Call plug.update_file if we modified the content by enclosing ENML markup
-    update_note_metadata(metadata, note, updateFile=update)
+    if metadata.extra.get('evernote_note_guid', None) is not None:
+        update_resource_metadata(metadata, resource)
+    else:
+        # Call plug.update_file if we modified the content by enclosing ENML markup
+        update_note_metadata(metadata, note, updateFile=update)
     plug.logger.debug(u"Upload of file {} completed".format(metadata.filename))
 
 
@@ -330,7 +363,8 @@ class CheckChanges(threading.Thread):
             # Nothing fancy about the resources: if the USN changed,
             # re-download it
             if onitu_USN < resource.updateSequenceNum:
-                update_resource_metadata(resourceMetadata, resource)
+                update_resource_metadata(resourceMetadata, resource,
+                                         updateFile=True)
 
     def check_changes(self):
         """The function that will check the notes in the notebook are uptodate.
