@@ -94,7 +94,10 @@ def set_status(abs_path, status):
     except IOError as e:
         data = dict()
 
-    data[abs_path] = status
+    if status == "deleted" or status == "moved":
+        data.pop(abs_path, None)
+    else:
+        data[abs_path] = status
 
     try:
         with open(tmp_filename, "w") as jsonFile:
