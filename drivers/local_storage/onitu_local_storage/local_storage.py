@@ -82,6 +82,9 @@ def check_changes():
         else:
             set_status(path(abs_path).abspath(), "synced")
 
+    for filename in expected_files:
+        metadata = plug.get_metadata(filename)
+        plug.delete_file(metadata)
 
 def set_status(abs_path, status):
 
@@ -106,10 +109,6 @@ def set_status(abs_path, status):
         raise ServiceError(
             u"Error to write in status file '{}': {}".format(tmp_filename, e)
         )
-
-    for filename in expected_files:
-        metadata = plug.get_metadata(filename)
-        plug.delete_file(metadata)
 
 
 @plug.handler()
