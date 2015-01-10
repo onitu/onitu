@@ -1,4 +1,4 @@
-import os
+from .exceptions import DriverError
 
 
 class Folder(object):
@@ -35,10 +35,16 @@ class Folder(object):
         return cls(folder, path, options)
 
     def relpath(self, filename):
-        return os.path.relpath(filename, self.path)
+        if not filename.startswith(self.path):
+            raise DriverError(
+                u"'{}' is not in the folder {}".format(filename, self.name)
+            )
+        return filename[len(self.path):].lstrip('/')
 
     def join(self, filename):
-        return os.path.join(self.path, filename)
+        if filename.startswith(self.path):
+            filename = filename[len(self.path):]
+        return self.path.rstrip('/') + '/' + filename.lstrip('/')
 
     def contains(self, filename):
         return filename != self.path and filename.startswith(self.path)
