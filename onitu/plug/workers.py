@@ -66,6 +66,7 @@ class TransferWorker(Worker):
 
     def do(self):
         success = False
+        dealer = None
 
         try:
             self.start_transfer()
@@ -80,7 +81,8 @@ class TransferWorker(Worker):
         else:
             success = True
         finally:
-            dealer.close()
+            if dealer:
+                dealer.close()
 
         self.end_transfer(success)
 
