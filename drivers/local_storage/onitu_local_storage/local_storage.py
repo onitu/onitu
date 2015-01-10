@@ -1,7 +1,5 @@
 import os
 
-from path import path
-
 from onitu.plug import Plug, DriverError, ServiceError
 from onitu.escalator.client import EscalatorClosed
 from onitu.utils import IS_WINDOWS, u
@@ -21,13 +19,25 @@ plug = Plug()
 
 
 def to_tmp(filename):
-    return filename.parent / ('.' + filename.name + TMP_EXT)
+    return os.path.join(
+        os.path.dirname(filename), '.' + os.path.basename(filename) + TMP_EXT
+    )
+
+
+def walkfiles(root):
+    return (
+        os.path.join(dirpath, f)
+        for dirpath, _, files in os.walk(root) for f in files
+    )
 
 
 def update(metadata, mtime=None):
     try:
-        metadata.size = metadata.path.size
-        metadata.extra['revision'] = mtime if mtime else metadata.path.mtime
+        metadata.size = os.path.getsize(metadata.path)
+
+        if not mtime:
+            mtime = os.path.getmtime(metadata.path)
+        metadata.extra['revision'] = mtime
     except (IOError, OSError) as e:
         raise ServiceError(
             u"Error updating file '{}': {}".format(metadata.path, e)
@@ -42,7 +52,7 @@ def delete(metadata):
 
 def move(old_metadata, new_filename):
     new_metadata = plug.move_file(old_metadata, new_filename)
-    new_metadata.extra['revision'] = path(new_filename).mtime
+    new_metadata.extra['revision'] = os.path.getmtime(new_filename)
     new_metadata.write()
 
 
@@ -51,8 +61,8 @@ def check_changes(folder):
 
     expected_files.update(plug.list(folder).keys())
 
-    for filename in folder.path.walkfiles():
-        if filename.ext == TMP_EXT:
+    for filename in walkfiles(folder.path):
+        if os.path.splitext(filename)[1] == TMP_EXT:
             continue
 
         expected_files.discard(filename)
@@ -61,7 +71,7 @@ def check_changes(folder):
         revision = metadata.extra.get('revision', 0.)
 
         try:
-            mtime = filename.mtime
+            mtime = os.path.getmtime(filename)
         except (IOError, OSError) as e:
             raise ServiceError(
                 u"Error updating file '{}': {}".format(metadata.path, e)
@@ -78,8 +88,8 @@ def check_changes(folder):
 
 @plug.handler()
 def normalize_path(p):
-    normalized = path(p).expanduser().normpath()
-    if not normalized.isabs():
+    normalized = os.path.normpath(os.path.expanduser(p))
+    if not os.path.isabs(normalized):
         raise DriverError(u"The folder path '{}' is not absolute.".format(p))
 
     return normalized
@@ -102,10 +112,12 @@ def start_upload(metadata):
     tmp_file = to_tmp(metadata.path)
 
     try:
-        if not tmp_file.exists():
-            tmp_file.dirname().makedirs_p()
+        try:
+            os.makedirs(os.path.dirname(tmp_file))
+        except OSError:
+            pass
 
-        tmp_file.open('wb').close()
+        open(tmp_file, 'wb').close()
 
         if IS_WINDOWS:
             win32api.SetFileAttributes(
@@ -138,9 +150,12 @@ def end_upload(metadata):
         if IS_WINDOWS:
             # On Windows we can't move a file
             # if dst exists
-            metadata.path.unlink_p()
-        tmp_file.move(metadata.path)
-        mtime = metadata.path.mtime
+            try:
+                os.unlink(metadata.path)
+            except OSError:
+                pass
+        os.rename(tmp_file, metadata.path)
+        mtime = os.path.getmtime(metadata.path)
 
         if IS_WINDOWS:
             win32api.SetFileAttributes(
@@ -158,7 +173,7 @@ def end_upload(metadata):
 def abort_upload(metadata):
     tmp_file = to_tmp(metadata.path)
     try:
-        tmp_file.unlink()
+        os.unlink(tmp_file)
     except (IOError, OSError) as e:
         raise ServiceError(
             u"Error deleting file '{}': {}".format(tmp_file, e)
@@ -177,12 +192,8 @@ def delete_file(metadata):
 
 @plug.handler()
 def move_file(old_metadata, new_metadata):
-    parent = new_metadata.path.dirname()
-    if not parent.exists():
-        parent.makedirs_p()
-
     try:
-        old_metadata.path.rename(new_metadata.path)
+        os.renames(old_metadata.path, new_metadata.path)
     except (IOError, OSError) as e:
         raise ServiceError(
             u"Error moving file '{}': {}".format(old_metadata.path, e)
@@ -264,16 +275,16 @@ else:
 
         def process_IN_MOVED_TO(self, event):
             if event.dir:
-                for new in path(event.pathname).walkfiles():
+                for new in walkfiles(event.pathname):
                     old = new.replace(event.pathname, event.src_pathname)
                     self.process_event(old, move, u(new))
             else:
                 self.process_event(event.src_pathname, move, u(event.pathname))
 
         def process_event(self, filename, callback, *args):
-            filename = path(self.folder.relpath(u(filename)))
+            filename = os.path.relpath(u(filename), self.folder.path)
 
-            if filename.ext == TMP_EXT:
+            if os.path.splitext(filename)[1] == TMP_EXT:
                 return
 
             try:
@@ -297,10 +308,14 @@ else:
 def start():
     for folder in plug.folders_to_watch:
         try:
-            folder.path.makedirs_p()
-        except OSError as e:
+            os.makedirs(folder.path)
+        except OSError:
+            # can be raised if the folder already exists
+            pass
+
+        if not os.path.exists(folder.path):
             raise DriverError(
-                u"Cannot create the folder '{}': {}".format(folder.path, e)
+                u"Cannot create the folder '{}': {}".format(folder.path)
             )
 
         watch_changes(folder)
