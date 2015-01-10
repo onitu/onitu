@@ -278,10 +278,18 @@ else:
         def process_IN_MOVED_TO(self, event):
             if event.dir:
                 for new in walkfiles(event.pathname):
-                    old = new.replace(event.pathname, event.src_pathname)
-                    self.process_event(old, move, u(new))
+                    if hasattr(event, 'src_pathname'):
+                        old = new.replace(event.pathname, event.src_pathname)
+                        self.process_event(old, move, u(new))
+                    else:
+                        self.process_event(new, update)
             else:
-                self.process_event(event.src_pathname, move, u(event.pathname))
+                if hasattr(event, 'src_pathname'):
+                    self.process_event(
+                        event.src_pathname, move, u(event.pathname)
+                    )
+                else:
+                    self.process_event(event.pathname, update)
 
         def process_event(self, filename, callback, *args):
             filename = os.path.relpath(u(filename), self.folder.path)
