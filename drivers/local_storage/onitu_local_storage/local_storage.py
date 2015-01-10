@@ -61,9 +61,11 @@ def check_changes(folder):
 
     expected_files.update(plug.list(folder).keys())
 
-    for filename in walkfiles(folder.path):
-        if os.path.splitext(filename)[1] == TMP_EXT:
+    for path in walkfiles(folder.path):
+        if os.path.splitext(path)[1] == TMP_EXT:
             continue
+
+        filename = folder.relpath(path)
 
         expected_files.discard(filename)
 
@@ -71,7 +73,7 @@ def check_changes(folder):
         revision = metadata.extra.get('revision', 0.)
 
         try:
-            mtime = os.path.getmtime(filename)
+            mtime = os.path.getmtime(path)
         except (IOError, OSError) as e:
             raise ServiceError(
                 u"Error updating file '{}': {}".format(metadata.path, e)
