@@ -29,6 +29,8 @@ def to_tmp(filename):
 
 
 def update(metadata, abs_path, mtime=None):
+    if os.path.exists(to_tmp(metadata.path)):
+        return
     try:
         metadata.size = abs_path.size
         metadata.extra['revision'] = mtime if mtime else abs_path.mtime
@@ -77,7 +79,6 @@ def check_changes():
             mtime = 0.
 
         if mtime > revision:
-            set_status(path(abs_path).abspath(), "pending")
             update(metadata, abs_path, mtime)
         else:
             set_status(path(abs_path).abspath(), "synced")
@@ -100,7 +101,6 @@ def set_status(abs_path, status):
     if status == "deleted" or status == "moved":
         data.pop(abs_path, None)
     else:
-        print "set status " + status + " to " + abs_path
         data[abs_path] = status
 
     try:
@@ -133,6 +133,9 @@ def start_upload(metadata):
             tmp_file.dirname().makedirs_p()
 
         tmp_file.open('wb').close()
+
+        open(metadata.path, 'w').close()
+        set_status(path(metadata.path).abspath(), "pending")
 
         if IS_WINDOWS:
             win32api.SetFileAttributes(
@@ -169,6 +172,8 @@ def end_upload(metadata):
         tmp_file.move(metadata.path)
         mtime = os.path.getmtime(metadata.path)
 
+        set_status(path(metadata.path).abspath(), "pending")
+
         if IS_WINDOWS:
             win32api.SetFileAttributes(
                 metadata.path, win32con.FILE_ATTRIBUTE_NORMAL)
@@ -180,7 +185,7 @@ def end_upload(metadata):
     metadata.extra['revision'] = mtime
     metadata.write()
 
-    set_status(path(filename).abspath(), "synced")
+    set_status(path(metadata.path).abspath(), "synced")
 
 
 @plug.handler()
