@@ -100,6 +100,7 @@ def set_status(abs_path, status):
     if status == "deleted" or status == "moved":
         data.pop(abs_path, None)
     else:
+        print "set status " + status + " to " + abs_path
         data[abs_path] = status
 
     try:
