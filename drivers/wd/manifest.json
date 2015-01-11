@@ -7,11 +7,6 @@
       "description": "The hostname for the webdav connection",
       "type": "string"
     },
-    "root": {
-      "name": "Hostname",
-      "description": "The hostname for the webdav connection",
-      "type": "string"
-    },
     "username": {
       "name": "Username",
       "description": "The username for the webdav connection",
