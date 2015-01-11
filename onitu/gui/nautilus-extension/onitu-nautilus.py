@@ -1,7 +1,6 @@
 import os.path
 import tempfile
 import json
-import path
 import urllib2
 
 from gi.repository import Nautilus, GObject
