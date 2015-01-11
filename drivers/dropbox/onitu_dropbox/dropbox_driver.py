@@ -333,11 +333,10 @@ class CheckChanges(threading.Thread):
             plug.logger.debug(u"Onitu file '{}' is up-to-date"
                               .format(metadata.filename))
 
-    def is_a_folder(self, onitu_filename, db_metadata):
-        """Tells if a given Dropbox file is a folder based on its Onitu
-        filename and Dropbox metadata"""
-        # if onitu_filename = empty string: it's the root's file, ignore it
-        return onitu_filename == '' or db_metadata.get('is_dir', False)
+    def is_a_folder(self, db_metadata):
+        """Tells if a given Dropbox file is a folder based on
+        Dropbox metadata"""
+        return db_metadata.get('is_dir', False)
 
     def get_onitu_filename(self, db_path):
         """Given a Dropbox metadata dict, retrieve the matching Dropbox file
@@ -373,7 +372,7 @@ class CheckChanges(threading.Thread):
                 db_metadata['path']
             )
             # ignore directories as onitu creates them on the fly
-            if self.is_a_folder(filename, db_metadata):
+            if self.is_a_folder(db_metadata):
                 plug.logger.debug(u"{} is a folder - skipped"
                                   .format(db_metadata['path']))
                 continue
