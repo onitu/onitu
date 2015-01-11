@@ -2,7 +2,7 @@ name: example
 
 folders:
   music:
-    type:
+    mimetypes:
       - "audio/*"
   docs:
     blacklist:

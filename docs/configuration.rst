@@ -37,7 +37,7 @@ mode
      :w (write):
 	If not specified new files or changes will not be written to this folder. You must specify this if you want Onitu to make changes to this folder when syncronising.
 
-type
+mimetypes
   :values:
      To be defined. One or more media types as defined in rfc6838. Incomplete types such as "example/*" instead of "example/media_type", 'example/predicate.*' or '*/example' are be accepted.
   :default:
