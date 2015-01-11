@@ -7,7 +7,7 @@ from onitu.utils import get_events_uri, log_traceback
 
 from .metadata import Metadata
 from .exceptions import AbortOperation
-from .router import CHUNK, FILE
+from .router import CHUNK, FILE, ERROR
 
 
 class Worker(object):
@@ -109,13 +109,16 @@ class TransferWorker(Worker):
         )
 
         dealer.send_multipart((FILE, str(self.fid).encode()))
-        _, content = dealer.recv_multipart()
+        resp = dealer.recv_multipart()
+
+        if resp[0] == ERROR:
+            raise AbortOperation()
 
         self.logger.debug(
             "Received content of file '{}' from {}", self.filename, self.driver
         )
 
-        self.call('upload_file', self.metadata, content)
+        self.call('upload_file', self.metadata, resp[1])
 
     def get_file_multipart(self, dealer):
         while self.offset < self.metadata.size:
@@ -130,15 +133,20 @@ class TransferWorker(Worker):
                 str(self.offset).encode(),
                 str(self.chunk_size).encode()
             ))
-            _, chunk = dealer.recv_multipart()
+            resp = dealer.recv_multipart()
+
+            if resp[0] == ERROR:
+                raise AbortOperation()
+
+            chunk = resp[1]
+
+            if not chunk or len(chunk) == 0:
+                raise AbortOperation()
 
             self.logger.debug(
                 "Received chunk of size {} from {} for '{}'",
                 len(chunk), self.driver, self.filename
             )
-
-            if not chunk or len(chunk) == 0:
-                raise AbortOperation()
 
             self.call('upload_chunk', self.metadata, self.offset, chunk)
 
