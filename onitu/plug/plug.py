@@ -235,6 +235,12 @@ class Plug(object):
         return {filename.replace(prefix, '', 1): fid
                 for filename, fid in self.escalator.range(prefix)}
 
+    def exists(self, folder, path):
+        """
+        Return whether the given path exists in the folder or not.
+        """
+        return self.escalator.exists(u'path:{}:{}'.format(folder, path))
+
     def validate_options(self, manifest):
         """
         Validate the options and set the default values using informations
