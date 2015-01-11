@@ -2,7 +2,7 @@ import os
 
 from onitu.plug import Plug, DriverError, ServiceError
 from onitu.escalator.client import EscalatorClosed
-from onitu.utils import IS_WINDOWS, u
+from onitu.utils import IS_WINDOWS, u, log_traceback
 
 if IS_WINDOWS:
     import threading
@@ -301,7 +301,13 @@ else:
                 metadata = plug.get_metadata(filename, self.folder)
                 callback(metadata, *args)
             except EscalatorClosed:
-                return
+                pass
+            except OSError as e:
+                plug.logger.error("Error when dealing with FS event: {}", e)
+            except (DriverError, ServiceError) as e:
+                plug.logger.error(str(e))
+            except Exception:
+                log_traceback(plug.logger)
 
     def watch_changes(folder):
         manager = pyinotify.WatchManager()
