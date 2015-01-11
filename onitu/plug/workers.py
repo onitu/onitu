@@ -224,8 +224,10 @@ class MoveWorker(Worker):
 
         self.logger.debug("Moving '{}' to '{}'", self.filename, new_filename)
 
+        is_uptodate = self.dealer.name in self.metadata.uptodate
+
         try:
-            if 'move_file' in self.dealer.plug._handlers:
+            if 'move_file' in self.dealer.plug._handlers and is_uptodate:
                 self.call('move_file', self.metadata, new_metadata)
                 self.metadata.delete()
             else:
