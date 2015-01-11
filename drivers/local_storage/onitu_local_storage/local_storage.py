@@ -53,6 +53,9 @@ def delete(metadata):
 def move(old_metadata, new_filename):
     new_metadata = plug.move_file(old_metadata, new_filename)
     new_metadata.extra['revision'] = os.path.getmtime(new_filename)
+    # We update the size in case the file was moved very quickly after a change
+    # so the old metadata are not up-to-date
+    new_metadata.size = os.path.getsize(new_metadata.path)
     new_metadata.write()
 
 
