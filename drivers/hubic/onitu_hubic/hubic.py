@@ -1,7 +1,6 @@
 import base64
 import requests
 import hashlib
-import os
 import threading
 import time
 import datetime
