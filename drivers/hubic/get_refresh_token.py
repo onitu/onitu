@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     print
     print "Your web browser will be launched in order to let Onitu gain "
-    "access to your Hubic account.."
+    "access to your Hubic account."
     print "Then, you will be redirected to a localhost address."
     print "There is a parameter (in the url) named \"code\"."
     print "You will need to copy/paste it for the next part of this script."
@@ -61,6 +61,6 @@ if __name__ == '__main__':
     hubic_refresh_token = response.json()["refresh_token"]
 
     print
-    print "You can now copy the following refresh token in setup.json"
+    print "You can now copy the following refresh token in setup.yml"
     print hubic_refresh_token
     print

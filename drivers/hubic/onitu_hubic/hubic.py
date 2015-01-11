@@ -19,14 +19,13 @@ SEGMENTS_FOLDER = 'segmented_files/'
 
 
 class Hubic:
-    def __init__(self, client_id, client_secret, hubic_refresh_token, root):
+    def __init__(self, client_id, client_secret, hubic_refresh_token):
         self.client_id = client_id
         self.client_secret = client_secret
         self.hubic_refresh_token = hubic_refresh_token
         self.hubic_token = 'falsetoken'
         self.os_endpoint = None
         self.os_token = None
-        self.root = root
 
         # Get openstacks credentials
         self._get_openstack_credentials()
@@ -97,9 +96,6 @@ class Hubic:
         result.raise_for_status()
         return result
 
-    def get_path(self, filename):
-        return u(os.path.join(self.root, filename))
-
     def get_object_details(self, path):
         """ Return a dict with: content-length, accept-ranges,
         last-modified, x-object-manifest, x-timestamp, etag,
@@ -114,76 +110,7 @@ class Hubic:
         return res.headers
 
 
-# ############################## WATCHER ######################################
-
-
-class CheckChanges(threading.Thread):
-    """A class spawned in a thread to poll for changes on the HUBIC bucket.
-    HUBIC hasn't any bucket watching system in its API, so the best we can
-    do is periodically polling the bucket's contents and compare the
-    timestamps."""
-
-    def __init__(self, root, timer):
-        threading.Thread.__init__(self)
-        self.stop = threading.Event()
-        self.timer = timer
-        self.root = root
-
-    def check_changes(self):
-        """Detects changes in the given folder and its subfolders and
-        launches the download if needed"""
-        folder_content = self.list_folder(self.root)
-        for f in folder_content:
-            # to avoid dowload of segments folder content
-            if (not f) or (f[:len(SEGMENTS_FOLDER)] == SEGMENTS_FOLDER):
-                continue
-
-            filename = f[len(self.root) + 1 if self.root else 0:]
-            details = hubic.get_object_details(f)
-
-            if details['content-type'] == 'application/directory':
-                continue
-
-            hubic_rev = time.mktime(
-                datetime.datetime.strptime(details['last-modified'],
-                                           '%a, %d %b %Y %X %Z'
-                                           ).timetuple())
-
-            metadata = plug.get_metadata(filename)
-            onitu_rev = metadata.extra.get('revision', 0.)
-
-            if hubic_rev > onitu_rev:
-                metadata.size = int(
-                    hubic.get_object_details(f)['content-length'])
-                metadata.extra['revision'] = hubic_rev
-                plug.update_file(metadata)
-
-    def list_folder(self, path):
-        try:
-            plug.logger.debug("Listing files in directory {}", path)
-            res = hubic.os_call('get', 'default/?prefix=' + path)
-        except requests.exceptions.RequestException as e:
-            raise ServiceError(
-                u"Cannot get folder details '{}': {}".format(path, e)
-            )
-        files = tuple(e for e in res.text.split('\n') if e)
-        plug.logger.debug("Found {} files in directory {}", len(files), path)
-        return files
-
-    def run(self):
-        while not self.stop.isSet():
-            try:
-                self.check_changes()
-            except EscalatorClosed:
-                # We are closing
-                return
-            self.stop.wait(self.timer)
-
-    def stop(self):
-        self.stop.set()
-
-# ############################# ONITU BASIC ###################################
-
+########################### ONITU HANDLERS ###################################
 
 @plug.handler()
 def set_chunk_size(chunk_size):
@@ -195,6 +122,8 @@ def set_chunk_size(chunk_size):
 
 @plug.handler()
 def move_file(old_metadata, new_metadata):
+    plug.logger.debug("Moving file {} to file {}"
+                      .format(old_metadata.path, new_metadata.path))
     old_filename = old_metadata.path
     new_filename = new_metadata.path
 
@@ -214,6 +143,7 @@ def move_file(old_metadata, new_metadata):
 
 @plug.handler()
 def delete_file(metadata):
+    plug.logger.debug("Deleting file {}".format(metadata.path))
     multipart = ''
     # directory = no extra
     if ('chunked' in metadata.extra) and (metadata.extra['chunked'] is True):
@@ -231,6 +161,7 @@ def delete_file(metadata):
 def start_upload(metadata):
     """Initialize a new upload.
     This handler is called when a new transfer is started."""
+    plug.logger.debug("Starting upload of file {}".format(metadata.path))
     manifest_link = hashlib.md5(b(metadata.path) + b(str(time.time())))
 
     metadata.extra['manifest'] = SEGMENTS_FOLDER + manifest_link.hexdigest()
@@ -244,6 +175,7 @@ def start_upload(metadata):
 
 @plug.handler()
 def upload_file(metadata, data):
+    plug.logger.debug("Uploading file {}".format(metadata.path))
     try:
         hubic.os_call('put', 'default/' + metadata.path, data)
     except requests.exceptions.RequestException as e:
@@ -255,6 +187,8 @@ def upload_file(metadata, data):
 @plug.handler()
 def upload_chunk(metadata, offset, chunk):
     """Write a chunk in a file at a given offset."""
+    plug.logger.debug("Uploading chunk of size {} on file {}"
+                      .format(len(chunk), metadata.path))
     chunk_size = len(chunk)
     if metadata.extra['chunk_size'] is None:
         metadata.extra['chunk_size'] = chunk_size
@@ -273,6 +207,7 @@ def upload_chunk(metadata, offset, chunk):
                     chunk_num, metadata.filename, e
                 )
             )
+    plug.logger.debug("Done uploading chunk on {}".format(metadata.path))
 
 
 @plug.handler()
@@ -318,25 +253,90 @@ def get_chunk(metadata, offset, size):
         )
 
 
+# ############################## WATCHER ######################################
+
+class CheckChanges(threading.Thread):
+    """A class spawned in a thread to poll for changes on the HUBIC bucket.
+    HUBIC hasn't any bucket watching system in its API, so the best we can
+    do is periodically polling the bucket's contents and compare the
+    timestamps."""
+
+    def __init__(self, folder, timer):
+        threading.Thread.__init__(self)
+        self.stopEvent = threading.Event()
+        self.timer = timer
+        self.prefix = folder.path
+
+    def check_changes(self):
+        """Detects changes in the given folder and its subfolders and
+        launches the download if needed"""
+        folder_content = self.list_folder(self.prefix)
+        for f in folder_content:
+            # to avoid dowload of segments folder content
+            if (not f) or (f[:len(SEGMENTS_FOLDER)] == SEGMENTS_FOLDER):
+                continue
+
+            filename = f
+            plug.logger.debug("Getting filename {}".format(f))
+            details = hubic.get_object_details(f)
+
+            if details['content-type'] == 'application/directory':
+                continue
+
+            hubic_rev = time.mktime(
+                datetime.datetime.strptime(details['last-modified'],
+                                           '%a, %d %b %Y %X %Z'
+                                           ).timetuple())
+
+            metadata = plug.get_metadata(filename)
+            onitu_rev = metadata.extra.get('revision', 0.)
+
+            if hubic_rev > onitu_rev:
+                metadata.size = int(
+                    hubic.get_object_details(f)['content-length'])
+                metadata.extra['revision'] = hubic_rev
+                plug.update_file(metadata)
+
+    def list_folder(self, path):
+        try:
+            plug.logger.debug("Listing files in directory {}", path)
+            res = hubic.os_call('get', 'default/?prefix=' + path)
+        except requests.exceptions.RequestException as e:
+            raise ServiceError(
+                u"Cannot get folder details '{}': {}".format(path, e)
+            )
+        files = tuple(e for e in res.text.split('\n') if e)
+        plug.logger.debug("Found {} files in directory {}", len(files), path)
+        return files
+
+    def run(self):
+        while not self.stopEvent.isSet():
+            try:
+                self.check_changes()
+            except EscalatorClosed:
+                # We are closing
+                return
+            self.stopEvent.wait(self.timer)
+
+    def stop(self):
+        self.stopEvent.set()
+
+
 # ############################## START #######################################
 
-
 def start():
-    global plug, hubic
-
-    # Clean the root
-    root = plug.root.strip('/')
+    global hubic
 
     onitu_client_id = 'api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl'
     onitu_client_secret = ('CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV4'
                            '9e7SpBsHDAKdtm5WeR5KEaDvc')
-
     hubic = Hubic(onitu_client_id, onitu_client_secret,
-                  plug.options[u'refresh_token'], root)
+                  plug.options['refresh_token'])
 
-    # Launch the changes detection
-    check = CheckChanges(root, plug.options[u'changes_timer'])
-    check.daemon = True
-    check.start()
+    for folder in plug.folders_to_watch:
+        # Launch the changes detection
+        check = CheckChanges(folder, plug.options['changes_timer'])
+        check.daemon = True
+        check.start()
 
     plug.listen()
