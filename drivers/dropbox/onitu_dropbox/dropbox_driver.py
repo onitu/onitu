@@ -376,9 +376,11 @@ class CheckChanges(threading.Thread):
                 plug.logger.debug(u"{} is a folder - skipped"
                                   .format(db_metadata['path']))
                 continue
+            # Strip the folder prefix of the filename
+            filename = filename[len(self.prefix):]
             plug.logger.debug(u"Getting metadata of file '{}'"
                               .format(filename))
-            metadata = plug.get_metadata(filename)
+            metadata = plug.get_metadata(filename, folder=self.folder)
             # Do not check updates if the file has been deleted
             if self.file_deletion_check(metadata, db_metadata):
                 continue
