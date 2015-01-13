@@ -20,7 +20,7 @@ Tests and Benchmarks |Build Status|
 
 ::
 
-    $ py.test -v tests/functionnal # test whithin your current env
+    $ py.test -v tests/functionnal # test within your current env
     $ tox -e py2.7 # test with python2.7
     $ tox -e flake8 # check syntax
     $ tox -e benchmarks # run the benchmarks
