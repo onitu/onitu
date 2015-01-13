@@ -5,7 +5,7 @@ import zmq
 from threading import Thread, Event
 
 from onitu.plug import Plug
-from onitu.utils import _get_uri
+from onitu.utils import _get_uri, b
 from onitu.escalator.client import EscalatorClosed
 
 plug = Plug()
@@ -18,10 +18,8 @@ def read(metadata):
 
 
 def write(metadata, content):
-    files.add(metadata.filename)
-    if type(content) == type(u''):
-        content = content.encode()
-    metadata.extra['content'] = content
+    files.add(metadata.path)
+    metadata.extra['content'] = b(content)
     metadata.write()
 
 
@@ -30,7 +28,7 @@ def delete(metadata):
         del metadata.extra['content']
         metadata.write()
 
-    files.discard(metadata.filename)
+    files.discard(metadata.path)
 
 
 def move(old_metadata, new_metadata):
@@ -115,9 +113,8 @@ class Watcher(Thread):
 
         self.ready = Event()
 
-        self.pull_socket = None
-        self.req_socket = None
-        self.rep_socket = None
+        self.req_socket = self.context.socket(zmq.REP)
+        self.notif_socket = self.context.socket(zmq.PULL)
 
         self.handlers = {
             'write': self.handle_write,
@@ -130,52 +127,39 @@ class Watcher(Thread):
         }
 
     def get_uri(self, name):
-        return _get_uri(plug.session, ':tests:{}:{}'.format(plug.name, name))
+        return _get_uri(plug.session, u':tests:{}:{}'.format(plug.name, name))
 
     def run(self):
         try:
-            self.pull_socket = self.context.socket(zmq.PULL)
-            self.pull_socket.bind(self.get_uri('notifs'))
-
-            self.req_socket = self.context.socket(zmq.REQ)
-            self.req_socket.connect(self.get_uri('get_notifs'))
-
-            self.rep_socket = self.context.socket(zmq.REP)
-            self.rep_socket.bind(self.get_uri('requests'))
-
-            self.notifs()
+            self.req_socket.bind(self.get_uri('requests'))
+            self.notif_socket.bind(self.get_uri('notifs'))
             self.ready.set()
 
             poller = zmq.Poller()
-            poller.register(self.pull_socket, zmq.POLLIN)
-            poller.register(self.rep_socket, zmq.POLLIN)
+            poller.register(self.req_socket, zmq.POLLIN)
+            poller.register(self.notif_socket, zmq.POLLIN)
 
             while True:
                 for socket, _ in poller.poll():
-                    if socket == self.pull_socket:
-                        self.pull_socket.recv()
-                        self.notifs()
-                    elif socket == self.rep_socket:
+                    if socket == self.req_socket:
                         self.request()
+                    elif socket == self.notif_socket:
+                        self.notif()
+
         except (zmq.ZMQError, EscalatorClosed):
             pass
         finally:
-            if self.rep_socket:
-                self.rep_socket.close(linger=0)
-            if self.pull_socket:
-                self.pull_socket.close(linger=0)
-            if self.req_socket:
-                self.req_socket.close(linger=0)
-
-    def notifs(self):
-        self.req_socket.send(b'')
-        for notif in self.req_socket.recv_json():
-            self.handle(notif)
+            self.req_socket.close(linger=0)
+            self.notif_socket.close(linger=0)
 
     def request(self):
-        request = self.rep_socket.recv_json()
+        request = self.req_socket.recv_json()
         response = self.handle(request)
-        self.rep_socket.send_json({'response': response})
+        self.req_socket.send_json({'response': response})
+
+    def notif(self):
+        notif = self.notif_socket.recv_json()
+        self.handle(notif)
 
     def handle(self, event):
         handler = self.handlers[event['type']]
@@ -208,11 +192,11 @@ class Watcher(Thread):
                     self.handle_move(filename, new_filename)
 
         old_metadata = plug.get_metadata(source)
-        plug.move_file(old_metadata, target)
-        # We must get the metadata after notifying the Plug
-        # as Plug.move_file will create the Metadata
-        new_metadata = plug.get_metadata(target)
-        move(old_metadata, new_metadata)
+        new_metadata = plug.move_file(old_metadata, target)
+        files.discard(old_metadata.path)
+
+        if new_metadata:
+            files.add(new_metadata.path)
 
     def handle_rmdir(self, path):
         for filename in list(files):
@@ -221,10 +205,7 @@ class Watcher(Thread):
 
     def handle_checksum(self, filename):
         metadata = plug.get_metadata(filename)
-        content = read(metadata)
-        h = hashlib.md5()
-        h.update(content)
-        return h.hexdigest()
+        return hashlib.md5(b(read(metadata))).hexdigest()
 
 
 def start():

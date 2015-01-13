@@ -1,24 +1,24 @@
 import sys
 
-from sys import version_info
-if version_info.major == 2:
-    from urllib import unquote as unquote
-elif version_info.major == 3:
-    from urllib.parse import unquote as unquote
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
 from bottle import Bottle, run, response, abort, redirect
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
-from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint
+from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint, u, PY2
+
+if PY2:
+    from urllib import unquote as unquote_
+else:
+    from urllib.parse import unquote as unquote_
 
 host = 'localhost'
 port = 3862
 
 app = Bottle()
 
-session = sys.argv[1]
+session = u(sys.argv[1])
 circus_client = CircusClient(endpoint=get_circusctl_endpoint(session))
 escalator = Escalator(session)
 logger = Logger("REST API")
@@ -35,20 +35,24 @@ def enable_cors():
     )
 
 
-def entry(name):
-    driver = escalator.get('entry:{}:driver'.format(name), default=None)
+def unquote(string):
+    return u(unquote_(string))
+
+
+def service(name):
+    driver = escalator.get(u'service:{}:driver'.format(name), default=None)
     if not driver:
         return None
-    options = escalator.get('entry:{}:options'.format(name))
+    options = escalator.get(u'service:{}:options'.format(name))
     return {'name': name, 'driver': driver, 'options': options}
 
 
-def entry_exists(name):
-    names = [entry for entry in escalator.get('entries')]
+def service_exists(name):
+    names = [service for service in escalator.get('services')]
     return name in names
 
 
-def entry_is_running(name):
+def service_is_running(name):
     query = {
         "command": "status",
         "properties": {
@@ -78,16 +82,16 @@ def file_not_found(name):
     )
 
 
-def entry_not_found(name):
+def service_not_found(name):
     return error(
         error_code=404,
-        error_message="entry {} not found".format(name)
+        error_message=u"service {} not found".format(name)
     )
 
 
-def entry_not_running(name, already=False):
-    fmt = "entry {} is {}stopped".format
-    # "already" in case a stop has been requested on an already stopped entry
+def service_not_running(name, already=False):
+    fmt = u"service {} is {}stopped".format
+    # "already" in case a stop has been requested on an already stopped service
     err_msg = fmt(name, "already ") if already else fmt(name, "")
     return error(
         error_code=409,
@@ -108,18 +112,21 @@ def api_doc():
     redirect("https://onitu.readthedocs.org/en/latest/api.html")
 
 
-@app.route('/api/v1.0/files/id/<name>', method='GET')
-def get_file_id(name):
+@app.route('/api/v1.0/files/id/<folder>/<name>', method='GET')
+def get_file_id(folder, name):
+    folder = unquote(folder)
     name = unquote(name)
-    return {name: get_fid(name)}
+    return {name: get_fid(folder, name)}
 
 
 @app.route('/api/v1.0/files', method='GET')
 def get_files():
     files = [metadata for key, metadata in escalator.range('file:')
-             if key.count(b':') == 1]
+             if key.count(':') == 1]
     for metadata in files:
-        metadata['fid'] = get_fid(metadata['filename'])
+        metadata['fid'] = get_fid(
+            metadata['folder_name'], metadata['filename']
+        )
     return {'files': files}
 
 
@@ -134,30 +141,30 @@ def get_file(fid):
     return metadata
 
 
-@app.route('/api/v1.0/entries', method='GET')
-def get_entries():
-    entries = [entry(name) for name in escalator.get('entries')]
-    return {'entries': entries}
+@app.route('/api/v1.0/services', method='GET')
+def get_services():
+    services = [service(name) for name in escalator.get('services')]
+    return {'services': services}
 
 
-@app.route('/api/v1.0/entries/<name>', method='GET')
-def get_entry(name):
+@app.route('/api/v1.0/services/<name>', method='GET')
+def get_service(name):
     name = unquote(name)
-    e = entry(name)
+    e = service(name)
     if not e:
-        return entry_not_found(name)
-    # Do not check if entry is running as we must be able to get info anyway
+        return service_not_found(name)
+    # Do not check if service is running as we must be able to get info anyway
     return e
 
 
-@app.route('/api/v1.0/entries/<name>/stats', method='GET')
-def get_entry_stats(name):
+@app.route('/api/v1.0/services/<name>/stats', method='GET')
+def get_service_stats(name):
     name = unquote(name)
     try:
-        if not entry(name):
-            return entry_not_found(name)
-        if not entry_is_running(name):
-            return entry_not_running(name)
+        if not service(name):
+            return service_not_found(name)
+        if not service_is_running(name):
+            return service_not_running(name)
         query = {
             "command": "stats",
             "properties": {
@@ -186,12 +193,12 @@ def get_entry_stats(name):
     return resp
 
 
-@app.route('/api/v1.0/entries/<name>/status', method='GET')
-def get_entry_status(name):
+@app.route('/api/v1.0/services/<name>/status', method='GET')
+def get_service_status(name):
     name = unquote(name)
     try:
-        if not entry(name):
-            return entry_not_found(name)
+        if not service(name):
+            return service_not_found(name)
         query = {
             "command": "status",
             "properties": {
@@ -209,16 +216,16 @@ def get_entry_status(name):
     return resp
 
 
-@app.route('/api/v1.0/entries/<name>/start', method='PUT')
-def start_entry(name):
+@app.route('/api/v1.0/services/<name>/start', method='PUT')
+def start_service(name):
     name = unquote(name)
     try:
-        if not entry(name):
-            return entry_not_found(name)
-        if entry_is_running(name):
+        if not service(name):
+            return service_not_found(name)
+        if service_is_running(name):
             return error(
                 error_code=409,
-                error_message="entry {} is already running".format(name)
+                error_message=u"service {} is already running".format(name)
             )
         query = {
             "command": "start",
@@ -238,14 +245,14 @@ def start_entry(name):
     return resp
 
 
-@app.route('/api/v1.0/entries/<name>/stop', method='PUT')
-def stop_entry(name):
+@app.route('/api/v1.0/services/<name>/stop', method='PUT')
+def stop_service(name):
     name = unquote(name)
     try:
-        if not entry(name):
-            return entry_not_found(name)
-        if not entry_is_running(name):
-            return entry_not_running(name, already=True)
+        if not service(name):
+            return service_not_found(name)
+        if not service_is_running(name):
+            return service_not_running(name, already=True)
         query = {
             "command": "stop",
             "properties": {
@@ -264,14 +271,14 @@ def stop_entry(name):
     return resp
 
 
-@app.route('/api/v1.0/entries/<name>/restart', method='PUT')
-def restart_entry(name):
+@app.route('/api/v1.0/services/<name>/restart', method='PUT')
+def restart_service(name):
     name = unquote(name)
     try:
-        if not entry_exists(name):
-            return entry_not_found(name)
-        if not entry_is_running(name):
-            return entry_not_running(name)
+        if not service_exists(name):
+            return service_not_found(name)
+        if not service_is_running(name):
+            return service_not_running(name)
         query = {
             "command": "restart",
             "properties": {

@@ -3,6 +3,7 @@ from threading import Thread
 import zmq
 
 from onitu.escalator import protocol
+from onitu.utils import u
 
 
 class Multipart(list):
@@ -94,7 +95,7 @@ class Worker(Thread):
         return self.connect(name, True)
 
     def connect(self, name, prefix, create):
-        name = name.decode()
+        name = u(name)
         try:
             uid = self.databases.connect(name, prefix, create)
             resp = protocol.msg.format_response(uid, status=protocol.status.OK)

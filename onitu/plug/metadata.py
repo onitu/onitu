@@ -1,5 +1,7 @@
+import os
 
-from onitu.utils import get_fid, get_mimetype, IS_WINDOWS
+from onitu.utils import get_fid, get_mimetype, u, IS_WINDOWS
+from .folder import Folder
 
 
 class Metadata(object):
@@ -18,37 +20,41 @@ class Metadata(object):
         The absolute filename of the file
     **size**
         The size of the file, in octets
-    **owners**
-        The entries which should have this file
     **uptodate**
         The entries with an up-to-date version of this file
     **mimetype**
         The MIME type of the file, as detected by python
 
-    Each entry can also store extra informations via the :attr:`.extra`
+    Each service can also store extra informations via the :attr:`.extra`
     attribute. It's a dictionary which can contain any kind of information,
     as long as it's JSON serializable.
     Those informations will not be shared with the other entries, as they
     are stocked separately.
     """
 
-    PROPERTIES = ('filename', 'size', 'owners', 'uptodate', 'mimetype')
+    PROPERTIES = ('filename', 'folder_name', 'size', 'uptodate', 'mimetype')
 
-    def __init__(self, plug=None, filename=None, size=0,
-                 fid=None, owners=[], uptodate=[], mimetype=None):
+    def __init__(self, plug=None, filename=None, folder=None, folder_name=None,
+                 size=0, fid=None, uptodate=[], mimetype=None):
         super(Metadata, self).__init__()
         if IS_WINDOWS:
             filename = filename.replace("\\", "/")
         self.filename = filename
         self.size = size
-        self.owners = owners
         self.uptodate = uptodate
         self.mimetype = mimetype
 
+        if folder_name and not folder:
+            folder = Folder.get(plug.escalator, plug.name, folder_name)
+        elif folder and not folder_name:
+            folder_name = folder.name
+
+        self.folder_name = folder_name
+        self.folder = folder
+
         if not fid and filename:
-            self.fid = get_fid(filename)
-        elif fid:
-            self.fid = fid
+            fid = get_fid(folder_name, filename)
+        self.fid = fid
 
         if not self.mimetype and filename:
             self.mimetype = get_mimetype(filename)
@@ -57,14 +63,16 @@ class Metadata(object):
 
         self.plug = plug
 
+        self._path = None
+
     @classmethod
-    def get_by_filename(cls, plug, filename):
+    def get(cls, plug, folder, filename):
         """Instantiate a new :class:`.Metadata` object for the file
-        with the given name.
+        with the given name inside the given folder.
         """
         if IS_WINDOWS:
             filename = filename.replace("\\", "/")
-        fid = get_fid(filename)
+        fid = get_fid(folder, filename)
         return cls.get_by_id(plug, fid)
 
     @classmethod
@@ -80,42 +88,70 @@ class Metadata(object):
         metadata = cls(plug, fid=fid, **values)
 
         metadata.extra = plug.escalator.get(
-            'file:{}:entry:{}'.format(fid, plug.name),
+            u'file:{}:service:{}'.format(fid, plug.name),
             default={}
         )
 
         return metadata
 
+    @property
+    def path(self):
+        if not self._path:
+            self._path = os.path.join(
+                self.plug.root, self.folder.path, self.filename
+            )
+
+        return self._path
+
     def dict(self):
         """Return the metadata as a dict"""
-        return dict((p, self.__getattribute__(p)) for p in self.PROPERTIES)
+        return dict((u(p), getattr(self, p)) for p in self.PROPERTIES)
 
     def write(self):
         """Write the metadata of the current file in the database."""
         with self.plug.escalator.write_batch() as batch:
             batch.put('file:{}'.format(self.fid), self.dict())
             batch.put(
-                'file:{}:entry:{}'.format(self.fid, self.plug.name), self.extra
+                u'file:{}:service:{}'.format(self.fid, self.plug.name),
+                self.extra
             )
 
-    def clone(self, new_filename):
+    def clone(self, new_folder, new_filename):
         """
         Return a new Metadata object with the same properties than the current,
         but with a new filename. The object is not saved in the database, but
-        the entry's extras are copied and saved.
+        the service's extras are copied and saved.
         """
         values = self.dict()
         if IS_WINDOWS:
             values['filename'] = new_filename.replace("\\", "/")
         else:
             values['filename'] = new_filename
+        values['folder'] = new_folder
+        values['folder_name'] = new_folder.name
         clone = self.__class__(self.plug, **values)
 
-        extras = self.plug.escalator.range('file:{}:entry:'.format(self.fid))
+        extras = self.plug.escalator.range('file:{}:service:'.format(self.fid))
 
         with self.plug.escalator.write_batch() as batch:
             for key, extra in extras:
-                entry = key.decode().split(':')[-1]
-                batch.put('file:{}:entry:{}'.format(clone.fid, entry), extra)
+                service = key.split(':')[-1]
+                batch.put(
+                    u'file:{}:service:{}'.format(clone.fid, service),
+                    extra
+                )
+
+        clone.extra = self.extra
 
         return clone
+
+    def delete(self):
+        self.plug.escalator.delete(
+            u'file:{}:service:{}'.format(self.fid, self.plug.name),
+        )
+
+        other_services = self.plug.escalator.range(
+            'file:{}:service:'.format(self.fid), include_value=False
+        )
+        if not other_services:
+            self.plug.escalator.delete('file:{}'.format(self.fid))

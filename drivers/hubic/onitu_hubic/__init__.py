@@ -1,3 +1,3 @@
-from .hubic import start, plug
+from .hubic import start, plug, Hubic
 
-__all__ = ["start", "plug"]
+__all__ = ["start", "plug", "Hubic"]

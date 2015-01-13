@@ -5,7 +5,7 @@ Onitu - Sync and share your files from various services and backends
 
 Installing
 -----------
-Onitu as two binary dependencies: ZeroMQ and Leveldb. Make sure to install them before installing Onitu.
+Onitu has two binary dependencies: ZeroMQ and Leveldb. Make sure to install them before installing Onitu.
 
 To install Onitu locally (in a virtualenv for instance), execute the following commands:
 ::
@@ -22,7 +22,7 @@ Tests and Benchmarks |Build Status|
 
     $ py.test -v tests/functionnal # test whithin your current env
     $ tox -e py2.7 # test with python2.7
-    $ tox -e flake8 # check syntaxe
+    $ tox -e flake8 # check syntax
     $ tox -e benchmarks # run the benchmarks
 
 .. |Onitu| image:: logo.png

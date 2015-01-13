@@ -15,6 +15,7 @@ import tinys3
 
 from onitu.plug import Plug, DriverError, ServiceError
 from onitu.escalator.client import EscalatorClosed
+from onitu.utils import u  # Unicode helpers
 
 plug = Plug()
 
@@ -46,35 +47,22 @@ def get_conn():
     try:
         S3Conn.head_bucket()
     except requests.HTTPError as httpe:
-        err = "Cannot reach Onitu bucket {}".format(plug.options['bucket'])
+        err = u"Cannot reach Onitu bucket {}".format(plug.options['bucket'])
         if httpe.response.status_code == 404:
-            err += ": The bucket doesn't exist."
+            err += u": The bucket doesn't exist."
         if httpe.response.status_code == 403:
-            err += ": Invalid credentials."
-        err += " Please check your Amazon S3 configuration. - {}".format(httpe)
+            err += u": Invalid credentials."
+        err += u" Please check your Amazon S3 configuration - {}".format(httpe)
         raise DriverError(err)
     return S3Conn
 
 
 def get_root():
     """Returns Onitu's root for S3. Removes the leading slash if any."""
-    root = plug.options['root']
-    if root.startswith('/'):  # S3 doesn't like leading slashes
+    root = plug.root
+    if root.startswith(u'/'):  # S3 doesn't like leading slashes
         root = root[1:]
     return root
-
-
-def root_prefixed_filename(filename):
-    """Prefixes the given filename with Onitu's root."""
-    root = get_root()
-    if not filename.startswith(root):
-        rp_filename = root
-        if not rp_filename.endswith('/'):
-            rp_filename += '/'
-        rp_filename += filename
-    else:
-        rp_filename = filename
-    return rp_filename
 
 
 def get_file_timestamp(filename):
@@ -83,7 +71,7 @@ def get_file_timestamp(filename):
     Prefixes the given filename with Onitu's root."""
     global S3Conn
 
-    metadata = S3Conn.head_object(filename)
+    metadata = S3Conn.head_object(u(filename))
     timestamp = metadata.headers['last-modified']
     # convert timestamp to timestruct...
     timestamp = time.strptime(timestamp, HEAD_TIMESTAMP_FMT)
@@ -119,7 +107,7 @@ def get_multipart_upload(metadata):
 
     multipart_upload = None
     metadata_mp_id = None
-    filename = root_prefixed_filename(metadata.filename)
+    filename = metadata.path
     # Retrieve the stored multipart upload ID
     try:
         metadata_mp_id = metadata.extra['mp_id']
@@ -157,27 +145,27 @@ def get_chunk(metadata, offset, size):
     global S3Conn
     global plug
 
-    plug.logger.debug("GET CHUNK {} {} {}".format(metadata.filename, offset,
-                                                  size))
-    filename = root_prefixed_filename(metadata.filename)
-    plug.logger.debug("Downloading {} bytes from the {} key"
-                      " on bucket {}".format(size, filename,
-                                             plug.options['bucket']))
+    filename = metadata.path
+    plug.logger.debug(u"GET CHUNK {} {} {}".format(filename, offset,
+                                                   size))
+    plug.logger.debug(u"Downloading {} bytes from the {} key"
+                      u" on bucket {}".format(size, filename,
+                                              plug.options['bucket']))
     # Using the REST API "Range" header.
     headers = {'Range': "bytes={}-{}".format(offset, offset + (size-1))}
     try:
         key = S3Conn.get(filename, headers=headers)
     except requests.HTTPError as httpe:
-        err = "Cannot retrieve chunk from {} on bucket {}".format(
+        err = u"Cannot retrieve chunk from {} on bucket {}".format(
             filename, plug.options['bucket'])
         if httpe.response.status_code == 404:
-            err += ": the file doesn't exist anymore."
-        err += " - {}".format(httpe)
+            err += u": the file doesn't exist anymore."
+        err += u" - {}".format(httpe)
         raise ServiceError(err)
     chunk = key.content
-    plug.logger.debug("Download of {} bytes from the {} key on bucket {}"
-                      " is complete".format(size, filename,
-                                            plug.options['bucket']))
+    plug.logger.debug(u"Download of {} bytes from the {} key on bucket {}"
+                      u" is complete".format(size, filename,
+                                             plug.options['bucket']))
     return chunk
 
 
@@ -185,10 +173,11 @@ def get_chunk(metadata, offset, size):
 def upload_chunk(metadata, offset, chunk):
     multipart_upload = get_multipart_upload(metadata)
     part_num = multipart_upload.number_of_parts() + 1
-    plug.logger.debug("Start upload chunk of {}".format(multipart_upload.key))
-    plug.logger.debug("Uploading {} bytes at offset {}"
-                      " in part {}".format(len(chunk),
-                                           offset, part_num))
+    plug.logger.debug(u"Start upload chunk of {}".format(
+        u(multipart_upload.key)))
+    plug.logger.debug(u"Uploading {} bytes at offset {}"
+                      u" in part {}".format(len(chunk),
+                                            offset, part_num))
     # upload_part_from_file expects a file pointer object.
     # we can simulate a file pointer with StringIO or BytesIO.
     # IOStream = StringIO in Python 2, BytesIO in Python 3.
@@ -196,12 +185,12 @@ def upload_chunk(metadata, offset, chunk):
     try:
         multipart_upload.upload_part_from_file(upload_fp, part_num)
     except requests.HTTPError as httpe:
-        plug.logger.debug("Chunk uploaded: {}".format(chunk))
+        plug.logger.debug(u"Chunk uploaded: {}".format(chunk))
         plug.logger.debug(httpe.response.text)
-        err = "Cannot upload part {} of {} multipart upload - {}"
+        err = u"Cannot upload part {} of {} multipart upload - {}"
         err = err.format(part_num, multipart_upload.key, httpe)
         raise ServiceError(err)
-    plug.logger.debug("Chunk upload complete")
+    plug.logger.debug(u"Chunk upload complete")
     add_to_cache(multipart_upload)
     upload_fp.close()
 
@@ -211,24 +200,23 @@ def start_upload(metadata):
     global S3Conn
     global plug
 
-    filename = root_prefixed_filename(metadata.filename)
-    plug.logger.debug("Starting upload of '{}' to '{}' on bucket {}"
-                      .format(metadata.filename, filename,
+    filename = metadata.path
+    plug.logger.debug(u"Starting upload of '{}' to '{}' on bucket {}"
+                      .format(filename, filename,
                               plug.options['bucket']))
-
     # Create a new multipart upload for this file
     new_mp = S3Conn.initiate_multipart_upload(filename)
     # Write the new multipart ID in metadata
     metadata.extra['mp_id'] = new_mp.uploadId
     # New file ? Create a default timestamp
     if metadata.extra.get('timestamp') is None:
-        plug.logger.debug("Creating a new timestamp"
-                          " for {}".format(metadata.filename))
+        plug.logger.debug(u"Creating a new timestamp"
+                          u" for {}".format(filename))
         metadata.extra['timestamp'] = 0.0
     metadata.write()
     # Store the Multipart upload id in cache
     add_to_cache(new_mp)
-    plug.logger.debug("Storing upload ID {} for {}"
+    plug.logger.debug(u"Storing upload ID {} for {}"
                       .format(new_mp.uploadId, filename))
 
 
@@ -236,18 +224,17 @@ def start_upload(metadata):
 def upload_file(metadata, data):
     global S3Conn
     global plug
-    filename = root_prefixed_filename(metadata.filename)
-    plug.logger.debug("Starting one-shot upload of '{}' to '{}' on bucket {}"
-                      .format(metadata.filename, filename,
-                              plug.options['bucket']))
+    filename = metadata.path
+    plug.logger.debug(u"Starting one-shot upload of '{}' on bucket {}"
+                      .format(filename, plug.options['bucket']))
     fp = IOStream(data)
     try:
         S3Conn.upload(filename, fp)
     except requests.HTTPError as httpe:
-        err = "Upload on file {} failed - {}"
+        err = u"Upload on file {} failed - {}"
         err = err.format(filename, httpe)
         raise ServiceError(err)
-    plug.logger.debug("Chunk upload complete")
+    plug.logger.debug(u"Chunk upload complete")
 
 
 @plug.handler()
@@ -255,7 +242,7 @@ def end_upload(metadata):
     global S3Conn
 
     multipart_upload = get_multipart_upload(metadata)
-    filename = root_prefixed_filename(metadata.filename)
+    filename = metadata.path
     # Finish the upload on remote server before getting rid of the
     # multipart upload ID
     try:
@@ -272,7 +259,7 @@ def end_upload(metadata):
         else:
             # Delete the mp id from cache
             remove_from_cache(multipart_upload)
-            raise DriverError("Error: {}".format(exc))
+            raise DriverError(u"Error: {}".format(exc))
     # From here we're sure that's OK for Amazon
     new_timestamp = get_file_timestamp(filename)
     del metadata.extra['mp_id']  # erases the upload ID
@@ -299,31 +286,31 @@ def abort_upload(metadata):
 def move_file(old_metadata, new_metadata):
     global plug
     global S3Conn
-    old_filename = root_prefixed_filename(old_metadata.filename)
-    new_filename = root_prefixed_filename(new_metadata.filename)
+    old_filename = old_metadata.path
+    new_filename = new_metadata.path
     bucket = plug.options['bucket']
-    plug.logger.debug("Moving file '{}' to '{}' on bucket '{}'"
+    plug.logger.debug(u"Moving file '{}' to '{}' on bucket '{}'"
                       .format(old_filename, new_filename, bucket))
     try:
-        plug.logger.debug("Copying file '{}' to '{}' on bucket '{}'..."
+        plug.logger.debug(u"Copying file '{}' to '{}' on bucket '{}'..."
                           .format(old_filename, new_filename, bucket))
         S3Conn.copy(old_filename, bucket, new_filename, bucket)
-        plug.logger.debug("Copying file '{}' to '{}' on bucket '{}'..."
+        plug.logger.debug(u"Copying file '{}' to '{}' on bucket '{}'..."
                           " - Done".format(old_filename, new_filename, bucket))
-        plug.logger.debug("Deleting file '{}' on bucket '{}'..."
+        plug.logger.debug(u"Deleting file '{}' on bucket '{}'..."
                           .format(old_filename, bucket))
         S3Conn.delete(old_filename)
-        plug.logger.debug("Deleting file '{}' on bucket '{}'..."
-                          " - Done".format(old_filename, bucket))
+        plug.logger.debug(u"Deleting file '{}' on bucket '{}'..."
+                          u" - Done".format(old_filename, bucket))
         # Update timestamp of new object
         # This permits to not detect a new update in the check changes thread
         # and thus avoids an useless transfer the other way around
-        plug.logger.debug("Updating timestamp of {}".format(new_filename))
+        plug.logger.debug(u"Updating timestamp of {}".format(new_filename))
         timestamp = get_file_timestamp(new_filename)
         new_metadata.extra['timestamp'] = timestamp
         new_metadata.write()
     except requests.HTTPError as httpe:
-        raise ServiceError("Network problem while moving file - {}"
+        raise ServiceError(u"Network problem while moving file - {}"
                            .format(httpe))
 
 
@@ -332,14 +319,14 @@ def delete_file(metadata):
     global plug
     global S3Conn
     try:
-        filename = root_prefixed_filename(metadata.filename)
-        plug.logger.debug("Deleting {}"
-                          "on bucket {}".format(filename,
-                                                plug.options['bucket']))
+        filename = metadata.path
+        plug.logger.debug(u"Deleting {} "
+                          u"on bucket {}".format(filename,
+                                                 plug.options['bucket']))
         S3Conn.delete(filename)
     except requests.HTTPError as httpe:
         raise ServiceError(
-            "Error deleting file {} on bucket {}: {}".format(
+            u"Error deleting file {} on bucket {}: {}".format(
                 filename, plug.options['bucket'], httpe
                 )
             )
@@ -360,17 +347,17 @@ class CheckChanges(threading.Thread):
         global S3Conn
         global plug
 
-        plug.logger.debug("Checking bucket"
-                          " {} for changes".format(plug.options['bucket']))
+        plug.logger.debug(u"Checking bucket"
+                          u" {} for changes".format(plug.options['bucket']))
         # We're only interested in keys and uploads under Onitu's root
         root = get_root()
         # We add a trailing slash to only list files under root and not the
         # root itself
-        if not root.endswith('/'):
-            root += '/'
+        if not root.endswith(u'/'):
+            root += u'/'
         # We need to unroll the generator to be able to check for folders
         keys = [key for key in S3Conn.list(prefix=root)]
-        plug.logger.debug("Processing files under '{}'".format(root))
+        plug.logger.debug(u"Processing files under '{}'".format(root))
         # Getting multipart uploads once for all files under root
         # is WAY faster than re-getting them for each file
         multipart_uploads = S3Conn.get_all_multipart_uploads(prefix=root)
@@ -380,13 +367,13 @@ class CheckChanges(threading.Thread):
         if root.startswith('/'):
             root = root[1:]
         for key in keys:
-            plug.logger.debug("Processing file '{}'".format(key['key']))
+            plug.logger.debug(u"Processing file '{}'".format(key['key']))
             # During an upload, files can appear on the S3 file system
             # before the transfer has been completed.
             # Skip if there's currently an upload going on
             if key in keys_being_uploaded:
-                plug.logger.debug("Remote file '{}' is being uploaded"
-                                  " - skipped".format(key['key']))
+                plug.logger.debug(u"Remote file '{}' is being uploaded"
+                                  u" - skipped".format(key['key']))
                 continue
             # Amazon S3 has no concept of folder, they are just empty files to
             # it. But we must not notify them on Onitu or it transfers them as
@@ -397,8 +384,8 @@ class CheckChanges(threading.Thread):
                 children = [child for child in keys
                             if child['key'].startswith(prefix)]
                 if children:
-                    plug.logger.debug("File '{}' is a folder on S3"
-                                      " - skipped".format(key['key']))
+                    plug.logger.debug(u"File '{}' is a folder on S3"
+                                      u" - skipped".format(key['key']))
                     continue
             # Strip the S3 root of the S3 filename for root coherence.
             rootless_key = key['key'][len(root):]
@@ -406,12 +393,12 @@ class CheckChanges(threading.Thread):
             onitu_ts = metadata.extra.get('timestamp', 0.0)
             remote_ts = time.mktime(key['last_modified'].timetuple())
             if onitu_ts < remote_ts:  # Remote timestamp is more recent
-                plug.logger.debug("Updating metadata"
-                                  " of file {}".format(metadata.filename))
+                plug.logger.debug(u"Updating metadata"
+                                  u" of file {}".format(metadata.path))
                 metadata.size = int(key['size'])
                 metadata.extra['timestamp'] = remote_ts
                 plug.update_file(metadata)
-        plug.logger.debug("Done checking bucket - next check in {} seconds"
+        plug.logger.debug(u"Done checking bucket - next check in {} seconds"
                           .format(self.timer))
 
     def run(self):
@@ -421,25 +408,25 @@ class CheckChanges(threading.Thread):
             try:
                 self.check_bucket()
             except requests.HTTPError as httpe:
-                err = "Error while polling Onitu's S3 bucket"
+                err = u"Error while polling Onitu's S3 bucket"
                 if httpe.response.status_code == 404:
-                    err += ": The given bucket {} doesn't exist".format(
+                    err += u": The given bucket {} doesn't exist".format(
                         plug.options['bucket'])
-                err += " - {}".format(httpe)
+                err += u" - {}".format(httpe)
                 plug.logger.error(err)
             except requests.ConnectionError as conne:
-                err = "Failed to connect to Onitu's S3 bucket for polling"
-                err += " - {}".format(conne)
+                err = u"Failed to connect to Onitu's S3 bucket for polling"
+                err += u" - {}".format(conne)
                 plug.logger.error(err)
             # if the bucket read operation times out
             except SSLError as ssle:
-                plug.logger.warning("Couldn't poll S3 bucket '{}': {}"
+                plug.logger.warning(u"Couldn't poll S3 bucket '{}': {}"
                                     .format(plug.options['bucket'], ssle))
                 pass  # cannot do much about it
             # Happens when connection is reset by peer
             except socket.error as serr:
-                plug.logger.warning("Network problem, trying to reconnect. "
-                                    "{}".format(serr))
+                plug.logger.warning(u"Network problem, trying to reconnect. "
+                                    u"{}".format(serr))
                 get_conn()
             except EscalatorClosed:
                 # We are closing
@@ -455,7 +442,7 @@ def start():
 
     if plug.options['changes_timer'] < 0:
         raise DriverError(
-            "The change timer option must be a positive integer")
+            u"The change timer option must be a positive integer")
     get_conn()  # connection to S3
     root = get_root()
     if root != '':
@@ -467,19 +454,19 @@ def start():
                 # it's alright, root doesn't exist, no problem
                 pass
             else:  # another error
-                raise DriverError("Cannot fetch Onitu's root ({}) on"
-                                  " bucket "
-                                  "{}: {}".format(plug.options['root'],
-                                                  plug.options['bucket'],
-                                                  httpe))
+                raise DriverError(u"Cannot fetch Onitu's root ({}) on"
+                                  u" bucket "
+                                  u"{}: {}".format(plug.root,
+                                                   plug.options['bucket'],
+                                                   httpe))
         else:  # no error - root already exists
             # Amazon S3 has no concept of directories, they're just 0-size
             # files. So if root hasn't a size of 0, it is a regular file.
             if len(root_key.content) != 0:
                 raise DriverError(
-                    "Onitu's root ({}) is a regular file on the '{}' bucket. "
-                    "It has to be an empty file.".format(
-                        plug.options['root'], plug.options['bucket'])
+                    u"Onitu's root ({}) is a regular file on the '{}' bucket. "
+                    u"It has to be an empty file.".format(
+                        plug.root, plug.options['bucket'])
                     )
     check = CheckChanges(plug.options['changes_timer'])
     check.daemon = True

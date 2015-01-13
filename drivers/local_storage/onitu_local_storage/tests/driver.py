@@ -1,29 +1,28 @@
 import os
 import shutil
+import hashlib
+import tempfile
 
 from path import path
 
-from tests.utils.testdriver import TestDriver
-from tests.utils import files
-from tests.utils.tempdirs import dirs
+from tests.utils import driver
 
 
-class Driver(TestDriver):
+class Driver(driver.Driver):
     SPEED_BUMP = 1
 
     def __init__(self, *args, **options):
-        if 'root' not in options:
-            options['root'] = dirs.create()
+        self._root = path(tempfile.mkdtemp())
         super(Driver, self).__init__('local_storage',
                                      *args,
                                      **options)
 
     @property
     def root(self):
-        return path(self.options['root'])
+        return self._root
 
     def close(self):
-        dirs.delete(self.root)
+        self.root.rmtree('.')
 
     def mkdir(self, subdirs):
         (self.root / subdirs).makedirs_p()
@@ -44,7 +43,7 @@ class Driver(TestDriver):
             f.write(content)
 
     def generate(self, filename, size):
-        return files.generate(self.root / filename, size)
+        self.write(filename, os.urandom(size))
 
     def exists(self, filename):
         return os.path.exists(self.root / filename)
@@ -56,4 +55,9 @@ class Driver(TestDriver):
         return os.rename(self.root / source, self.root / target)
 
     def checksum(self, filename):
-        return files.checksum(self.root / filename)
+        with open(self.root / filename) as f:
+            return hashlib.md5(f.read()).hexdigest()
+
+
+class DriverFeatures(driver.DriverFeatures):
+    pass

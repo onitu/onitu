@@ -2,11 +2,6 @@
   "name": "Hubic",
   "description": "Store files on your OVH Hubic repository.",
   "options": {
-    "root": {
-      "name": "Root",
-      "description": "The root of the directories under Onitu's watch",
-      "type": "string"
-    },
     "refresh_token": {
       "name": "Refresh token",
       "description": "Token used to authenticate with Hubic (retrieved with get_refresh_token.py)",
@@ -16,6 +11,18 @@
       "name": "Changes Timer",
       "description": "Time between each change check. In seconds.",
       "type": "integer"
+    },
+    "client_id": {
+      "name": "Application Hubic ID",
+      "description": "The ID used to generate the Hubic token.",
+      "type": "string",
+      "default": "api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl"
+    },
+    "client_secret": {
+      "name": "Application Hubic Secret",
+      "description": "The secret used to generate the Hubic token.",
+      "type": "string",
+      "default": "CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV49e7SpBsHDAKdtm5WeR5KEaDvc"
     }
   }
 }

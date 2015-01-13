@@ -11,8 +11,9 @@ This module starts Onitu. It does the following:
 import sys
 import argparse
 
-import json
 import circus
+
+from itertools import chain
 
 from logbook import Logger, INFO, DEBUG, NullHandler, NestedSetup
 from logbook.queues import ZeroMQHandler, ZeroMQSubscriber
@@ -22,14 +23,13 @@ from tornado import gen
 
 from .escalator.client import Escalator
 from .utils import get_logs_uri, IS_WINDOWS, get_stats_endpoint
-from .utils import get_circusctl_endpoint, get_pubsub_endpoint
+from .utils import get_circusctl_endpoint, get_pubsub_endpoint, u
 
 # Time given to each process (Drivers, Referee, API...) to
 # exit before being killed. This avoid any hang during
 # shutdown
 GRACEFUL_TIMEOUT = 1.
 
-setup_file = None
 session = None
 setup = None
 logger = None
@@ -43,60 +43,81 @@ def start_setup(*args, **kwargs):
     """
     escalator = Escalator(session, create_db=True)
 
-    escalator.put('referee:rules', setup.get('rules', []))
+    with escalator.write_batch() as batch:
+        # TODO: handle folders from previous run
+        for name, options in setup.get('folders', {}).items():
+            batch.put(u'folder:{}'.format(name), options)
 
-    entries = setup.get('entries')
-    if not entries:
-        logger.warn("No entries specified in '{}'", setup_file)
-        yield arbiter.stop()
+    services = setup.get('services', {})
+    escalator.put('services', list(services.keys()))
 
-    escalator.put('entries', list(entries.keys()))
+    yield start_watcher("Referee", 'onitu.referee')
 
-    referee = arbiter.add_watcher(
-        "Referee",
-        sys.executable,
-        args=('-m', 'onitu.referee', session),
-        copy_env=True,
-        graceful_timeout=GRACEFUL_TIMEOUT
-    )
+    for service, conf in services.items():
+        yield load_service(escalator, service, conf)
 
-    yield referee.start()
+    logger.debug("Services loaded")
 
-    for name, conf in entries.items():
-        logger.debug("Loading entry {}", name)
+    yield start_watcher("Rest API", 'onitu.api')
 
-        if ':' in name:
-            logger.error("Illegal character ':' in entry {}", name)
-            continue
 
-        escalator.put('entry:{}:driver'.format(name), conf['driver'])
+@gen.coroutine
+def load_service(escalator, service, conf):
+    logger.debug("Loading service {}", service)
 
-        if 'options' in conf:
-            escalator.put(
-                'entry:{}:options'.format(name), conf['options']
-            )
+    if ':' in service:
+        logger.error("Illegal character ':' in service {}", service)
+        return
 
-        watcher = arbiter.add_watcher(
-            name,
-            sys.executable,
-            args=('-m', 'onitu.drivers',
-                  conf['driver'], session, name),
-            copy_env=True,
-            graceful_timeout=GRACEFUL_TIMEOUT
+    if 'driver' not in conf:
+        logger.error("Service {} does not specify a driver.", service)
+        return
+
+    escalator.put(u'service:{}:driver'.format(service), conf['driver'])
+    escalator.put(u'service:{}:root'.format(service), conf.get('root', ''))
+
+    if 'options' in conf:
+        escalator.put(
+            u'service:{}:options'.format(service), conf['options']
         )
 
-        yield watcher.start()
+    folders = conf.get('folders', {})
+    escalator.put(u'service:{}:folders'.format(service), list(folders.keys()))
 
-    logger.debug("Entries loaded")
+    for name, options in folders.items():
+        if not escalator.exists(u'folder:{}'.format(name)):
+            logger.warning(
+                'Unknown folder {} in service {}', name, service
+            )
+            continue
 
-    api = arbiter.add_watcher(
-        "Rest API",
+        if type(options) != dict:
+            path = options
+            options = {}
+        else:
+            path = options.pop('path', '/')
+
+        escalator.put(
+            u'service:{}:folder:{}:path'.format(service, name), path
+        )
+        escalator.put(
+            u'service:{}:folder:{}:options'.format(service, name), options
+        )
+
+    yield start_watcher(service, 'onitu.service', conf['driver'], service)
+
+
+@gen.coroutine
+def start_watcher(name, module, *args, **kwargs):
+    watcher = arbiter.add_watcher(
+        name,
         sys.executable,
-        args=['-m', 'onitu.api', session],
+        args=list(chain(['-m', module, session], args)),
         copy_env=True,
-        graceful_timeout=GRACEFUL_TIMEOUT
+        graceful_timeout=GRACEFUL_TIMEOUT,
+        **kwargs
     )
-    yield api.start()
+    yield watcher.start()
 
 
 def get_logs_dispatcher(uri, debug=False):
@@ -114,27 +135,44 @@ def get_logs_dispatcher(uri, debug=False):
     return subscriber.dispatch_in_background(setup=NestedSetup(handlers))
 
 
-def get_setup():
+def get_setup(setup_file):
+    if setup_file.endswith('.yml') or setup_file.endswith('.yaml'):
+        try:
+            import yaml
+        except ImportError:
+            logger.error(
+                "You provided a YAML setup file, but PyYAML was not found on "
+                "your system."
+            )
+        loader = lambda f: yaml.load(f.read())
+    elif setup_file.endswith('.json'):
+        import json
+        loader = json.load
+    else:
+        logger.error(
+            "The setup file must be either in JSON or YAML."
+        )
+        return
+
     try:
         with open(setup_file) as f:
-            return json.load(f)
-    except ValueError as e:
-        logger.error("Error parsing '{}' : {}", setup_file, e)
+            return loader(f)
     except Exception as e:
         logger.error(
-            "Can't process setup file '{}' : {}", setup_file, e
+            "Error parsing '{}' : {}", setup_file, e
         )
 
 
 def main():
-    global setup_file, session, setup, logger, arbiter
+    global session, setup, logger, arbiter
 
     logger = Logger("Onitu")
 
     parser = argparse.ArgumentParser("onitu")
     parser.add_argument(
-        '--setup', default='setup.json',
-        help="A JSON file with Onitu's configuration (defaults to setup.json)"
+        '--setup', default='setup.yml', type=u,
+        help="A YAML or JSON file with Onitu's configuration "
+             "(defaults to setup.yml)"
     )
     parser.add_argument(
         '--no-dispatcher', action='store_true',
@@ -145,9 +183,7 @@ def main():
     )
     args = parser.parse_args()
 
-    setup_file = args.setup
-
-    setup = get_setup()
+    setup = get_setup(args.setup)
     if not setup:
         return 1
 
@@ -175,6 +211,7 @@ def main():
                 controller=get_circusctl_endpoint(session),
                 pubsub_endpoint=get_pubsub_endpoint(session),
                 stats_endpoint=get_stats_endpoint(session),
+                loglevel='WARNING',
                 statsd=True
             )
 

@@ -1,6 +1,3 @@
-import os
-import re
-import mimetypes
 import functools
 
 import zmq
@@ -8,9 +5,10 @@ import zmq
 from logbook import Logger
 
 from onitu.escalator.client import Escalator, EscalatorClosed
-from onitu.utils import get_events_uri
+from onitu.utils import get_events_uri, b
 
 from .cmd import UP, DEL, MOV
+from .folder import Folder
 
 
 class Referee(object):
@@ -22,14 +20,14 @@ class Referee(object):
 
     The Referee give orders to the entries via his PUB ZMQ socket,
     whose port is stored in the Redis 'referee:publisher' key.
-    The Plug of each entry should subscribe to this port with a PULL
+    The Plug of each service should subscribe to this port with a PULL
     socket and subscribe to all the events starting by their name.
 
     The notifications are sent to the publishers as multipart
     messages with three parts :
 
     - The name of the addressee (the channel)
-    - The name of the entry from which the file should be transferred
+    - The name of the service from which the file should be transferred
     - The id of the file
     """
 
@@ -41,8 +39,10 @@ class Referee(object):
         self.escalator = Escalator(session)
         self.get_events_uri = functools.partial(get_events_uri, session)
 
-        self.entries = self.escalator.get('entries')
-        self.rules = self.escalator.get('referee:rules')
+        self.services = self.escalator.get('services', default=[])
+        self.folders = Folder.get_folders(
+            self.escalator, self.services, self.logger
+        )
 
         self.handlers = {
             UP: self._handle_update,
@@ -50,26 +50,18 @@ class Referee(object):
             MOV: self._handle_move,
         }
 
-    def listen(self):
+    def start(self):
         """Listen to all the events, and handle them
         """
+        self.publisher = self.context.socket(zmq.PUB)
+        self.publisher.bind(self.get_events_uri('referee', 'publisher'))
+
         self.logger.info("Started")
 
         try:
             listener = self.context.socket(zmq.PULL)
             listener.bind(self.get_events_uri('referee'))
-
-            while True:
-                events = self.escalator.range(prefix='referee:event:')
-
-                for key, args in events:
-                    cmd = args[0]
-                    if cmd in self.handlers:
-                        fid = key.decode().split(':')[-1]
-                        self.handlers[cmd](fid, *args[1:])
-                    self.escalator.delete(key)
-
-                listener.recv()
+            self.listen(listener)
         except zmq.ZMQError as e:
             if e.errno == zmq.ETERM:
                 pass
@@ -81,81 +73,71 @@ class Referee(object):
             if listener:
                 listener.close()
 
+    def listen(self, listener):
+        while True:
+            events = self.escalator.range(prefix='referee:event:')
+
+            for key, args in events:
+                try:
+                    cmd = args[0]
+                    if cmd in self.handlers:
+                        fid = key.split(':')[-1]
+                        self.handlers[cmd](fid, *args[1:])
+                except Exception as e:
+                    self.logger.error("Unexpected error: {}", e)
+                finally:
+                    self.escalator.delete(key)
+
+            listener.recv()
+
     def close(self):
         self.escalator.close()
+        self.publisher.close()
         self.context.term()
 
-    def rule_match(self, rule, filename):
-        if not re.match(rule["match"].get("path", ""), filename):
-            return False
-
-        filemime = set(mimetypes.guess_type(filename))
-        wanted = rule["match"].get("mime", [])
-        if wanted and filemime.isdisjoint(wanted):
-            return False
-
-        return True
-
-    def _handle_deletion(self, fid, driver):
+    def _handle_deletion(self, fid, source):
         """
         Notify the owners when a file is deleted
         """
-        metadata = self.escalator.get('file:{}'.format(fid), default=None)
-
-        if not metadata:
+        try:
+            metadata = self.escalator.get('file:{}'.format(fid))
+        except KeyError:
             return
 
-        owners = set(metadata['owners'])
-        filename = metadata['filename']
+        folder = self.folders[metadata['folder_name']]
 
-        self.logger.info("Deletion of '{}' from {}", filename, driver)
+        self.logger.info(
+            "Deletion of '{}' from {} in folder {}",
+            metadata['filename'], source, folder
+        )
 
-        if driver in owners:
-            owners.remove(driver)
-            self.escalator.delete('file:{}:entry:{}'.format(fid, driver))
+        self.notify(folder.targets(metadata, source), DEL, fid)
 
-            metadata['owners'] = tuple(owners)
-            self.escalator.put('file:{}'.format(fid), metadata)
-
-        if not owners:
-            self.escalator.delete('file:{}'.format(fid))
-            return
-
-        self.notify(owners, DEL, fid)
-
-    def _handle_move(self, old_fid, driver, new_fid):
+    def _handle_move(self, old_fid, source, new_fid):
         """
         Notify the owners when a file is moved
         """
-        metadata = self.escalator.get('file:{}'.format(old_fid), default=None)
+        try:
+            metadata = self.escalator.get('file:{}'.format(old_fid))
+        except KeyError:
+            # If we can't find the metadata, the source was the only
+            # owner, so we can handle it as a new file
+            return self._handle_update(new_fid, source)
 
-        if not metadata:
-            return
-
-        owners = set(metadata['owners'])
-        filename = metadata['filename']
+        folder = self.folders[metadata['folder_name']]
 
         new_metadata = self.escalator.get('file:{}'.format(new_fid))
-        new_filename = new_metadata['filename']
 
         self.logger.info(
-            "Moving of '{}' to '{}' from {}", filename, new_filename, driver
+            "Moving of '{}' to '{}' from {} in folder {}",
+            metadata['filename'], new_metadata['filename'], source, folder
         )
 
-        if driver in owners:
-            owners.remove(driver)
-            self.escalator.delete('file:{}:entry:{}'.format(old_fid, driver))
+        self.notify(
+            folder.targets(new_metadata, source), MOV, old_fid, new_fid
+        )
 
-            metadata['owners'] = tuple(owners)
-            self.escalator.put('file:{}'.format(old_fid), metadata)
-
-        if not owners:
-            self.escalator.delete('file:{}'.format(old_fid))
-            return
-
-        self.notify(owners, MOV, old_fid, new_fid)
-
-    def _handle_update(self, fid, driver):
+    def _handle_update(self, fid, source):
         """Choose who are the entries that are concerned by the event
         and send a notification to them.
 
@@ -163,57 +145,22 @@ class Referee(object):
         this should change when the rules will be introduced.
         """
         metadata = self.escalator.get('file:{}'.format(fid))
-        owners = set(metadata['owners'])
-        uptodate = set(metadata['uptodate'])
+        folder = self.folders[metadata['folder_name']]
 
-        filename = os.path.join("/", metadata['filename'])
+        self.logger.info(
+            "Update for '{}' from {} in folder {}",
+            metadata['filename'], source, folder
+        )
 
-        self.logger.info("Update for '{}' from {}", filename, driver)
+        self.notify(folder.targets(metadata, source), UP, fid, source)
 
-        if driver not in owners:
-            self.logger.debug("The file '{}' was not suposed to be on {}, "
-                              "but syncing anyway.", filename, driver)
-
-        should_own = set(uptodate)
-
-        for rule in self.rules:
-            if self.rule_match(rule, filename):
-                should_own.update(rule.get("sync", []))
-                should_own.difference_update(rule.get("ban", []))
-
-        if should_own != owners:
-            metadata['owners'] = list(should_own)
-            self.escalator.put('file:{}'.format(fid), metadata)
-
-        assert uptodate
-        source = next(iter(uptodate))
-
-        self.notify(should_own - uptodate, UP, fid, source)
-
-        for name in owners.difference(should_own):
-            self.logger.debug("The file '{}' on {} is no longer under onitu "
-                              "control. should be deleted.", filename, name)
-
-    def notify(self, drivers, cmd, fid, *args):
-        if not drivers:
+    def notify(self, services, cmd, fid, *args):
+        if not services:
             return
 
-        publisher = self.context.socket(zmq.PUSH)
-        publisher.linger = 1000
-
-        for name in drivers:
+        for name in services:
             self.escalator.put(
-                'entry:{}:event:{}'.format(name, fid), (cmd, args)
+                u'service:{}:event:{}'.format(name, fid), (cmd, args)
             )
 
-            publisher.connect(self.get_events_uri(name, 'dealer'))
-        try:
-            publisher.send(b'')
-        except zmq.ZMQError as e:
-            publisher.close(linger=0)
-            if e.errno == zmq.ETERM:
-                pass
-            else:
-                raise
-        else:
-            publisher.close()
+            self.publisher.send(b(name))

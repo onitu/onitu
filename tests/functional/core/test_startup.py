@@ -1,36 +1,29 @@
 import json
 
-from tests.utils.launcher import Launcher
-from tests.utils.setup import Setup, Rule
-from tests.utils.driver import TestingDriver, TargetDriver
+from tests.utils.testdriver import TestDriver
+
+from onitu.utils import u
 
 
-def test_startup():
-    rep1, rep2 = TestingDriver('rep1'), TargetDriver('rep2')
+def test_startup(setup, launcher):
+    rep1, rep2 = TestDriver('rep1'), TestDriver('rep2')
 
-    setup = Setup()
     setup.add(rep1)
     setup.add(rep2)
-    setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
 
     try:
-        launcher = Launcher(setup)
         launcher()
-
         assert not launcher.process.poll()
     finally:
         launcher.close()
 
 
-def test_no_setup():
-    setup = Setup()
-    launcher = Launcher(setup)
-
-    error = (
-        "Can't process setup file '{setup}' : "
-        "[Errno 2] No such file or directory: '{setup}'"
-        .format(setup=setup.filename)
-    )
+def test_no_setup(setup, launcher):
+    try:
+        with open(u(setup.filename)):
+            pass
+    except IOError as e:
+        error = "Error parsing '{}' : {}".format(setup.filename, e)
 
     try:
         launcher(wait=False, stderr=True, save_setup=False)
@@ -42,10 +35,8 @@ def test_no_setup():
         launcher.close()
 
 
-def test_invalid_setup():
-    setup = Setup()
+def test_invalid_setup(setup, launcher):
     setup.json = '{"foo": bar}'
-    launcher = Launcher(setup)
 
     try:
         json.loads(setup.json)

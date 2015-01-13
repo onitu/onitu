@@ -5,8 +5,10 @@ from collections import defaultdict
 import logbook
 from logbook.queues import ZeroMQSubscriber
 
-from onitu.utils import get_logs_uri
+from onitu.utils import get_logs_uri, u
 
+from .targetdriver import TargetDriver, if_feature
+from .testdriver import TestDriver
 from .loop import CounterLoop
 from .logs import logs
 
@@ -47,7 +49,7 @@ class Launcher(object):
 
     def unset_event(self, event):
         for trigger in event.triggers:
-            self.event_triggers[trigger].remove(event)
+            self.event_triggers[trigger].discard(event)
 
     def unset_all_events(self):
         self.event_triggers = defaultdict(set)
@@ -70,13 +72,10 @@ class Launcher(object):
     def kill(self, wait=True):
         self._kill(signal.SIGTERM, wait)
 
-    def close(self, clean_setup=True):
+    def close(self):
         try:
             self.kill(wait=True)
         finally:
-            if clean_setup:
-                self.setup.clean()
-
             if self.dispatcher:
                 self.dispatcher.stop()
                 self.dispatcher.subscriber.close()
@@ -103,21 +102,18 @@ class Launcher(object):
             self.unset_event(event)
 
     def start_dispatcher(self):
-        if not self.dispatcher:
-            logs_uri = get_logs_uri(self.setup.name)
+        logs_uri = get_logs_uri(self.setup.name)
 
-            level = logbook.DEBUG if self.debug else logbook.INFO
-            handlers = logbook.NestedSetup([
-                logbook.NullHandler(),
-                logbook.StderrHandler(
-                    level=level, format_string=FORMAT_STRING
-                ),
-                logbook.Processor(self.process_record),
-            ])
-            subscriber = ZeroMQSubscriber(logs_uri, multi=True)
-            self.dispatcher = subscriber.dispatch_in_background(setup=handlers)
-        elif not self.dispatcher.running:
-            self.dispatcher.start()
+        level = logbook.DEBUG if self.debug else logbook.INFO
+        handlers = logbook.NestedSetup([
+            logbook.NullHandler(),
+            logbook.StderrHandler(
+                level=level, format_string=FORMAT_STRING
+            ),
+            logbook.Processor(self.process_record),
+        ])
+        subscriber = ZeroMQSubscriber(logs_uri, multi=True)
+        self.dispatcher = subscriber.dispatch_in_background(setup=handlers)
 
     def __call__(self, wait=True, api=False, save_setup=True,
                  stdout=False, stderr=False):
@@ -127,12 +123,12 @@ class Launcher(object):
             self.setup.save()
 
         if wait:
-            loop = CounterLoop(len(self.setup.entries) + api + 1)
+            loop = CounterLoop(len(self.setup.services) + api + 1)
             self.on_referee_started(loop.check)
             if api:
                 self.on_api_started(loop.check)
-            for entry in self.setup.entries:
-                self.on_driver_started(loop.check, driver=entry.name)
+            for service in self.setup.services.values():
+                self.on_driver_started(loop.check, driver=service.name)
 
         self.process = Popen(
             ('onitu', '--setup', self.setup.filename, '--no-dispatcher'),
@@ -158,8 +154,8 @@ class Launcher(object):
         def caller(action, unique=True, **kwargs):
             triggers = set(
                 (
-                    channel.format(**kwargs),
-                    message.format(**kwargs)
+                    u(channel).format(**kwargs),
+                    u(message).format(**kwargs)
                 )
                 for (channel, message) in log_triggers
             )
@@ -170,8 +166,75 @@ class Launcher(object):
     def __getattr__(self, name):
         if name.startswith('on_'):
             return self._on_event(name[3:])
-        return super(Launcher, self).__getattr__(name)
+        return self.__getattribute__(name)
 
+    @property
+    def services(self):
+        return self.setup.services
 
-def launch(*args, **kwargs):
-    return Launcher(*args, **kwargs)()
+    def get_services(self, *names):
+        return [self.services[name] for name in names]
+
+    def create_file(self, folder, filename, size=10):
+        if if_feature.copy_file_from_onitu:
+            src_driver = TestDriver
+        else:
+            src_driver = TargetDriver
+
+        services = list(self.services.values())
+        for i, service in enumerate(services):
+            if isinstance(service, src_driver):
+                src = services.pop(i)
+                # we asume that all the services should receive
+                # the file
+                dests = services
+                break
+
+        self.copy_file(folder, filename, size, src, *dests)
+
+    def copy_file(self, folder, filename, size, src, *dests):
+        loop = CounterLoop(len(dests))
+        for dest in dests:
+            self.on_transfer_ended(
+                loop.check, d_from=src, d_to=dest, filename=filename
+            )
+        src.generate(src.path(folder, filename), size)
+        loop.run(timeout=10)
+
+        checksum = src.checksum(src.path(folder, filename))
+
+        for dest in dests:
+            assert dest.checksum(dest.path(folder, filename)) == checksum
+
+    def delete_file(self, folder, filename, src, *dests):
+        loop = CounterLoop(1 + len(dests))
+        self.on_file_deleted(
+            loop.check, driver=src, filename=filename, folder=folder
+        )
+        for dest in dests:
+            self.on_deletion_completed(
+                loop.check, driver=dest, filename=filename
+            )
+        src.unlink(src.path(folder, filename))
+        loop.run(timeout=5)
+        for dest in dests:
+            assert not dest.exists(dest.path(folder, filename))
+
+    def move_file(self, folder, old_filename, new_filename, src, *dests):
+        loop = CounterLoop(1 + len(dests))
+        self.on_file_moved(
+            loop.check, driver=src, src=old_filename, dest=new_filename,
+            folder=folder
+        )
+        for dest in dests:
+            self.on_move_completed(
+                loop.check, driver=dest, src=old_filename, dest=new_filename
+            )
+        src.rename(
+            src.path(folder, old_filename), src.path(folder, new_filename)
+        )
+        loop.run(timeout=5)
+        checksum = src.checksum(src.path(folder, new_filename))
+        for dest in dests:
+            assert not dest.exists(dest.path(folder, old_filename))
+            assert dest.checksum(dest.path(folder, new_filename)) == checksum

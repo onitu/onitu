@@ -5,12 +5,12 @@ from threading import Thread
 from logbook import error
 from logbook.queues import ZeroMQHandler
 
-from onitu.utils import at_exit, get_available_drivers, get_logs_uri
+from onitu.utils import at_exit, get_available_drivers, get_logs_uri, u
 from onitu.escalator.client import EscalatorClosed
 
-driver_name = sys.argv[1]
-session = sys.argv[2]
-name = sys.argv[3]
+session = u(sys.argv[1])
+driver_name = sys.argv[2]
+name = u(sys.argv[3])
 
 drivers = get_available_drivers()
 
@@ -41,7 +41,7 @@ try:
     # Using get_resource_stream doesn't seem to be working on Python 3 as
     # it returns bytes
     content = entry_point.dist.get_resource_string('', 'manifest.json')
-    manifest = json.loads(content.decode('utf-8'))
+    manifest = json.loads(u(content))
 except ValueError as e:
     error("Error parsing the manifest file of {} : {}", name, e)
     exit(-1)

@@ -20,7 +20,7 @@ Just run "python get_access_token.py" in a terminal, and go to the generated URL
 
 The script will then provide you an "Access Key" and an "Access Secret". They are the codes you'll need to use with Onitu.
 
-Once you have them, you need to create a new driver entry in the setup JSON file (setup.json), and fill in the following fields:
+Once you have them, you need to create a new driver service in the setup JSON file (setup.json), and fill in the following fields:
 - driver : this should always be "dropbox"
 - options: The following options can be used:
   - root: The folder under which you want Onitu to put all the transferred files on your Dropbox. Onitu won't put files elsewhere. If you want to use the whole Dropbox, omit it or set ""
@@ -28,22 +28,13 @@ Once you have them, you need to create a new driver entry in the setup JSON file
   - access_secret: Put here your Access Secret
   - changes_timer: Onitu periodically checks for changes on Dropbox. Use this to set a period of time, in seconds, between each retry. Defaults to 1 minute (60 seconds) if you omit it.
 
-A correct syntax for the entry could be the following:
+A correct syntax for the service could be the following:
     "dropbox": {
       "driver": "dropbox",
+      "root": "onitu",
       "options": {
-        "root": "/onitu",
         "access_key": "YourAccessKey",
         "access_secret": "YourAccessSecret",
 	"changes_timer" : 60
       }
     }
-
-Then, to synchronize a folder with Dropbox, e.g. the "dropb/" folder, add this to your rules:
-
-    {
-      "match": {"path": "/dropb/"},
-      "sync": ["dropbox"]
-    }
-
-This will sync the dropb/ folder with the driver named dropbox.

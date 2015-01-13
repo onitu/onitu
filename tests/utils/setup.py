@@ -1,64 +1,43 @@
 import os
-import random
-import string
 import json
 
 from plyvel import destroy_db
 
-from onitu.utils import TMPDIR
+from onitu.utils import TMPDIR, b, get_random_string
 
-
-class Rule(object):
-    def __init__(self):
-        self._match = {}
-        self._sync = []
-
-    def match_path(self, path):
-        self._match['path'] = path
-        return self
-
-    def match_mime(self, *mimes):
-        self._match['mime'] = self._match.get('mime', []) + list(mimes)
-        return self
-
-    def sync(self, *entries):
-        self._sync += list(entries)
-        return self
-
-    @property
-    def dump(self):
-        return {'match': self._match, 'sync': self._sync}
+from .launcher import Launcher
 
 
 class Setup(object):
-    def __init__(self):
-        self.entries = set()
-        self.rules = []
+    def __init__(self, folders=None):
+        self.services = {}
+        if folders is None:
+            folders = {}
+        self.folders = folders
 
         self._json = None
 
-        self.name = ''.join(
-            random.sample(string.ascii_letters + string.digits, 20)
-        )
+        self.name = get_random_string(15)
         self.filename = os.path.join(TMPDIR, "{}.json".format(self.name))
 
-    def add(self, driver):
-        driver.connect(self.name)
-        self.entries.add(driver)
+    def add(self, service):
+        service.connect(self.name)
+        self.services[service.name] = service
+
+        for folder in service.folders.keys():
+            if folder not in self.folders:
+                self.folders[folder] = {}
+
         return self
 
-    def add_rule(self, rule):
-        self.rules.append(rule)
-        return self
-
-    def clean(self, entries=True):
-        if entries:
-            for entry in self.entries:
-                entry.close()
+    def clean(self, services=True):
+        if services:
+            for service in self.services.values():
+                service.close()
 
         try:
             os.unlink(self.filename)
-            destroy_db('dbs/{}'.format(self.name))
+            destroy_db(u'dbs/{}'.format(self.name))
         except (OSError, IOError):
             pass
 
@@ -67,14 +46,14 @@ class Setup(object):
         setup = {}
         if self.name:
             setup['name'] = self.name
-        setup['entries'] = {e.name: e.dump for e in self.entries}
-        setup['rules'] = [r.dump for r in self.rules]
+        setup['services'] = {name: e.dump for name, e in self.services.items()}
+        setup['folders'] = self.folders
         return setup
 
     @property
     def json(self):
         if not self._json:
-            self._json = json.dumps(self.dump, indent=2)
+            self._json = json.dumps(self.dump, indent=2, ensure_ascii=False)
 
         return self._json
 
@@ -86,5 +65,8 @@ class Setup(object):
         print('Setup:')
         print(self.json)
 
-        with open(self.filename, 'w+') as f:
-            f.write(self.json)
+        with open(self.filename, 'wb+') as f:
+            f.write(b(self.json))
+
+    def get_launcher(self):
+        return Launcher(self)
