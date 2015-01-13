@@ -310,18 +310,21 @@ class CheckChanges(threading.Thread):
         threading.Thread.__init__(self)
         self.stopEvent = threading.Event()
         self.timer = timer
-        self.prefix = folder.path
+        self.folder = folder
+        self.prefix = folder.path.lstrip(u"/")  # strip leading slashes
+        if not self.prefix.endswith(u"/"):
+            self.prefix += u"/"
 
     def check_bucket(self):
-        folder = self.prefix  # Folder name, e.g. "pando/music/"
+        prfx = self.prefix  # Folder name, e.g. "pando/music/"
         plug.logger.debug(u"Checking folder"
-                          u" {} for changes".format(folder))
+                          u" {} for changes".format(prfx))
         # We need to unroll the generator to be able to check for folders
-        keys = [key for key in S3Conn.list(prefix=folder)]
-        plug.logger.debug(u"Processing files under '{}'".format(folder))
+        keys = [key for key in S3Conn.list(prefix=prfx)]
+        plug.logger.debug(u"Processing files under '{}'".format(prfx))
         # Getting multipart uploads once for all files under this folder
         # is WAY faster than re-getting them for each file
-        multipart_uploads = S3Conn.get_all_multipart_uploads(prefix=folder)
+        multipart_uploads = S3Conn.get_all_multipart_uploads(prefix=prfx)
         keys_being_uploaded = [mp.key for mp in multipart_uploads]
         for key in keys:
             plug.logger.debug(u"Processing file '{}'".format(key['key']))
@@ -337,15 +340,16 @@ class CheckChanges(threading.Thread):
             # regular files. If a file is empty, check if other files begin
             # by its name (meaning it contains them)
             if key['size'] == 0:
-                prefix = key['key'] + "/"
+                folderPrefix = key['key'] + u"/"
                 children = [child for child in keys
-                            if child['key'].startswith(prefix)]
+                            if child['key'].startswith(folderPrefix)]
                 if children:
                     plug.logger.debug(u"File '{}' is a folder on S3"
                                       u" - skipped".format(key['key']))
                     continue
-            # Strip the S3 root of the S3 filename for root coherence.
-            metadata = plug.get_metadata(key['key'])
+            # Strip the folder name of the S3 filename for folder coherence.
+            filename = key['key'][len(self.prefix):]
+            metadata = plug.get_metadata(filename, self.folder)
             onitu_ts = metadata.extra.get('timestamp', 0.0)
             remote_ts = time.mktime(key['last_modified'].timetuple())
             if onitu_ts < remote_ts:  # Remote timestamp is more recent
@@ -396,10 +400,6 @@ def start():
             u"The change timer option must be a positive integer")
     get_conn()  # connection to S3
     for folder in plug.folders_to_watch:
-        if folder.path.startswith(u"/") or not folder.path.endswith(u"/"):
-            raise DriverError(u"S3 folders name must have no leading slash"
-                              u" and must end with a trailing slash (folder"
-                              u" name {} is invalid)".format(folder.path))
         # Check that the given folder isn't a regular file
         try:
             folder_key = S3Conn.get(folder.path)
