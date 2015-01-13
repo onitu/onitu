@@ -20,7 +20,7 @@ namespace MyIconOverlayHandlersPending
             }
         }
 
-        protected override string FileNameStart
+        protected override string FileStatus
         {
             get
             {

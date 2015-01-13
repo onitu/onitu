@@ -10,6 +10,9 @@ using System.Runtime.InteropServices;
 using Microsoft.Win32;
 using System.IO;
 
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
 namespace MyIconOverlayHandlers
 {
     [Flags]
@@ -99,7 +102,7 @@ namespace MyIconOverlayHandlers
             }
         }
 
-        protected virtual string FileNameStart
+        protected virtual string FileStatus
         {
             get
             {
@@ -119,11 +122,30 @@ namespace MyIconOverlayHandlers
             {
                 unchecked
                 {
+                    string tmp_files = System.IO.Path.GetTempPath() + "onitu_synced_files";
                     string fileName = Path.GetFileName(path);
-                    if (fileName.ToLower().Contains(FileNameStart.ToLower()))
-                        return (int)HRESULT.S_OK;
-                    else
+                    path = path.Replace("\\", "/");
+
+                    using (StreamReader r = new StreamReader(tmp_files))
+                    {
+                        string json = r.ReadToEnd();
+                        JObject jsonVal = JObject.Parse(json) as JObject;
+
+                        IList<string> fileList = jsonVal.Properties().Select(p => p.Name).ToList();
+                     
+                        foreach (string file in fileList)
+                        {
+                            if (path == file)
+                            {
+                                string status = (string)jsonVal.GetValue(file);
+                                if (status == FileStatus)
+                                {
+                                    return (int)HRESULT.S_OK;
+                                }
+                            }
+                        }
                         return (int)HRESULT.S_FALSE;
+                    }
                 }
             }
             catch

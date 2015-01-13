@@ -20,11 +20,11 @@ namespace MyIconOverlayHandlersAdded
             }
         }
  
-        protected override string FileNameStart
+        protected override string FileStatus
         {
             get
             {
-                return "added";
+                return "synced";
             }
         }
  
