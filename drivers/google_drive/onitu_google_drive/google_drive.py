@@ -107,7 +107,7 @@ def end_upload(metadata):
     metadata.extra["id"] = data["items"][0]["id"]
     metadata.extra["revision"] = data["items"][0]["md5Checksum"]
     metadata.extra["downloadUrl"] = data["items"][0]["downloadUrl"]
-    db = plug.entry_db
+    db = plug.service_db
     db.put('listes:{}'.format(metadata.extra["id"]), metadata.fid)
     metadata.write()
     plug.logger.debug(u"End updload {} - Done".format(metadata.filename))
@@ -191,7 +191,7 @@ class CheckChanges(threading.Thread):
         self.lasterChangeId = 0
 
     def update_metadata(self, filepath, f):
-        db = plug.entry_db
+        db = plug.service_db
         plug.logger.debug("Update metadata ?: {} {}", filepath, f)
         try:
             fid = db.get('listes:{}'.format(f["id"]))
@@ -351,7 +351,7 @@ class CheckChanges(threading.Thread):
                 self.update_metadata(filepath, f)
                 plug.logger.debug(u"file change path: {}".format(path))
             for id_file in bufDel:
-                db = plug.entry_db
+                db = plug.service_db
                 if db.exists('listes:{}'.format(id_file)):
                     fid = db.get('listes:{}'.format(id_file))
                     m = Metadata.get_by_id(plug, fid)
