@@ -41,7 +41,9 @@ def to_tmp(filename):
 def update(metadata, abs_path, mtime=None):
 
     try:
-        metadata.size = abs_path.size
+        if metadata is None:
+            return
+        metadata.size = abs_path.getsize()
         metadata.extra['revision'] = mtime if mtime else abs_path.mtime
     except (IOError, OSError) as e:
         raise ServiceError(
@@ -52,14 +54,20 @@ def update(metadata, abs_path, mtime=None):
 
 
 def delete(metadata, _):
-
-    plug.delete_file(metadata)
+    if metadata is not None:
+        plug.delete_file(metadata)
 
 
 def move(old_metadata, new_path):
+    if IS_WINDOWS and old_metadata is None:
+        writingDict[abs_path] = Rtime
         return
     new_filename = root.relpathto(new_path)
-    new_metadata = plug.move_file(old_metadata, new_filename)
+    new_filename = root.relpathto(new_path)
+    if IS_WINDOWS:
+        new_metadata = plug.move_file(old_metadata, new_path)
+    else:
+        new_metadata = plug.move_file(old_metadata, new_filename)
     new_metadata.extra['revision'] = path(root / new_path).mtime
     new_metadata.write()
 
@@ -117,15 +125,14 @@ def get_chunk(metadata, offset, size):
 @plug.handler()
 def start_upload(metadata):
     tmp_file = to_tmp(metadata.path)
+    plug.logger.info("start_upload {} {}".format(tmp_file, metadata.path))
     if IS_WINDOWS:
-        ignoreNotif[metadata.filename] = False
+        ignoreNotif[metadata.path] = False
         sleep(1)
     try:
         if not tmp_file.exists():
             tmp_file.dirname().makedirs_p()
-
         tmp_file.open('wb').close()
-
         if IS_WINDOWS:
             win32api.SetFileAttributes(
                 tmp_file, win32con.FILE_ATTRIBUTE_HIDDEN)
@@ -171,10 +178,9 @@ def end_upload(metadata):
     metadata.extra['revision'] = mtime
     metadata.write()
     if IS_WINDOWS:
-        if metadata.filename in ignoreNotif and \
-           not ignoreNotif[metadata.filename]:
-            sleep(0.2)
-            ignoreNotif[metadata.filename] = time()
+        if metadata.path in ignoreNotif and \
+           not ignoreNotif[metadata.path]:
+            ignoreNotif[metadata.path] = time() + 1
 
 
 @plug.handler()
@@ -183,7 +189,7 @@ def abort_upload(metadata):
 
     if IS_WINDOWS:
         if metadata.filename in ignoreNotif:
-            del ignoreNotif[metadata.filename]
+            del ignoreNotif[metadata.path]
     try:
         tmp_file.unlink()
     except (IOError, OSError) as e:
@@ -212,25 +218,28 @@ def move_file(old_metadata, new_metadata):
     parent = new_path.dirname()
     if not parent.exists():
         parent.makedirs_p()
-    ignoreNotif[new_metadata.filename] = False
-    ignoreNotif[old_metadata.filename] = False
+    if IS_WINDOWS:
+        ignoreNotif[new_metadata.path] = False
+        ignoreNotif[old_metadata.path] = False
     try:
         old_path.rename(new_path)
     except (IOError, OSError) as e:
-        del ignoreNotif[new_metadata.filename]
-        del ignoreNotif[old_metadata.filename]
+        if IS_WINDOWS:
+            del ignoreNotif[new_metadata.path]
+            del ignoreNotif[old_metadata.path]
         raise ServiceError(
             u"Error moving file '{}': {}".format(old_path, e)
         )
     delete_empty_dirs(old_path)
-    del ignoreNotif[new_metadata.filename]
-    del ignoreNotif[old_metadata.filename]
+    if IS_WINDOWS:
+        del ignoreNotif[new_metadata.path]
+        del ignoreNotif[old_metadata.path]
 
 if IS_WINDOWS:
     def verifDictModifFile(writingDict, Rtime, cleanOld=False):
         for i, j in list(writingDict.items()):
             if cleanOld is False:
-                if Rtime - j >= 0.0:
+                if Rtime - j >= 1.0:
                         try:
                             fd = os.open(i, os.O_RDONLY)
                         except(IOError, OSError) as e:
@@ -242,46 +251,50 @@ if IS_WINDOWS:
                             update(metadata, i)
                             del writingDict[i]
             else:
-                if j > 1 and Rtime - j >= 1:
+                if j > 1 and Rtime - j >= 2:
                         del writingDict[i]
         return writingDict
 
     def fileAction(filename, abs_path, action, ignoreNotif, writingDict,
                    transferSet, actions_names, Rtime):
+        metadata = plug.get_metadata(filename)
+        if metadata == None:
+            return
         if (actions_names.get(action) == 'write' or
             actions_names.get(action) == 'create') and \
-           filename not in ignoreNotif:
+           metadata.path not in ignoreNotif:
             if os.access(abs_path, os.R_OK):
                 writingDict[abs_path] = Rtime
         elif actions_names.get(action) == 'delete' and \
-                filename not in ignoreNotif:
-            metadata = plug.get_metadata(filename)
+                metadata.path not in ignoreNotif:
             delete(metadata, abs_path)
         elif actions_names.get(action) == 'moveFrom' and \
                 filename not in ignoreNotif:
             old_path = filename
-            fileAction.oldMetadata = plug.get_metadata(old_path)
-            fileAction.moving = True
-            if fileAction.oldMetadata.filename.endswith(TMP_EXT):
-                ignoreNotif[fileAction.oldMetadata.filename[:len(TMP_EXT)]] = \
+            fileAction.oldMetadata = metadata
+            if old_path.endswith(TMP_EXT):
+                ignoreNotif[root + old_path[1:len(TMP_EXT)]] = \
                     False
-            else:
-                ignoreNotif[fileAction.oldMetadata.filename] = False
+            elif fileAction.oldMetadata is not None:
+                ignoreNotif[fileAction.oldMetadata.path] = False
+                fileAction.moving = True
+#            if fileAction.oldMetadata is None:
+                # may need to verify this in moveTo and do an update instead
+#                return
         elif actions_names.get(action) == 'moveTo' and fileAction.moving:
-            new_metadata = plug.get_metadata(filename)
-            ignoreNotif[str(filename)] = False
+            ignoreNotif[metadata.path] = False
             move(fileAction.oldMetadata, filename)
             fileAction.moving = False
             if fileAction.oldMetadata.filename.endswith(TMP_EXT):
                 del ignoreNotif[fileAction.oldMetadata.filename[:len(TMP_EXT)]]
             else:
-                del ignoreNotif[fileAction.oldMetadata.filename]
-                ignoreNotif[str(filename)] = Rtime
+                del ignoreNotif[fileAction.oldMetadata.path]
+                ignoreNotif[metadata.path] = Rtime
         if (actions_names.get(action) == 'create' or
             actions_names.get(action) == 'write') and \
                 filename not in transferSet and filename in ignoreNotif:
-            if ignoreNotif[filename] is not False:
-                transferSet.add(filename)
+            if ignoreNotif[metadata.path] is not False:
+                transferSet.add(metadata.path)
 
     def win32watcherThread(root, file_lock):
         dirHandle = win32file.CreateFile(

@@ -118,6 +118,7 @@ if IS_WINDOWS:
     # by ZeroMQ at the moment, so we implement a fallback by creating
     # a temporary file containing an URI corresponding to an open port.
     def _get_uri(session, name):
+        name = name.replace(":", ".")
         sock_file = os.path.join(
             TMPDIR, u'onitu-{}-{}.txt'
         ).format(session, name)
