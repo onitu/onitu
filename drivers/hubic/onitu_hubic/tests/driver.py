@@ -17,7 +17,7 @@ CLIENTSECRET = \
 
 # This needs to be updated using the script and will be used during the tests.
 REFRESHTOKEN = \
-    "Iz7vAcy3yMpTLNb4eDEvr4JfxPHrxj23rV1oeOm9VZb3GCCdiuKtJiB8TV0S5eY2"
+    "GxW9db0UYrQEEJyvVrsLpBhVSxNvw2o5vBofbuySveu56wHApTfutrhedSkUMMQd"
 
 
 class Driver(driver.Driver):
@@ -35,7 +35,7 @@ class Driver(driver.Driver):
         self._root = get_random_string(10)
 
         self.hubic = Hubic(options['client_id'], options['client_secret'],
-                           options['refresh_token'], self.root)
+                           options['refresh_token'])
 
         super(Driver, self).__init__('hubic', *args, **options)
 
@@ -51,32 +51,26 @@ class Driver(driver.Driver):
         pass
 
     def write(self, filename, content):
-        filename = self.hubic.get_path(filename)
         self.hubic.os_call('put', 'default/' + filename, content)
 
     def generate(self, filename, size):
         self.write(filename, os.urandom(size))
 
     def unlink(self, filename):
-        filename = self.get_path(filename)
         if filename != '':
             self.hubic.os_call('delete', 'default/' + filename)
 
     def close(self):
-        path = self.get_path('')
-        if path.endswith('/'):
-            path = path[:-1]
+        path = self.root
         try:
             self.hubic.os_call('delete', 'default/' + path)
         except requests.HTTPError:
             pass
 
     def rmdir(self, path):
-        filename = self.get_path(path)
-        self.hubic.os_call('delete', 'default/' + filename)
+        self.hubic.os_call('delete', 'default/' + path)
 
     def exists(self, filename):
-        filename = self.get_path(filename)
         try:
             self.hubic.os_call('head', 'default/' + filename)
         except requests.HTTPError:
@@ -84,25 +78,21 @@ class Driver(driver.Driver):
         return True
 
     def rename(self, source, target):
-        old_filename = self.get_path(source)
-        new_filename = self.get_path(target)
-
-        headers = {'X-Copy-From': 'default/' + b(old_filename)}
+        headers = {'X-Copy-From': 'default/' + b(source)}
 
         try:
-            self.hubic.os_call('put', 'default/' + new_filename,
+            self.hubic.os_call('put', 'default/' + target,
                                headers=headers)
         except requests.exceptions.RequestException as e:
             raise ServiceError(
                 u"Cannot rename file '{}' to '{}': {}".format(
-                    old_filename, new_filename, e
+                    source, target, e
                     )
                 )
 
         self.unlink(source)
 
     def checksum(self, filename):
-        filename = self.get_path(filename)
         headers = {'Range': 'FIRST_BYTE_OFFSET-LAST_BYTE_OFFSET'}
         f = self.hubic.os_call('get', 'default/' + filename,
                                headers=headers).content

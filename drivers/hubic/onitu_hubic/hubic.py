@@ -100,7 +100,7 @@ class Hubic:
         last-modified, x-object-manifest, x-timestamp, etag,
         x-trans-id, date, content-type """
         try:
-            plug.logger.debug("Getting info about file {}", path)
+            plug.logger.debug(u"Getting info about file {}", path)
             res = self.os_call('head', 'default/' + path)
         except requests.exceptions.RequestException as e:
             raise ServiceError(
@@ -121,7 +121,7 @@ def set_chunk_size(chunk_size):
 
 @plug.handler()
 def move_file(old_metadata, new_metadata):
-    plug.logger.debug("Moving file {} to file {}"
+    plug.logger.debug(u"Moving file {} to file {}"
                       .format(old_metadata.path, new_metadata.path))
     old_filename = old_metadata.path
     new_filename = new_metadata.path
@@ -142,7 +142,7 @@ def move_file(old_metadata, new_metadata):
 
 @plug.handler()
 def delete_file(metadata):
-    plug.logger.debug("Deleting file {}".format(metadata.path))
+    plug.logger.debug(u"Deleting file {}".format(metadata.path))
     multipart = ''
     # directory = no extra
     if ('chunked' in metadata.extra) and (metadata.extra['chunked'] is True):
@@ -160,7 +160,7 @@ def delete_file(metadata):
 def start_upload(metadata):
     """Initialize a new upload.
     This handler is called when a new transfer is started."""
-    plug.logger.debug("Starting upload of file {}".format(metadata.path))
+    plug.logger.debug(u"Starting upload of file {}".format(metadata.path))
     manifest_link = hashlib.md5(b(metadata.path) + b(str(time.time())))
 
     metadata.extra['manifest'] = SEGMENTS_FOLDER + manifest_link.hexdigest()
@@ -174,7 +174,7 @@ def start_upload(metadata):
 
 @plug.handler()
 def upload_file(metadata, data):
-    plug.logger.debug("Uploading file {}".format(metadata.path))
+    plug.logger.debug(u"Uploading file {}".format(metadata.path))
     try:
         hubic.os_call('put', 'default/' + metadata.path, data)
     except requests.exceptions.RequestException as e:
@@ -186,7 +186,7 @@ def upload_file(metadata, data):
 @plug.handler()
 def upload_chunk(metadata, offset, chunk):
     """Write a chunk in a file at a given offset."""
-    plug.logger.debug("Uploading chunk of size {} on file {}"
+    plug.logger.debug(u"Uploading chunk of size {} on file {}"
                       .format(len(chunk), metadata.path))
     chunk_size = len(chunk)
     if metadata.extra['chunk_size'] is None:
@@ -206,7 +206,7 @@ def upload_chunk(metadata, offset, chunk):
                     chunk_num, metadata.filename, e
                 )
             )
-    plug.logger.debug("Done uploading chunk on {}".format(metadata.path))
+    plug.logger.debug(u"Done uploading chunk on {}".format(metadata.path))
 
 
 @plug.handler()
@@ -264,6 +264,7 @@ class CheckChanges(threading.Thread):
         threading.Thread.__init__(self)
         self.stopEvent = threading.Event()
         self.timer = timer
+        self.folder = folder
         self.prefix = folder.path
 
     def check_changes(self):
@@ -276,7 +277,6 @@ class CheckChanges(threading.Thread):
                 continue
 
             filename = f
-            plug.logger.debug("Getting filename {}".format(f))
             details = hubic.get_object_details(f)
 
             if details['content-type'] == 'application/directory':
@@ -286,8 +286,9 @@ class CheckChanges(threading.Thread):
                 datetime.datetime.strptime(details['last-modified'],
                                            '%a, %d %b %Y %X %Z'
                                            ).timetuple())
-
-            metadata = plug.get_metadata(filename)
+            filename = filename[len(self.prefix):].lstrip(u"/")
+            plug.logger.debug(u"Getting metadata of {}".format(filename))
+            metadata = plug.get_metadata(filename, self.folder)
             onitu_rev = metadata.extra.get('revision', 0.)
 
             if hubic_rev > onitu_rev:
@@ -298,14 +299,14 @@ class CheckChanges(threading.Thread):
 
     def list_folder(self, path):
         try:
-            plug.logger.debug("Listing files in directory {}", path)
+            plug.logger.debug(u"Listing files in directory {}", path)
             res = hubic.os_call('get', 'default/?prefix=' + path)
         except requests.exceptions.RequestException as e:
             raise ServiceError(
                 u"Cannot get folder details '{}': {}".format(path, e)
             )
         files = tuple(e for e in res.text.split('\n') if e)
-        plug.logger.debug("Found {} files in directory {}", len(files), path)
+        plug.logger.debug(u"Found {} files in directory {}", len(files), path)
         return files
 
     def run(self):
