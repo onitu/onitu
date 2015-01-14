@@ -20,7 +20,7 @@ Once you have them, you need to create a new driver service called "amazon_s3" i
 
 Here is a sample configuration to synchronize a local folder and a folder on your Amazon S3:
 
-"
+```
 name: example
 
 folders:
@@ -52,4 +52,4 @@ services:
         aws_access_key: AKIAJSWLJPXBXENIPIZQ
         aws_secret_key: uKyGqV4jqZQvAxBODdxndOuFlX0v7P5hAQ3IRHiC
         changes_timer : 10
-"
+```

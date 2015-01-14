@@ -26,7 +26,7 @@ An example of setup.yml configuration file set up with Hubic and Local Storage.
 This will synchronize the local folder "Music" in user eric's home with the folder
 eric/Music on your hubic account.
 
-"
+```
 name: example
 
 folders:
@@ -56,4 +56,4 @@ services:
    options:
      refresh_token: PLACE_REFRESH_TOKEN_HERE
      changes_timer: 10
-"
+```

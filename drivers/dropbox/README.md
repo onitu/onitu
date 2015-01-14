@@ -33,7 +33,8 @@ Example
 =======
 
 This is an example YAML setup using a local storage driver and a Dropbox driver properly set up to share folders:
-"
+
+```
 name: example
 
 folders:
@@ -65,6 +66,6 @@ services:
         access_key: INSERT_ACCESS_KEY_HERE
         access_secret: INSERT_ACCESS_SECRET_HERE
         changes_timer: 10
-"
+```
 
 It will synchronize the local folders /home/baron_a/Music and /home/baron_a/Docs with their Dropbox counterparts, /pando/Music and /pando/Docs.
