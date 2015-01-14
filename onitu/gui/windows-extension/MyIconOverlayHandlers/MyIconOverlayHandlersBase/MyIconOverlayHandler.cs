@@ -124,11 +124,12 @@ namespace MyIconOverlayHandlers
                 {
                     string tmp_files = System.IO.Path.GetTempPath() + "onitu_synced_files";
                     string fileName = Path.GetFileName(path);
-                    path = path.Replace("\\", "/");
+                    path = path.Replace("\\", "\\\\");
 
                     using (StreamReader r = new StreamReader(tmp_files))
                     {
                         string json = r.ReadToEnd();
+                        json = json.Replace("\\", "\\\\");
                         JObject jsonVal = JObject.Parse(json) as JObject;
 
                         IList<string> fileList = jsonVal.Properties().Select(p => p.Name).ToList();

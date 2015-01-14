@@ -90,7 +90,7 @@ def check_changes():
 def set_status(abs_path, status):
 
     tmp_dir = tempfile.gettempdir()
-    tmp_filename = tmp_dir + '/onitu_synced_files'
+    tmp_filename = tmp_dir + os.sep + 'onitu_synced_files'
 
     try:
         with open(tmp_filename, "r") as jsonFile:
