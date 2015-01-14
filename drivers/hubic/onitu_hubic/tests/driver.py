@@ -15,10 +15,6 @@ CLIENTID = \
 CLIENTSECRET = \
     "CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV49e7SpBsHDAKdtm5WeR5KEaDvc"
 
-# This needs to be updated using the script and will be used during the tests.
-REFRESHTOKEN = \
-    "GxW9db0UYrQEEJyvVrsLpBhVSxNvw2o5vBofbuySveu56wHApTfutrhedSkUMMQd"
-
 
 class Driver(driver.Driver):
 
@@ -28,7 +24,7 @@ class Driver(driver.Driver):
         if 'client_secret' not in options:
             options['client_secret'] = CLIENTSECRET
         if 'refresh_token' not in options:
-            options['refresh_token'] = REFRESHTOKEN
+            options['refresh_token'] = os.environ['ONITU_HUBIC_REFRESH_TOKEN']
         if 'changes_timer' not in options:
             options['changes_timer'] = 2
 
