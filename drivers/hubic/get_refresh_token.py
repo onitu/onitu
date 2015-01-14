@@ -18,29 +18,33 @@ if __name__ == '__main__':
     redirect_uri = "http://localhost/"
 
     url = "https://api.hubic.com/oauth/auth/?client_id=" + client_id
-    url += "&redirect_uri=" + urllib.quote_plus(redirect_uri)
+    try:
+        url += "&redirect_uri=" + urllib.quote_plus(redirect_uri)
+    except AttributeError:  # In python 3
+        url += "&redirect_uri=" + urllib.parse.quote_plus(redirect_uri)
     url += "&scope=credentials.r&response_type=code"
 
-    print
-    print "Your web browser will be launched in order to let Onitu gain "
-    "access to your Hubic account."
-    print "Then, you will be redirected to a localhost address."
-    print "There is a parameter (in the url) named \"code\"."
-    print "You will need to copy/paste it for the next part of this script."
-    print
-    print "If your web browser doesn't start, access this url:"
-    print url
-    print
+    print("""We're going to start your web browser in order to let Onitu gain \
+access to your Hubic account.
 
-    raw_input("If you are ready press enter.")
+Then, you're going to be redirected to a localhost address. \
+There will be a parameter in the URL named "code". It is between \
+'http://localhost/?code=' and before '&scope=...'.
+
+You'll have to copy/paste it for the next part of this script.
+
+If your web browser doesn't start, access this url: {}
+""".format(url))
+
+    raw_input("If you are ready, press Enter.")
     webbrowser.open(url)
-    print
-    print "The code parameter in the redirected url is after "
-    "'http://localhost/?code=' and before '&scope=...'"
-    print
     code = raw_input("Accept Onitu and enter your code here : ")
-
-    application_token = base64.b64encode(client_id + ":" + client_secret)
+    toEncode = "{}:{}".format(client_id, client_secret)
+    try:
+        application_token = base64.b64encode(toEncode)
+    except TypeError:  # In Python 3
+        application_token = base64.b64encode(toEncode.encode('ascii'))
+        application_token = application_token.decode('utf-8')
     url = "https://api.hubic.com/oauth/token/"
     response = requests.post(
         url,
@@ -60,7 +64,5 @@ if __name__ == '__main__':
 
     hubic_refresh_token = response.json()["refresh_token"]
 
-    print
-    print "You can now copy the following refresh token in setup.yml"
-    print hubic_refresh_token
-    print
+    print("You can now copy the following refresh token in setup.yml: {}"
+          .format(hubic_refresh_token))
