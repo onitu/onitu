@@ -1,6 +1,6 @@
 To install this extension:
 
-Copy the "OnituOverlayIcons" folder in "C:\Windows\System32\ProgramData"
+Copy the "OnituOverlayIcons" folder in "C:\ProgramData"
 
 Load the solution in visual studio and compile it.
 

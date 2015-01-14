@@ -16,7 +16,7 @@ namespace MyIconOverlayHandlersAdded
         {
             get
             {
-                return Path.Combine(base.OverlayIconFilePath, @"AddedOverlay.ico");
+                return Path.Combine(base.OverlayIconFilePath, @"AddedIcon.ico");
             }
         }
  

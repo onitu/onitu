@@ -16,7 +16,7 @@ namespace MyIconOverlayHandlersPending
         {
             get
             {
-                return Path.Combine(base.OverlayIconFilePath, @"PendingOverlay.ico");
+                return Path.Combine(base.OverlayIconFilePath, @"PendingIcon.ico");
             }
         }
 
