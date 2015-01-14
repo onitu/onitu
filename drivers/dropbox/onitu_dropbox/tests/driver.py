@@ -69,7 +69,7 @@ class Driver(driver.Driver):
 
     def unlink(self, filename):
         # Dropbox needs bytes for file_delete, for god-knows-what reason
-        self.dropbox_client.file_delete(b(filename))
+        self.dropbox_client.file_delete(filename)
 
     def rename(self, source, target):
         # Same thing than for file_delete
