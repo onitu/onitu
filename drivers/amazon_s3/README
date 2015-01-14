@@ -12,24 +12,44 @@ To make it work you're going to need your Amazon Access ID and your Amazon Secre
 
 If you already have an AWS account, you can retrieve them at https://console.aws.amazon.com/iam/home?#security_credential, tab "Access Keys (Access Key ID and Secret Access Key)".
 
-Once you have them, you need to create a new driver service in the setup JSON file (setup.json), and fill in the following fields:
-- driver : this should always be "amazon_s3"
-- options: The following options can be used:
+Once you have them, you need to create a new driver service called "amazon_s3" in the setup YAML file (setup.yml), and fill in the following options fields:
   - bucket: the name of the bucket you want to use with Onitu
-  - root: The folder under which you want Onitu to put all the transferred files on your bucket. Onitu won't put files elsewhere. If you want to use the whole bucket, omit it or set ""
   - aws_access_key: Put here your AWS Access Key
   - aws_secret_key: Put here your AWS Secret Key
   - changes_timer: Onitu periodically checks for changes on the bucket. Use this to set a period of time, in seconds, between each retry. Defaults to 10 seconds if you omit it
 
-A correct syntax for the service could be the following:
+Here is a sample configuration to synchronize a local folder and a folder on your Amazon S3:
 
-    "s3": {
-      "driver": "amazon_s3",
-	  "root": "/onitu",
-      "options": {
-	"bucket": "onitu-test-2",
-	"aws_access_key": "YourAccessKey",
-	"aws_secret_key": "YourSecretKey",
-	"changes_timer" : 10
-       }
-     }
+"
+name: example
+
+folders:
+  music:
+    mimetypes:
+      - "audio/*"
+  docs:
+    blacklist:
+      - "*.bak" 
+      - Private/
+  backup:
+    blacklist:
+      - ".*"
+    file_size:
+      max: 2G
+
+services:
+  A:
+    driver: local_storage 
+    folders:
+      music: /home/baron_a/Music
+      docs: /home/baron_a/Docs
+  S:  
+    driver: amazon_s3
+    folders:
+       music: pando/music/
+    options:
+        bucket: onitu-test-2
+        aws_access_key: AKIAJSWLJPXBXENIPIZQ
+        aws_secret_key: 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
+        changes_timer : 10
+"

@@ -14,10 +14,6 @@ class Driver(driver.Driver):
         self.req_socket = self.context.socket(zmq.REQ)
         self.notif_socket = self.context.socket(zmq.PUSH)
 
-    @property
-    def root(self):
-        return ''
-
     def connect(self, session):
         self.session = session
         self.req_socket.connect(self.get_uri('requests'))

@@ -1,7 +1,7 @@
 import sys
 from setuptools import setup, find_packages
 
-install_requires = ["path.py"]
+install_requires = []
 
 if sys.platform.startswith('linux'):
     install_requires.append('pyinotify')

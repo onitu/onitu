@@ -8,6 +8,7 @@ from logbook.queues import ZeroMQHandler
 from onitu.utils import at_exit, get_available_drivers, get_logs_uri, u
 from onitu.utils import log_traceback
 from onitu.escalator.client import EscalatorClosed
+from onitu.plug.exceptions import AbortOperation
 
 session = u(sys.argv[1])
 driver_name = sys.argv[2]
@@ -72,6 +73,8 @@ with ZeroMQHandler(get_logs_uri(session), multi=True).applicationbound():
 
         while thread.is_alive():
             thread.join(100)
+    except AbortOperation:
+        error("Closing service {} due to an error.", name)
     except Exception:
         log_traceback()
 

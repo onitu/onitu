@@ -25,6 +25,15 @@ class Driver(object):
             folders = {'default': 'default_' + get_random_string(5)}
         self.folders = folders
 
+        if hasattr(self, 'root'):
+            root = self.root.rstrip('/')
+
+            for name, folder in self.folders.items():
+                if isinstance(folder, dict):
+                    folder['path'] = root + '/' + folder['path']
+                else:
+                    self.folders[name] = root + '/' + folder
+
         if speed_bump and self.SPEED_BUMP > 0:
             self.options['chunk_size'] = self.SPEED_BUMP
 
@@ -37,7 +46,6 @@ class Driver(object):
     def dump(self):
         return {
             'driver': self.type,
-            'root': self.root,
             'options': self.options,
             'folders': self.folders
         }

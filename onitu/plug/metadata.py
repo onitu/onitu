@@ -1,5 +1,3 @@
-import os
-
 from onitu.utils import get_fid, get_mimetype, u
 
 from .folder import Folder
@@ -45,7 +43,7 @@ class Metadata(object):
         self.mimetype = mimetype
 
         if folder_name and not folder:
-            folder = Folder.get(plug.escalator, plug.name, folder_name)
+            folder = Folder.get(plug, folder_name)
         elif folder and not folder_name:
             folder_name = folder.name
 
@@ -95,9 +93,7 @@ class Metadata(object):
     @property
     def path(self):
         if not self._path:
-            self._path = os.path.join(
-                self.plug.root, self.folder.path, self.filename
-            )
+            self._path = self.folder.join(self.filename)
 
         return self._path
 

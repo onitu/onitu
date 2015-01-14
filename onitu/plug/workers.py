@@ -3,11 +3,11 @@ from threading import Event
 import zmq
 
 from onitu.referee import UP, DEL, MOV
-from onitu.utils import get_events_uri
+from onitu.utils import get_events_uri, log_traceback
 
 from .metadata import Metadata
 from .exceptions import AbortOperation
-from .router import CHUNK, FILE
+from .router import CHUNK, FILE, ERROR
 
 
 class Worker(object):
@@ -27,16 +27,19 @@ class Worker(object):
         self.escalator = self.dealer.escalator.clone(context=self.context)
 
     def __call__(self):
-        self.metadata = Metadata.get_by_id(self.dealer.plug, self.fid)
-        self.filename = self.metadata.filename
+        try:
+            self.metadata = Metadata.get_by_id(self.dealer.plug, self.fid)
+            self.filename = self.metadata.filename
 
-        self.do()
+            self.do()
+        except Exception:
+            log_traceback(self.logger)
+        finally:
+            self.escalator.close()
+            self.context.destroy()
 
-        self.escalator.close()
-        self.context.destroy()
-
-        if self.fid in self.dealer.in_progress:
-            self.dealer.in_progress.pop(self.fid)
+            if self.fid in self.dealer.in_progress:
+                self.dealer.in_progress.pop(self.fid)
 
     def stop(self):
         self._stop.set()
@@ -63,6 +66,7 @@ class TransferWorker(Worker):
 
     def do(self):
         success = False
+        dealer = None
 
         try:
             self.start_transfer()
@@ -77,7 +81,8 @@ class TransferWorker(Worker):
         else:
             success = True
         finally:
-            dealer.close()
+            if dealer:
+                dealer.close()
 
         self.end_transfer(success)
 
@@ -104,13 +109,16 @@ class TransferWorker(Worker):
         )
 
         dealer.send_multipart((FILE, str(self.fid).encode()))
-        _, content = dealer.recv_multipart()
+        resp = dealer.recv_multipart()
+
+        if resp[0] == ERROR:
+            raise AbortOperation()
 
         self.logger.debug(
             "Received content of file '{}' from {}", self.filename, self.driver
         )
 
-        self.call('upload_file', self.metadata, content)
+        self.call('upload_file', self.metadata, resp[1])
 
     def get_file_multipart(self, dealer):
         while self.offset < self.metadata.size:
@@ -125,15 +133,20 @@ class TransferWorker(Worker):
                 str(self.offset).encode(),
                 str(self.chunk_size).encode()
             ))
-            _, chunk = dealer.recv_multipart()
+            resp = dealer.recv_multipart()
+
+            if resp[0] == ERROR:
+                raise AbortOperation()
+
+            chunk = resp[1]
+
+            if not chunk or len(chunk) == 0:
+                raise AbortOperation()
 
             self.logger.debug(
                 "Received chunk of size {} from {} for '{}'",
                 len(chunk), self.driver, self.filename
             )
-
-            if not chunk or len(chunk) == 0:
-                raise AbortOperation()
 
             self.call('upload_chunk', self.metadata, self.offset, chunk)
 
@@ -211,8 +224,10 @@ class MoveWorker(Worker):
 
         self.logger.debug("Moving '{}' to '{}'", self.filename, new_filename)
 
+        is_uptodate = self.dealer.name in self.metadata.uptodate
+
         try:
-            if 'move_file' in self.dealer.plug._handlers:
+            if 'move_file' in self.dealer.plug._handlers and is_uptodate:
                 self.call('move_file', self.metadata, new_metadata)
                 self.metadata.delete()
             else:

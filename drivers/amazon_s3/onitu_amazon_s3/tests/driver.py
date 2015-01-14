@@ -28,7 +28,7 @@ class Driver(driver.Driver):
             options['bucket'] = 'onitu-test-2'
 
         self._root = get_random_string(10)
-
+        self.bucket = options['bucket']
         self.conn = tinys3.Connection(options['aws_access_key'],
                                       options['aws_secret_key'],
                                       default_bucket=options['bucket'],
@@ -39,29 +39,25 @@ class Driver(driver.Driver):
 
     @property
     def root(self):
-        return self._root + '/'
+        return self._root + u"/"
 
     def close(self):
         root = self.root
         for key in self.conn.list(prefix=root):
             self.conn.delete(key['key'])
         # Don't delete the whole bucket !
-        if root.endswith(u'/'):
+        if root.endswith(u"/"):
             root = root[:-1]
         if root != u'':
             self.conn.delete(root)
 
     def mkdir(self, subdirs):
-        subdirs = self.root + subdirs
-        self.write(subdirs, u'', True)
+        self.write(subdirs, u'')
 
     def rmdir(self, path):
-        path = self.root + path
         self.unlink(path)
 
-    def write(self, filename, content, includes_root=False):
-        if not includes_root:
-            filename = self.root + filename
+    def write(self, filename, content):
         if sys.version_info.major == 3 and not isinstance(content, bytes):
             content = content.encode()
         s = IOStream(content)
@@ -69,16 +65,12 @@ class Driver(driver.Driver):
         s.close()
 
     def generate(self, filename, size):
-        filename = self.root + filename
-        self.write(filename, os.urandom(size), True)
+        self.write(filename, os.urandom(size))
 
     def unlink(self, filename):
-        filename = self.root + filename
-        if filename != u'':
-            self.conn.delete(filename)
+        self.conn.delete(filename)
 
     def exists(self, filename):
-        filename = self.root + filename
         try:
             self.conn.head_object(filename)
         except requests.HTTPError:
@@ -86,16 +78,13 @@ class Driver(driver.Driver):
         return True
 
     def rename(self, source, target):
-        source = self.root + source
-        target = self.root + target
-        bucket = self.options['bucket']
+        bucket = self.bucket
         self.conn.copy(source, bucket, target, bucket)
         self.conn.delete(source)
 
     def checksum(self, filename):
-        filename = self.root + filename
-        file = self.conn.get(filename)
-        return hashlib.md5(file.content).hexdigest()
+        fileKey = self.conn.get(filename)
+        return hashlib.md5(fileKey.content).hexdigest()
 
 
 class DriverFeatures(driver.DriverFeatures):

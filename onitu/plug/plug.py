@@ -63,15 +63,11 @@ class Plug(object):
         self.publisher = self.context.socket(zmq.PUSH)
         self.publisher.connect(get_events_uri(session, 'referee'))
 
-        self.root = self.escalator.get(
-            u'service:{}:root'.format(name), default=''
-        )
-
         self.options = self.escalator.get(
             u'service:{}:options'.format(name), default={}
         )
 
-        self.folders = Folder.get_folders(self.escalator, self.name)
+        self.folders = Folder.get_folders(self)
 
         self.validate_options(manifest)
 
@@ -239,6 +235,12 @@ class Plug(object):
         return {filename.replace(prefix, '', 1): fid
                 for filename, fid in self.escalator.range(prefix)}
 
+    def exists(self, folder, path):
+        """
+        Return whether the given path exists in the folder or not.
+        """
+        return self.escalator.exists(u'path:{}:{}'.format(folder, path))
+
     def validate_options(self, manifest):
         """
         Validate the options and set the default values using informations
@@ -363,3 +365,13 @@ class Plug(object):
             prefix = u'service:{}:db:'.format(self.name)
             self._service_db = self.escalator.clone(prefix=prefix)
         return self._service_db
+
+    @property
+    def folders_to_watch(self):
+        """
+        Return the list of the folders which should be watched by the driver
+        """
+        return tuple(
+            folder for folder in self.folders.values()
+            if not any(f.contains(folder.path) for f in self.folders.values())
+        )
