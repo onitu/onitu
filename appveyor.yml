@@ -4,14 +4,16 @@ environment:
     - PYTHON: "C:/Python34"
 
 install:
+  - '"C:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\SetEnv.cmd" /x86 /release'
   - ps: (new-object net.webclient).DownloadFile('https://raw.github.com/pypa/pip/master/contrib/get-pip.py', 'C:/get-pip.py')
+  - ps: (new-object net.webclient).DownloadFile('https://downloads.sourceforge.net/project/pywin32/pywin32/Build%20219/pywin32-219.win32-py2.7.exe', 'C:/pywin32-219.win32-py2.7.exe')
   - "%PYTHON%/python.exe C:/get-pip.py"
+  - "%PYTHON%/Scripts/easy_install.exe C:/pywin32-219.win32-py2.7.exe"
   - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
+
 
 build: off
 deploy: off
 
 test_script:
   - "%PYTHON%/Scripts/py.test.exe -v tests/"
-
-
