@@ -6,8 +6,9 @@ environment:
     - PYTHON: "C:/Python34"
 
 install:
-  - "nuget install LevelDB"
+  - "Install-Package LevelDB"
   - ps: "Get-ChildItem C:/ -name db.h -recurse"
+  - ps: "Get-ChildItem C:/ -name leveldb.lib -recurse"
 
 build: off
 deploy: off
