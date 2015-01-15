@@ -16,8 +16,8 @@ def get_access_token():
     # Get a request token
     flickr.get_request_token(oauth_callback="oob")
 
-    print("""In order to use Flickr with Onitu, you're going to need to let the \
-    Onitu Flickr app gain access to your Flickr account.
+    print("""In order to use Flickr with Onitu, you're going to need to let \
+    the Onitu Flickr app gain access to your Flickr account.
 
     To do so, the script is going to open a window in your web browser to the \
     Flickr website where you'll have to copy/paste a verification code back \
@@ -46,5 +46,6 @@ def get_access_token():
 if not flickr.token_valid(perms='delete'):
     get_access_token()
 
-print("You can now use the following token in your Onitu setup.yml file: {}"
-      .format(flickr.token_cache.token.token))
+print("You can use the following tokens in your Onitu setup.yml file: {} {}"
+      .format(flickr.token_cache.token.token,
+              flickr.token_cache.token.token_secret))
