@@ -1,131 +1,95 @@
-import io
-import requests
-import hashlib
+import urllib
 
-from xml.etree.ElementTree import fromstring, ElementTree
-from requests_toolbelt import MultipartEncoder
-from requests_oauthlib import OAuth1
+import flickrapi
 
-from onitu.plug import Plug, ServiceError
+from onitu.plug import Plug, ServiceError, DriverError
 
 plug = Plug()
-root = None
+api_key = '66a1c393c8de67fbeef54bb785375e06'
+api_secret = '5bfbc7256872d085'
 flickr = None
 
-# ############################## OAUTH ######################################
-
-
 class Flickr():
-    def __init__(self, client_key, client_secret, oauth_token,
-                 oauth_token_secret, root):
-        self.client_key = client_key
-        self.client_secret = client_secret
-        self.oauth_token = oauth_token
-        self.oauth_token_secret = oauth_token_secret
-        self.root = root
-        self.photoset_id = None
+    def __init__(self, key, secret):
+        self.api_key = key
+        self.api_secret = secret
+        # Dict to match photosets names->IDs
+        self.photosetIDs = plug.service_db.get('photosetIDs', default={})
+        self.flickr_api = None
+        self.connectAPI()
+        self.user_id = self.flickr_api.flickr.token_cache.token.user_nsid
 
-        self.oauth = OAuth1(client_key,
-                            client_secret=client_secret,
-                            resource_owner_key=oauth_token,
-                            resource_owner_secret=oauth_token_secret)
+    def connectAPI(self):
+        self.flickr_api = flickrapi.FlickrAPI(self.api_key, self.api_secret,
+                                              format="parsed-json")
 
-        self.rest_url = 'https://api.flickr.com/services/rest/'
-        self.upload_url = 'https://up.flickr.com/services/upload/'
-        self.replace_url = 'https://up.flickr.com/services/replace/'
-        # Used as tag to found onitu files on the flickr account
-        # (Do not remove it from your files)
-        self.onitu_tag = 'ONITU_TAG/'
-
-        params = {
-            'format': 'json',
-            'nojsoncallback': '1',
-            'method': 'flickr.test.login'
-        }
-
-        r = self.call(requests.get, self.rest_url, params=params,
-                      auth=self.oauth)
-        self.user_id = r.json()['user']['id']
-
-# ############################## UTILS ######################################
-
-    def create_tag(self, metadata):
-        return '{}{}/{}'.format(
-            self.onitu_tag, self.root, hashlib.md5(
-                metadata.filename + str(metadata.size)
-            ).hexdigest()
-        )
-
-    def load_tag_id(self, metadata):
-        return self.get_tag_id(self.load_photo_id(metadata),
-                               metadata.extra['tag'])
-
-    def load_photo_id(self, metadata):
-        if 'id' in metadata.extra:
-            return metadata.extra['id']
-        return self.search_file(metadata)
-
-    def call(self, func, url, **kwargs):
-        try:
-            r = func(url, **kwargs)
-        except requests.exceptions.RequestException:
-            raise ServiceError('Impossible to join Flickr api')
-
-        if r.status_code // 100 != 2:
-            raise ServiceError(
-                'Call: Status code {} received.'.format(r.status_code)
-            )
-        return r
-
-    def do_upload(self, url, content, params=None):
-        """Performs a file upload to the given URL with
-        the given parameters, signed with OAuth."""
-
-        # work-around for Flickr expecting 'photo' to be excluded
-        # from the oauth signature:
-        #   1. create a dummy request without 'photo'
-        #   2. create real request and use auth headers from the dummy one
-        dummy_req = requests.Request('POST', url, data=params,
-                                     auth=self.oauth)
-
-        prepared = dummy_req.prepare()
-        headers = prepared.headers
-
-        fileobj = io.BytesIO(content)
-        params['photo'] = (params['title'], fileobj)
-
-        m = MultipartEncoder(fields=params)
-        auth = {'Authorization': headers.get('Authorization'),
-                'Content-Type': m.content_type}
-
-        return self.call(requests.post, url, data=m, headers=auth)
-
-    def search_file(self, metadata):
-        """ Return None if no file or many files are found.
-        return file id otherwise """
-        tag = self.create_tag(metadata)
-
-        params = {
-            'format': 'json',
-            'nojsoncallback': '1',
-            'user_id': self.user_id,
-            'method': 'flickr.photos.search',
-            'tags': tag
-        }
-
-        r = self.call(requests.get, self.rest_url, params=params,
-                      auth=self.oauth)
-        json = r.json()
-
-        res_nb = len(json['photos']['photo'])
-        if (res_nb == 0) or (res_nb > 1):
-            return None
+    def getPhotosetID(self, searchedPhotoset=None):
+        """Store the ID matching a given photoset name. If no photoset name is
+        given, stores the ID of all the existing photosets."""
+        plug.logger.debug("Seaching for {} photoset ID"
+                          .format(searchedPhotoset))
+        # If already in database
+        if self.photosetIDs.get(searchedPhotoset, None) is not None:
+            return self.photosetIDs[searchedPhotoset]
+        sets = self.flickr_api.photosets.getList(user_id=self.user_id)
+        storeAll = searchedPhotoset is None
+        for photoset in sets.find('photosets').findall('photoset'):
+            photosetTitle = photoset.find('title').text
+            if photosetTitle == searchedPhotoset or storeAll:
+                self.photosetIDs[photosetTitle] = photoset.attrib['id']
+                if not storeAll:  # found the One
+                    break
+        plug.logger.debug("Done searching {} photoset ID, updating database"
+                          .format(searchedPhotoset))
+        plug.service_db.put('photosetIDs', self.photosetIDs)  # Keep the database up-to-date
+        if storeAll:
+            return self.photosetIDs
         else:
-            return json['photos']['photo'][0]['id']
+            return self.photosetIDs[searchedPhotoset]
 
-# ############################## FLICKR ######################################
+    def downloadPhotoContent(self, photo_id, size="Original"):
+        """Downloads the binary data of a Flickr image. Gets the image in
+        original size by default. The possibilities may be:
+        Square, Large Square, Thumbnail Small, Small 320, Medium, Medium 640,
+        Medium 800, Large, Original."""
+        rsp = self.flickr_api.photos.getSizes(photo_id=photo_id)
+        sizes = rsp.find('sizes').findall('size')
+        orig = next((elem for elem in sizes if elem.attrib['label'] == size),
+                    None)
+        if orig is None:
+            raise ServiceError("No URL for photo ID '{}' at size '{}' !"
+                               .format(photo_id, size))
+        url = orig.attrib['source']
+        try:
+            data = urllib.request.urlopen(url)
+        except AttributeError:  # In Python 2
+            data = urllib.urlopen(url)
+        return data.read()
 
-    def upload_file(self, metadata, content):
+
+def connectToFlickr():
+    global flickr
+
+    if flickr is not None:
+        flickr = Flickr(api_key, api_secret)
+    else:
+        flickr.connectAPI()
+
+
+# ############################## ONITU ######################################
+
+@plug.handler()
+def get_file(metadata):
+    """ Return an image's contents."""
+    photo_id = metadata.extra.get('photo_id', None)
+    if photo_id is None:
+        raise DriverError("No photo ID for file '{}'"
+                          .format(metadata.filename))
+    return flickr.downloadPhotoContent(photo_id)
+
+
+@plug.handler()
+def upload_file(self, metadata, content):
 
         photo_id = self.load_photo_id(metadata)
         tag = metadata.extra['tag']
@@ -171,27 +135,9 @@ class Flickr():
         metadata.extra['id'] = photo_id
         metadata.write()
 
-    def get_file(self, metadata):
-        """ Return the file content """
 
-        photo_id = self.load_photo_id(metadata)
-        if photo_id:
-            params = {
-                'format': 'json',
-                'nojsoncallback': '1',
-                'method': 'flickr.photos.getSizes',
-                'photo_id': photo_id
-            }
 
-            r = self.call(requests.get, self.rest_url, params=params,
-                          auth=self.oauth)
-
-            # 5 = Original size
-            url = r.json()['sizes']['size'][5]['source']
-            r = self.call(requests.get, url)
-            return r.content
-
-    def delete_file(self, metadata):
+def delete_file(self, metadata):
 
         photo_id = self.load_photo_id(metadata)
         if photo_id:
@@ -205,7 +151,7 @@ class Flickr():
             self.call(requests.get, self.rest_url, params=params,
                       auth=self.oauth)
 
-    def get_tag_id(self, photo_id, tag_name):
+def get_tag_id(self, photo_id, tag_name):
         try:
             tags = self.get_file_info(photo_id)['photo']['tags']['tag']
         except KeyError:
@@ -217,7 +163,7 @@ class Flickr():
                 return tag['id']
         return None
 
-    def move_file(self, old, new):
+def move_file(self, old, new):
 
         photo_id = self.load_photo_id(old)
         new_tag = self.create_tag(new)
@@ -235,7 +181,7 @@ class Flickr():
             plug.logger.warning(
                 "move_file: Cannot move file '{}'".format(old.filename))
 
-    def get_file_info(self, photo_id):
+def get_file_info(self, photo_id):
         """ Return a json with photo infos """
 
         params = {
@@ -249,7 +195,7 @@ class Flickr():
                       auth=self.oauth)
         return r.json()
 
-    def remove_tag(self, tag_id):
+def remove_tag(self, tag_id):
 
         params = {
             'format': 'json',
@@ -260,7 +206,7 @@ class Flickr():
 
         self.call(requests.post, self.rest_url, params=params, auth=self.oauth)
 
-    def add_tags(self, photo_id, tags):
+def add_tags(self, photo_id, tags):
 
         params = {
             'format': 'json',
@@ -272,7 +218,7 @@ class Flickr():
 
         self.call(requests.post, self.rest_url, params=params, auth=self.oauth)
 
-    def rename_file(self, photo_id, title):
+def rename_file(self, photo_id, title):
 
         params = {
             'format': 'json',
@@ -287,7 +233,7 @@ class Flickr():
 
 # ############################# PHOTOSETS ###################################
 
-    def list_photosets(self):
+def list_photosets(self):
         params = {
             'format': 'json',
             'nojsoncallback': '1',
@@ -298,7 +244,7 @@ class Flickr():
         return self.call(requests.get, self.rest_url, params=params,
                          auth=self.oauth)
 
-    def add_photo_to_photoset(self, photo_id, photoset_id):
+def add_photo_to_photoset(self, photo_id, photoset_id):
         params = {
             'format': 'json',
             'nojsoncallback': '1',
@@ -310,7 +256,7 @@ class Flickr():
         return self.call(requests.post, self.rest_url, params=params,
                          auth=self.oauth)
 
-    def create_photoset(self, title, primary_photo_id, description=None):
+def create_photoset(self, title, primary_photo_id, description=None):
         params = {
             'format': 'json',
             'nojsoncallback': '1',
@@ -326,35 +272,12 @@ class Flickr():
                          auth=self.oauth)
 
 
-# ############################# ONITU BASIC ###################################
-
-
-@plug.handler()
-def move_file(old_metadata, new_metadata):
-    flickr.move_file(old_metadata, new_metadata)
-
-
-@plug.handler()
-def get_file(metadata):
-    flickr.get_file(metadata)
-
-
-@plug.handler()
-def start_upload(metadata):
-    metadata.extra['tag'] = flickr.create_tag(metadata)
-
-
-@plug.handler()
-def upload_file(metadata, content):
-    flickr.upload_file(metadata, content)
-
-
-@plug.handler()
-def delete_file(metadata):
-    flickr.delete_file(metadata)
-
-
 def start():
+    if plug.options.get('user_id', None) is None:
+        return DriverError("You must set a Flickr user ID in order to use"
+                           " the Flickr driver")
+
+
     # Clean the root
     global root
     root = plug.options['root']

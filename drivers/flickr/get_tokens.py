@@ -1,56 +1,50 @@
-from requests_oauthlib import OAuth1Session
+import webbrowser
 
-if __name__ == '__main__':
+import flickrapi
 
-    print
-    print ("If you have overrided onitu_client_id and onitu_client_secret in "
-           "your setup.json (OPTIONAL), please open this script and put the "
-           "same keys in vars 'client_key' and 'client_secret'.")
-    print
-    client_key = '66a1c393c8de67fbeef54bb785375e06'
-    client_secret = '5bfbc7256872d085'
+try:
+    raw_input
+except NameError:  # in python 3
+    raw_input = input
 
-    base_url = 'https://www.flickr.com/services/oauth/'
-    request_token_url = base_url + 'request_token'
-    base_authorization_url = base_url + 'authorize'
-    access_token_url = base_url + 'access_token'
+api_key = '66a1c393c8de67fbeef54bb785375e06'
+api_secret = '5bfbc7256872d085'
+flickr = flickrapi.FlickrAPI(api_key, api_secret, format='etree')
 
-    oauth_callback = 'https://api.flickr.com/services/rest/'
-    '?method=flickr.test.echo&api_key=' + client_key
 
-    oauth = OAuth1Session(client_key, client_secret=client_secret,
-                          callback_uri=oauth_callback)
-    fetch_response = oauth.fetch_request_token(request_token_url)
+def get_access_token():
+    # Get a request token
+    flickr.get_request_token(oauth_callback="oob")
 
-    request_token = fetch_response.get('oauth_token')
-    token_secret = fetch_response.get('oauth_token_secret')
+    print("""In order to use Flickr with Onitu, you're going to need to let the \
+    Onitu Flickr app gain access to your Flickr account.
 
-    # -------
+    To do so, the script is going to open a window in your web browser to the \
+    Flickr website where you'll have to copy/paste a verification code back \
+    here in the terminal.
+    """)
 
-    authorization_url = oauth.authorization_url(base_authorization_url,
-                                                perms='delete')
-    print 'Please go here and authorize onitu to access your account'
-    print authorization_url
-    redirect_response = raw_input('Paste here the full redirect URL: ')
-    oauth_response = oauth.parse_authorization_response(redirect_response)
+    raw_input("If you're ready, press Enter.")
+    # Open a browser at the authentication URL. Do this however
+    # you want, as long as the user visits that URL.
+    authorize_url = flickr.auth_url(perms='delete')
+    webbrowser.open(authorize_url)
 
-    verifier = oauth_response.get('oauth_verifier')
+    # Get the verifier code from the user. Do this however you
+    # want, as long as the user gives the application the code.
+    verifier = raw_input("Paste the code here: ")
 
-    # -------
+    try:
+        verifier = unicode(verifier)
+    except NameError:  # in python 3
+        # No unicode type, but that's ok, that's what the next function wants
+        pass
+    # Trade the request token for an access token
+    flickr.get_access_token(verifier)
 
-    oauth = OAuth1Session(client_key,
-                          client_secret=client_secret,
-                          resource_owner_key=request_token,
-                          resource_owner_secret=token_secret,
-                          verifier=verifier)
-    oauth_tokens = oauth.fetch_access_token(access_token_url)
 
-    oauth_token = oauth_tokens.get('oauth_token')
-    oauth_token_secret = oauth_tokens.get('oauth_token_secret')
+if not flickr.token_valid(perms='delete'):
+    get_access_token()
 
-    print '------------------------------------------------------'
-    print 'yout oauth_token        = ' + oauth_token
-    print 'yout oauth_token_secret = ' + oauth_token_secret
-    print '------------------------------------------------------'
-    print 'You can now paste these tokens in your setup.json file'
-    print '------------------------------------------------------'
+print("You can now use the following token in your Onitu setup.yml file: {}"
+      .format(flickr.token_cache.token.token))
