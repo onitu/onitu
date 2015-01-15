@@ -172,8 +172,6 @@ def end_upload(metadata):
         tmp_file.move(metadata.path)
         mtime = os.path.getmtime(metadata.path)
 
-        set_status(path(metadata.path).abspath(), "pending")
-
         if IS_WINDOWS:
             win32api.SetFileAttributes(
                 metadata.path, win32con.FILE_ATTRIBUTE_NORMAL)
@@ -208,7 +206,7 @@ def delete_file(metadata):
             u"Error deleting file '{}': {}".format(metadata.path, e)
         )
 
-    set_status(path(filename).abspath(), "deleted")
+    set_status(path(metadata.path).abspath(), "deleted")
 
 
 @plug.handler()
@@ -227,8 +225,8 @@ def move_file(old_metadata, new_metadata):
             u"Error moving file '{}': {}".format(old_path, e)
         )
 
-    set_status(path(old_filename).abspath(), "moved")
-    set_status(path(new_filename).abspath(), "synced")
+    set_status(old_path.abspath(), "moved")
+    set_status(new_path.abspath(), "synced")
 
 
 if IS_WINDOWS:
