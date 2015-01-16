@@ -10,12 +10,12 @@ import logging
 import six
 import functools
 
-from . import tokencache, auth
-
-from xmlnode import XMLNode
+from .tokencache import SimpleTokenCache, OAuthTokenCache
+from .auth import OAuthFlickrInterface, FlickrAccessToken
+from .xmlnode import XMLNode
 from .exceptions import IllegalArgumentException, FlickrError
-from cache import SimpleCache
-from call_builder import CallBuilder
+from .cache import SimpleCache
+from .call_builder import CallBuilder
 
 LOG = logging.getLogger(__name__)
 
@@ -190,21 +190,21 @@ class FlickrAPI(object):
             secret = secret.decode('ascii')
 
         if token:
-            assert isinstance(token, auth.FlickrAccessToken)
+            assert isinstance(token, FlickrAccessToken)
 
             # Use a memory-only token cache
-            self.token_cache = tokencache.SimpleTokenCache()
+            self.token_cache = SimpleTokenCache()
             self.token_cache.token = token
         elif not store_token:
             # Use an empty memory-only token cache
-            self.token_cache = tokencache.SimpleTokenCache()
+            self.token_cache = SimpleTokenCache()
         else:
             # Use a real token cache
-            self.token_cache = tokencache.OAuthTokenCache(api_key,
-                                                          username or '')
+            self.token_cache = OAuthTokenCache(api_key,
+                                               username or '')
 
-        self.flickr_oauth = auth.OAuthFlickrInterface(api_key, secret,
-                                                      self.token_cache)
+        self.flickr_oauth = OAuthFlickrInterface(api_key, secret,
+                                                 self.token_cache)
 
         if cache:
             self.cache = SimpleCache()

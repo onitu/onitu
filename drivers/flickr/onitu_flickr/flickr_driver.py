@@ -4,9 +4,9 @@ import threading
 from io import BytesIO
 from datetime import datetime
 
-from flickrapi.core import FlickrAPI
-from flickrapi.auth import FlickrAccessToken
-from flickrapi.exceptions import FlickrError
+from .flickrapi import FlickrAPI
+from .flickrapi.auth import FlickrAccessToken
+from .flickrapi.exceptions import FlickrError
 
 from onitu.plug import Plug, ServiceError, DriverError
 from onitu.escalator.client import EscalatorClosed

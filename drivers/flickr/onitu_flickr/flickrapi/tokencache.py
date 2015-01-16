@@ -6,7 +6,7 @@ import time
 import sqlite3
 
 from .exceptions import LockingError, CacheDatabaseError
-from auth import FlickrAccessToken
+from .auth import FlickrAccessToken
 
 LOG = logging.getLogger(__name__)
 

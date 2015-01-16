@@ -48,13 +48,13 @@ __author__ = 'Sybren Stüvel'
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # Import the core functionality into the flickrapi namespace
-from core import FlickrAPI
 
-from xmlnode import XMLNode
-from exceptions import IllegalArgumentException, \
+from .core import FlickrAPI
+from .xmlnode import XMLNode
+from .exceptions import IllegalArgumentException, \
     FlickrError, CancelUpload, LockingError
-from cache import SimpleCache
-from tokencache import TokenCache, SimpleTokenCache, LockingTokenCache
+from .cache import SimpleCache
+from .tokencache import TokenCache, SimpleTokenCache, LockingTokenCache
 
 
 def set_log_level(level):
