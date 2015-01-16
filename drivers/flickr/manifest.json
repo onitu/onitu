@@ -17,6 +17,12 @@
 	    "description": "The amount of time you want Onitu to wait between each check for new files on your Flickr account, in seconds. Defaults to 30.",
 	    "type": "integer",
 	    "default": 30
+	},
+	"png_header": {
+	    "name": "PNG header prepending",
+	    "description": "If active, Onitu prepends a PNG header before any data sent to Flickr. Used by tests to fool Flickr's MIME type detection.",
+	    "type": "boolean",
+	    "default": "false"
 	}
     }
 }

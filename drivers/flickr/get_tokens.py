@@ -1,6 +1,5 @@
 import webbrowser
-
-import flickrapi
+from onitu_flickr import flickrapi
 
 try:
     raw_input

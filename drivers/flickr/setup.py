@@ -7,7 +7,8 @@ setup(
     description="Synchronize onitu with your flickr account",
     license="MIT",
     packages=find_packages(),
-    install_requires=["requests", "requests_toolbelt", "requests_oauthlib"],
+    install_requires=["requests", "requests_toolbelt", "requests_oauthlib",
+                      "six"],
     package_data={'': ['manifest.json']},
     entry_points={
         'onitu.drivers': [

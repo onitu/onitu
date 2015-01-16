@@ -13,9 +13,11 @@ from onitu.escalator.client import EscalatorClosed
 from onitu.utils import u
 
 plug = Plug()
-api_key = '66a1c393c8de67fbeef54bb785375e06'
-api_secret = '5bfbc7256872d085'
+API_KEY = '66a1c393c8de67fbeef54bb785375e06'
+API_SECRET = '5bfbc7256872d085'
 flickr = None
+# Used for tests, when plug.options['png_header'] is True.
+PNG_HEADER = '\x89\x50\x4e\x47\x0d\x0a\x1a\x0a'
 
 
 class FlickrHandler():
@@ -154,6 +156,20 @@ class FlickrHandler():
         plug.logger.debug(u"Photoset {} successfully created, ID: {}"
                           .format(photosetName, photosetID))
 
+    def getPhotoID(self, photoName, photosetID=None):
+        """Retrieves the ID of a photo. Only for tests purposes."""
+        photos = None
+        if photosetID is None:
+            resp = self.flickr_api.people.getPhotos(user_id=u"me")
+            photos = resp.find('photos').findall('photo')
+        else:
+            resp = self.flickr_api.photosets.getPhotos(photoset_id=photosetID)
+            photos = resp.find('photoset').findall('photo')
+        for photo in photos:
+            if photo.attrib['title'] == photoName:
+                return photo.attrib['id']
+        return None
+
 # ############################## ONITU ######################################
 
 
@@ -177,6 +193,9 @@ def get_file(metadata):
 @plug.handler()
 def upload_file(metadata, content):
     filename = metadata.filename
+    # Used for tests.
+    if plug.options['png_header']:
+        content = PNG_HEADER + content
     data = BytesIO(content)
     try:
         # If it has no photo ID it means it's a new file going to Flickr.
@@ -273,8 +292,8 @@ class CheckChanges(threading.Thread):
                 warn = u"An unknown Flickr error occurred: {}".format(
                        fe.message)
                 if fe.message == u"Error: 1: Photoset not found":
-                    warn = u"The album {} doesn't exist on Flickr.".format(
-                    self.folder.path)
+                    warn = (u"The album {} doesn't exist on Flickr."
+                            .format(self.folder.path))
                 plug.logger.warning(warn)
             except EscalatorClosed:
                 # We are closing
@@ -352,8 +371,7 @@ class CheckChanges(threading.Thread):
 
 def start():
     global flickr
-
-    flickr = FlickrHandler(api_key, api_secret,
+    flickr = FlickrHandler(API_KEY, API_SECRET,
                            u(plug.options['oauth_token']),
                            u(plug.options['oauth_token_secret']))
     for folder in plug.folders_to_watch:
