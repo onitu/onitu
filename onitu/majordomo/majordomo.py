@@ -56,8 +56,8 @@ class Majordomo(Broker):
         self.nb_remotes += 1
         name = 'remote-{}'.format(self.nb_remotes)
         self.remote_names[src_id] = name
-        self.escalator.put('entry:{}:driver'.format(name), 'remote_driver')
-        self.escalator.put('entry:{}:options'.format(name), {
+        self.escalator.put('service:{}:driver'.format(name), 'remote_driver')
+        self.escalator.put('service:{}:options'.format(name), {
             'id': dest_id,
             'remote_id': src_id,
             'remote_uri': 'tcp://127.0.0.1:{}'.format(
@@ -72,9 +72,9 @@ class Majordomo(Broker):
                 "name": name,
                 "cmd": sys.executable,
                 "args": ('-m',
-                         'onitu.drivers',
-                         'remote_driver',
+                         'onitu.service',
                          self.session,
+                         'remote_driver',
                          name),
                 "copy_env": True,
                 "start": True,
