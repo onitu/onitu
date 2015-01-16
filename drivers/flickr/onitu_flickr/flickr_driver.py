@@ -1,12 +1,16 @@
+import os
 import urllib
 import threading
+from io import BytesIO
 from datetime import datetime
 
-from flickrapi import FlickrAPI
+from flickrapi.core import FlickrAPI
 from flickrapi.auth import FlickrAccessToken
+from flickrapi.exceptions import FlickrError
 
 from onitu.plug import Plug, ServiceError, DriverError
 from onitu.escalator.client import EscalatorClosed
+from onitu.utils import u
 
 plug = Plug()
 api_key = '66a1c393c8de67fbeef54bb785375e06'
@@ -30,12 +34,12 @@ class FlickrHandler():
 
     def connectAPI(self):
         token = FlickrAccessToken(self.oauth_token, self.oauth_token_secret,
-                                  'delete')
+                                  u'delete')
         self.flickr_api = FlickrAPI(self.api_key, self.api_secret,
-                                    format="etree", token=token)
-        if not self.flickr_api.token_valid(perms='delete'):
+                                    format=u"etree", token=token)
+        if not self.flickr_api.token_valid(perms=u'delete'):
             raise DriverError("Failed to connect to Flickr, please check your"
-                              "authentication credentials")
+                              " authentication credentials")
         plug.logger.debug("Connection to Flickr successful")
 
     def getPhotosetID(self, searchedPhotoset=None):
@@ -63,7 +67,13 @@ class FlickrHandler():
         if storeAll:
             return self.photosetIDs
         else:
-            return self.photosetIDs[searchedPhotoset]
+            searchedID = ''
+            try:
+                searchedID = self.photosetIDs[searchedPhotoset]
+            except KeyError:
+                raise DriverError(u"No Flickr ID for album name '{}'!"
+                                  .format(searchedPhotoset))
+            return searchedID
 
     def downloadPhotoContent(self, photo_id, size="Original"):
         """Downloads the binary data of a Flickr image. Gets the image in
@@ -77,7 +87,7 @@ class FlickrHandler():
         orig = next((elem for elem in sizes if elem.attrib['label'] == size),
                     None)
         if orig is None:
-            raise ServiceError("No URL for photo ID '{}' at size '{}' !"
+            raise ServiceError(u"No URL for photo ID '{}' at size '{}' !"
                                .format(photo_id, size))
         url = orig.attrib['source']
         try:
@@ -92,45 +102,115 @@ class FlickrHandler():
                      for photo in self.flickr_api.walk_set(photosetID)]
         return photosIDs
 
+    def uploadPhotoInPhotoset(self, filename, data, photosetName):
+        # Respecting the Flickr convention that wants that photo titles be
+        # without file extension.
+        title = os.path.splitext(filename)[0]
+        desc = "Uploaded by Onitu"
+        plug.logger.debug(u"Uploading photo {} with title {}"
+                          .format(filename, title))
+        resp = self.flickr_api.upload(filename=filename, fileobj=data,
+                                      title=title, description=desc,
+                                      format='etree')
+        photoID = resp.find('photoid').text
+        # Now add the uploaded photo to the photoset of the folder
+        try:
+            photosetID = flickr.getPhotosetID(photosetName)
+        except DriverError:  # This means the album has been deleted
+            # We need to recreate it by setting the given photo as primary.
+            plug.logger.debug(u"No {} photoset on Flickr, creating it"
+                              .format(photosetName))
+            self.createPhotosetWithPhoto(photosetName, photoID)
+            return photoID
+        # The album already exists, no error
+        plug.logger.debug(u"Adding {} (ID: {}) to photoset {} (ID: {})"
+                          .format(filename, photoID,
+                                  photosetName, photosetID))
+        try:
+            flickr.flickr_api.photosets.addPhoto(photoset_id=photosetID,
+                                                 photo_id=photoID)
+        except FlickrError as fe:
+            if fe.message == "Error: 1: Photoset not found":
+                plug.logger.debug(u"Photoset {} doesn't exist anymore,"
+                                  u"recreating it".format(photosetName))
+                # This kind of "memory effect" can occur if e.g. we delete the
+                # last photo of an album, since in that case Flickr deletes
+                # the album altogether! Since we cache photoset IDs, it
+                # happens we keep an invalid photoset ID. Recreating the
+                # photoset should fix the problem.
+                self.createPhotosetWithPhoto(photosetName, photoID)
+            else:
+                raise
+        return photoID
+
+    def createPhotosetWithPhoto(self, photosetName, photoID):
+        desc = "Created by Onitu"
+        resp = self.flickr_api.photosets.create(title=photosetName,
+                                                description=desc,
+                                                primary_photo_id=photoID)
+        photosetID = resp.find('photoset').attrib['id']
+        self.photosetIDs[photosetName] = photosetID
+        plug.service_db.put('photosetIDs', self.photosetIDs)
+        plug.logger.debug(u"Photoset {} successfully created, ID: {}"
+                          .format(photosetName, photosetID))
 
 # ############################## ONITU ######################################
 
 
 @plug.handler()
-def get_chunk(metadata, offset, size):
-    plug.logger.debug("GET CHUNK")
-
-
-@plug.handler()
 def get_file(metadata):
     """ Return an image's contents."""
-    plug.logger.debug("DEBUG")
     photo_id = metadata.extra.get('photo_id', None)
     if photo_id is None:
         raise DriverError(u"No photo ID for file '{}'"
                           .format(metadata.filename))
-    return flickr.downloadPhotoContent(photo_id)
+    data = flickr.downloadPhotoContent(photo_id)
+    dataLen = len(data)
+    if metadata.size != dataLen:
+        metadata.size = dataLen
+        metadata.write()
+    return data
 
 
 @plug.handler()
 def upload_file(metadata, content):
-    print("UPLOAD FILE")
+    filename = metadata.filename
+    data = BytesIO(content)
+    try:
+        # If it has no photo ID it means it's a new file going to Flickr.
+        if metadata.extra.get('photo_id', None) is None:
+            photoID = flickr.uploadPhotoInPhotoset(filename, data,
+                                                   metadata.folder.path)
+            # Retrieve the photo ID given to the file by Flickr and save it
+            metadata.extra['photo_id'] = photoID
+            metadata.write()
+        # If the file is known to Flickr we must call replace instead.
+        else:
+            photoID = metadata.extra['photo_id']
+            plug.logger.debug(u"Replacing photo {} (photo ID {})"
+                              .format(filename, photoID))
+            flickr.flickr_api.replace(filename=filename,
+                                      photo_id=photoID,
+                                      fileobj=data, format='etree')
+    except FlickrError as fe:
+        raise ServiceError(u"Failed to upload photo {}: error {} {}"
+                           .format(filename, fe.code, fe.message))
+    plug.logger.debug(u"Done uploading photo {}".format(metadata.filename))
 
 
 @plug.handler()
-def start_upload(metadata):
-    print("START UPLOAD")
-
-
-@plug.handler()
-def upload_chunk(metadata, offset, chunk):
-    print("UPLOAD CHUNK")
-
-
-@plug.handler()
-def end_upload(metadata):
-    print("END UPLOAD")
-
+def delete_file(metadata):
+    photoID = metadata.extra.get('photo_id', None)
+    if photoID is None:
+        raise DriverError(u"No photo ID for file {}!"
+                          .format(metadata.filename))
+    try:
+        flickr.flickr_api.photos.delete(photo_id=photoID)
+    except FlickrError as fe:
+        raise ServiceError(u"Failed to delete photo {}: error {} {}"
+                           .format(metadata.filename, fe.code, fe.message))
+    plug.logger.debug(u"Deleted photo {} (ID {})"
+                      .format(metadata.filename, photoID))
 
 class CheckChanges(threading.Thread):
     """A class spawned in a thread to poll for changes on the Dropbox account.
@@ -153,7 +233,18 @@ class CheckChanges(threading.Thread):
     def run(self):
         while not self.stopEvent.isSet():
             try:
+                # Getting it every time because of the photoset ID
+                # modifications that could occur during runtime (album
+                # automatic deletions, etc.)
+                self.photosetID = flickr.getPhotosetID(self.folder.path)
                 self.checkPhotoset()
+            except FlickrError as fe:
+                warn = u"An unknown Flickr error occurred: {}".format(
+                       fe.message)
+                if fe.message == u"Error: 1: Photoset not found":
+                    warn = u"The album {} doesn't exist on Flickr.".format(
+                    self.folder.path)
+                plug.logger.warning(warn)
             except EscalatorClosed:
                 # We are closing
                 return
@@ -173,7 +264,7 @@ class CheckChanges(threading.Thread):
                                                        extras=extra)
         photos = rsp.find('photos')
         nbNewPhotos = photos.attrib['total']
-        if nbNewPhotos == 0:  # No change
+        if nbNewPhotos == '0':  # No change
             plug.logger.debug("No new photos right now")
             return
         plug.logger.debug("Got {} new photos".format(nbNewPhotos))
@@ -181,11 +272,15 @@ class CheckChanges(threading.Thread):
         # We need to do it to keep up-to-date
         photosetIDs = flickr.getPhotoIDsOfPhotoset(self.photosetID)
         for photo in photos.findall('photo'):
-            plug.logger.debug("Checking {}".format(photo.attrib['title']))
+            plug.logger.debug(u"Checking {}".format(photo.attrib['title']))
             # If this photo is in our album
             if photo.attrib['id'] in photosetIDs:
                 # check if we should update it
                 self.processPhoto(photo)
+            else:
+                plug.logger.debug(u"Photo {} isn't in album {}"
+                                  .format(photo.attrib['title'],
+                                          self.folder.path))
         # Update the timestamp to ask changes since now, next time
         self.updateTimestamp()
 
@@ -204,9 +299,18 @@ class CheckChanges(threading.Thread):
             # Store the photo ID if it's a new file to Onitu
             if onituLastUpdate is None:
                 metadata.extra['photo_id'] = photo.attrib['id']
+                # Setting a TEMPORARY size because there's no way to ask
+                # Flickr what is the size in bytes of a photo (it sucks !)
+                # Setting a size > 0 will trigger the get_file handler.
+                # We check and update the metadata size with the binary
+                # data length there, if necessary.
+                metadata.size = 1
             metadata.extra['last_update'] = flickrLastUpdate
             plug.logger.debug(u"Updating {}".format(filename))
             plug.update_file(metadata)
+        else:
+            plug.logger.debug(u"Photo {} is up-to-date"
+                              .format(filename))
 
     def updateTimestamp(self):
         nowInSecs = (datetime.utcnow() - datetime(1970, 1, 1)).total_seconds()
@@ -219,13 +323,12 @@ def start():
     global flickr
 
     flickr = FlickrHandler(api_key, api_secret,
-                           plug.options['oauth_token'],
-                           plug.options['oauth_token_secret'])
+                           u(plug.options['oauth_token']),
+                           u(plug.options['oauth_token_secret']))
     for folder in plug.folders_to_watch:
         plug.logger.debug(u"Starting check change thread on album {}"
                           .format(folder.path))
         check = CheckChanges(folder, plug.options['changes_timer'])
         check.daemon = True
         check.start()
-
     plug.listen()
