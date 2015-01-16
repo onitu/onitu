@@ -13,7 +13,7 @@ class Databases(object):
     class NotExistError(Exception):
         pass
 
-    def __init__(self, working_dir='dbs'):
+    def __init__(self, working_dir):
         self._databases = {}
         self._names = []
         self._working_dir = working_dir

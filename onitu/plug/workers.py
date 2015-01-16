@@ -32,9 +32,11 @@ class Worker(object):
 
         self.do()
 
-        self.dealer.in_progress.pop(self.fid)
         self.escalator.close()
         self.context.destroy()
+
+        if self.fid in self.dealer.in_progress:
+            self.dealer.in_progress.pop(self.fid)
 
     def stop(self):
         self._stop.set()
@@ -214,19 +216,17 @@ class MoveWorker(Worker):
                 self.call('move_file', self.metadata, new_metadata)
                 self.metadata.delete()
             else:
-                # If the driver don't have a handler for moving a file,
-                # we try to simulate it with a move and a deletion.
-                # We use the same service for getting and uploading the
-                # file, even thought it can be an issue as we need twice
-                # the size of the file available.
-                # If another service has the file, maybe the Referee could
-                # select a potential sender.
-                transfer = TransferWorker(
-                    self.dealer, self.new_fid, self.dealer.name
-                )
-                transfer()
+                # If the driver doesn't have a handler for moving a file,
+                # we try to simulate it with a deletion and a transfer.
+                # We delete the file first to avoid needing twice the
+                # size during the transfer, and also for the situation
+                # where the transfer fails and has to be restarted
                 self.call('delete_file', self.metadata)
                 self.metadata.delete()
+                transfer = TransferWorker(
+                    self.dealer, self.new_fid, new_metadata.uptodate[0]
+                )
+                transfer()
         except AbortOperation:
             pass
 

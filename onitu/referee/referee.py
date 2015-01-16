@@ -5,7 +5,7 @@ import zmq
 from logbook import Logger
 
 from onitu.escalator.client import Escalator, EscalatorClosed
-from onitu.utils import get_events_uri, b
+from onitu.utils import get_events_uri, b, log_traceback
 
 from .cmd import UP, DEL, MOV
 from .folder import Folder
@@ -83,8 +83,8 @@ class Referee(object):
                     if cmd in self.handlers:
                         fid = key.split(':')[-1]
                         self.handlers[cmd](fid, *args[1:])
-                except Exception as e:
-                    self.logger.error("Unexpected error: {}", e)
+                except Exception:
+                    log_traceback(self.logger)
                 finally:
                     self.escalator.delete(key)
 

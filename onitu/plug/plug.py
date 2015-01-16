@@ -15,7 +15,7 @@ from .folder import Folder
 from .exceptions import DriverError, AbortOperation
 
 from onitu.escalator.client import Escalator
-from onitu.utils import get_events_uri
+from onitu.utils import get_events_uri, log_traceback
 from onitu.referee import UP, DEL, MOV
 
 
@@ -222,6 +222,23 @@ class Plug(object):
 
         return metadata
 
+    def list(self, folder, path=''):
+        """
+        List the files in a given folder. Return a dict with filenames as keys
+        and fids as values.
+
+        :param folder: The name of the folder which will be listed.
+        :type string:
+        :param path: The path from which the listing should start. Default to
+                     an empty string.
+        :type string:
+
+        :rtype: dict
+        """
+        prefix = u'path:{}:{}'.format(folder, path)
+        return {filename.replace(prefix, '', 1): fid
+                for filename, fid in self.escalator.range(prefix)}
+
     def validate_options(self, manifest):
         """
         Validate the options and set the default values using informations
@@ -305,11 +322,8 @@ class Plug(object):
                 handler_name, e
             )
             raise AbortOperation()
-        except Exception as e:
-            self.logger.error(
-                "Unexpected error calling '{}': {}",
-                handler_name, e
-            )
+        except Exception:
+            log_traceback(self.logger)
             raise AbortOperation()
 
     def notify_referee(self, fid, *args):

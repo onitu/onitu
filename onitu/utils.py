@@ -11,6 +11,7 @@ import socket
 import random
 import tempfile
 import mimetypes
+import traceback
 import pkg_resources
 
 PY2 = sys.version_info[0] == 2
@@ -79,7 +80,7 @@ def get_fid(folder, filename):
     references to files inside Onitu.
     """
     if PY2:
-        folder = filename.encode('utf-8')
+        folder = unicode(folder).encode('utf-8')
         filename = filename.encode('utf-8')
 
     return str(uuid.uuid5(NAMESPACE_ONITU, "{}:{}".format(folder, filename)))
@@ -189,3 +190,14 @@ def get_available_drivers():
     """
     entry_points = pkg_resources.iter_entry_points('onitu.drivers')
     return {e.name: e for e in entry_points}
+
+
+def log_traceback(logger=None):
+    if logger:
+        handler = logger.error
+    else:
+        from logbook import error
+
+        handler = error
+
+    handler(traceback.format_exc())

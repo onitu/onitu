@@ -1,7 +1,7 @@
 import zmq
 from logbook import Logger
 
-from onitu.utils import get_events_uri
+from onitu.utils import get_events_uri, log_traceback
 from onitu.escalator.client import EscalatorClosed
 
 from .metadata import Metadata
@@ -43,8 +43,8 @@ class Router(object):
             self.listen()
         except EscalatorClosed:
             pass
-        except Exception as e:
-            self.logger.error("Unexpected error: {}", e)
+        except Exception:
+            log_traceback(self.logger)
         finally:
             if self.router:
                 self.router.close(linger=0)

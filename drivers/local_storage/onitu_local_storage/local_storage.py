@@ -71,28 +71,19 @@ def move(old_metadata, new_path):
     new_metadata.extra['revision'] = path(root / new_path).mtime
     new_metadata.write()
 
-def delete_empty_dirs(filename):
-    """
-    Remove all the empty parent directories, stopping at the root
-    """
-    filename = path(filename)
-    parent = filename.parent
-
-    while parent != root:
-        try:
-            parent.rmdir()
-        except OSError:
-            break
-
-        parent = parent.parent
-
-
 def check_changes():
+    expected_files = set()
+
+    for folder in plug.folders.values():
+        expected_files.update(folder.join(f) for f in plug.list(folder).keys())
+
     for abs_path in root.walkfiles():
         if abs_path.ext == TMP_EXT:
             continue
 
         filename = abs_path.relpath(root).normpath()
+
+        expected_files.discard(filename)
 
         metadata = plug.get_metadata(filename)
         revision = metadata.extra.get('revision', 0.)
@@ -107,6 +98,10 @@ def check_changes():
 
         if mtime > revision:
             update(metadata, abs_path, mtime)
+
+    for filename in expected_files:
+        metadata = plug.get_metadata(filename)
+        plug.delete_file(metadata)
 
 
 @plug.handler()
@@ -207,8 +202,6 @@ def delete_file(metadata):
             u"Error deleting file '{}': {}".format(metadata.path, e)
         )
 
-    delete_empty_dirs(metadata.path)
-
 
 @plug.handler()
 def move_file(old_metadata, new_metadata):
@@ -230,7 +223,6 @@ def move_file(old_metadata, new_metadata):
         raise ServiceError(
             u"Error moving file '{}': {}".format(old_path, e)
         )
-    delete_empty_dirs(old_path)
     if IS_WINDOWS:
         del ignoreNotif[new_metadata.path]
         del ignoreNotif[old_metadata.path]
@@ -400,6 +392,7 @@ else:
             self.process_event(event.pathname, update)
 
         def process_IN_DELETE(self, event):
+            print("DELETION", event.pathname)
             self.process_event(event.pathname, delete)
 
         def process_IN_MOVED_TO(self, event):
