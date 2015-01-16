@@ -1,4 +1,6 @@
 import os
+import json
+import tempfile
 
 from onitu.plug import Plug, DriverError, ServiceError
 from onitu.escalator.client import EscalatorClosed
@@ -85,10 +87,37 @@ def check_changes(folder):
 
         if mtime > revision:
             update(metadata, mtime)
+        else:
+            set_status(metadata.path, "synced")
 
     for filename in expected_files:
         metadata = plug.get_metadata(filename, folder)
         plug.delete_file(metadata)
+
+
+def set_status(abs_path, status):
+
+    tmp_dir = tempfile.gettempdir()
+    tmp_filename = tmp_dir + os.sep + 'onitu_synced_files'
+
+    try:
+        with open(tmp_filename, "r") as jsonFile:
+            data = json.load(jsonFile)
+    except IOError as e:
+        data = dict()
+
+    if status is None:
+        data.pop(abs_path, None)
+    else:
+        data[abs_path] = status
+
+    try:
+        with open(tmp_filename, "w") as jsonFile:
+            jsonFile.write(json.dumps(data, indent = 4))
+    except IOError as e:
+        raise ServiceError(
+            u"Error to write in status file '{}': {}".format(tmp_filename, e)
+        )
 
 
 @plug.handler()
@@ -123,6 +152,7 @@ def start_upload(metadata):
             pass
 
         open(tmp_file, 'wb').close()
+        set_status(metadata.path, "pending")
 
         if IS_WINDOWS:
             win32api.SetFileAttributes(
@@ -173,6 +203,8 @@ def end_upload(metadata):
     metadata.extra['revision'] = mtime
     metadata.write()
 
+    set_status(metadata.path, "synced")
+
 
 @plug.handler()
 def abort_upload(metadata):
@@ -184,6 +216,7 @@ def abort_upload(metadata):
             u"Error deleting file '{}': {}".format(tmp_file, e)
         )
 
+    set_status(metadata.path, None)
 
 @plug.handler()
 def delete_file(metadata):
@@ -193,6 +226,7 @@ def delete_file(metadata):
         raise ServiceError(
             u"Error deleting file '{}': {}".format(metadata.path, e)
         )
+    set_status(metadata.path, None)
 
 
 @plug.handler()
@@ -203,6 +237,9 @@ def move_file(old_metadata, new_metadata):
         raise ServiceError(
             u"Error moving file '{}': {}".format(old_metadata.path, e)
         )
+
+    set_status(old_metadata.path, None)
+    set_status(old_metadata.path, "synced")
 
 
 if IS_WINDOWS:
