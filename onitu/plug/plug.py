@@ -184,7 +184,7 @@ class Plug(object):
         for candidate in self.folders.values():
             if candidate.contains(filename):
                 if folder:
-                    if folder.contains(candidate.path):
+                    if candidate.contains(folder.path):
                         folder = candidate
                 else:
                     folder = candidate
