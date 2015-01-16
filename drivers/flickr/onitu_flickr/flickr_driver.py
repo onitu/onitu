@@ -165,6 +165,8 @@ def get_file(metadata):
         raise DriverError(u"No photo ID for file '{}'"
                           .format(metadata.filename))
     data = flickr.downloadPhotoContent(photo_id)
+    # This is to fix any temporary size set by the check changes thread.
+    # Ideally the get_file handler shouldn't have to do that.
     dataLen = len(data)
     if metadata.size != dataLen:
         metadata.size = dataLen
@@ -195,6 +197,9 @@ def upload_file(metadata, content):
     except FlickrError as fe:
         raise ServiceError(u"Failed to upload photo {}: error {} {}"
                            .format(filename, fe.code, fe.message))
+    now = int((datetime.utcnow() - datetime(1970, 1, 1)).total_seconds())
+    metadata.extra['last_update'] = now
+    metadata.write()
     plug.logger.debug(u"Done uploading photo {}".format(metadata.filename))
 
 
@@ -211,6 +216,32 @@ def delete_file(metadata):
                            .format(metadata.filename, fe.code, fe.message))
     plug.logger.debug(u"Deleted photo {} (ID {})"
                       .format(metadata.filename, photoID))
+
+
+@plug.handler()
+def move_file(old_metadata, new_metadata):
+    plug.logger.debug(u"Moving photo {} to {}"
+                      .format(old_metadata.filename, new_metadata.filename))
+    photoID = old_metadata.extra['photo_id']
+    if photoID is None:
+        raise DriverError(u"No Photo ID for {} !"
+                          .format(old_metadata.filename))
+    # Respecting the Flickr convention that wants that photo titles be
+    # without file extension.
+    title = os.path.splitext(new_metadata.filename)[0]
+    try:
+        flickr.flickr_api.photos.setMeta(photo_id=photoID, title=title)
+    except FlickrError as fe:
+        raise ServiceError(u"Failed to move file {} to {} on Flickr: {}"
+                           .format(old_metadata.filename,
+                                   new_metadata.filename, fe.message))
+    new_metadata.extra['photo_id'] = photoID
+    now = int((datetime.utcnow() - datetime(1970, 1, 1)).total_seconds())
+    new_metadata.extra['last_update'] = now
+    new_metadata.write()
+    plug.logger.debug(u"Successfully moved {} to {}"
+                      .format(old_metadata.filename, new_metadata.filename))
+
 
 class CheckChanges(threading.Thread):
     """A class spawned in a thread to poll for changes on the Dropbox account.
