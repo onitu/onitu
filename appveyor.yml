@@ -10,8 +10,8 @@ environment:
 
 install:
   - "git clone https://github.com/bureau14/leveldb.git"
-  - "ls C:/Libraries/boost"
   - "cd leveldb/ && cmake ."
+  - "tree leveldb/"
 
 build: off
 deploy: off
