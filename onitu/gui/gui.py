@@ -1,8 +1,20 @@
 import sys
 import os
 
-from PySide.QtGui import *
-from PySide.QtCore import *
+from PySide.QtCore import Qt
+from PySide.QtCore import QProcess
+
+from PySide.QtGui import QWidget
+from PySide.QtGui import QApplication
+from PySide.QtGui import QTextEdit
+from PySide.QtGui import QPushButton
+from PySide.QtGui import QLabel
+from PySide.QtGui import QMenu
+from PySide.QtGui import QIcon
+from PySide.QtGui import QVBoxLayout
+from PySide.QtGui import QHBoxLayout
+from PySide.QtGui import QSystemTrayIcon
+
 
 class OnituGui(QWidget):
 
@@ -13,7 +25,9 @@ class OnituGui(QWidget):
         self.output = ""
         self.bottom = True
         self.textEdit = QTextEdit()
-        self.textEdit.verticalScrollBar().valueChanged.connect(self.scrollBarMoved)
+        self.textEdit.verticalScrollBar().valueChanged.connect(
+            self.scrollBarMoved
+            )
         self.startButton = QPushButton("Start Onitu")
         self.startButton.clicked.connect(self.startOnitu)
         self.stopButton = QPushButton("Stop Onitu")
@@ -22,7 +36,9 @@ class OnituGui(QWidget):
         self.exitButton.clicked.connect(self.exitOnitu)
         self.statusLabel = QLabel()
         self.statusLabel.setTextFormat(Qt.RichText)
-        self.statusLabel.setText('<img src=":onitu.png"> Onitu status : Started')
+        self.statusLabel.setText(
+            '<img src=":onitu.png"> Onitu status: Started'
+            )
         self.statusLabel.setAlignment(Qt.AlignCenter)
 
         menu = QMenu(self)
@@ -36,6 +52,7 @@ class OnituGui(QWidget):
         stopAction.triggered.connect(self.stopOnitu)
         configAction.triggered.connect(self.openConfig)
 
+        os.chdir(os.path.dirname(os.path.realpath(__file__)))
         self.onituIcon = QIcon("onitu.png")
         self.onituStoppedIcon = QIcon("onitu_stopped.png")
 
@@ -52,8 +69,12 @@ class OnituGui(QWidget):
         self.onituProcess.setProcessChannelMode(QProcess.MergedChannels)
         self.onituProcess.setReadChannel(QProcess.StandardOutput)
 
-        self.onituProcess.readyReadStandardOutput.connect(self.processStandardOutput)
-        self.onituProcess.readyReadStandardError.connect(self.processStandardError)
+        self.onituProcess.readyReadStandardOutput.connect(
+            self.processStandardOutput
+            )
+        self.onituProcess.readyReadStandardError.connect(
+            self.processStandardError
+            )
         self.onituProcess.finished.connect(self.onituTerminated)
 
         self.guiSetup()
@@ -78,7 +99,9 @@ class OnituGui(QWidget):
 
     def startOnitu(self):
         if (self.onituProcess.state() == QProcess.NotRunning):
-            self.statusLabel.setText('<img src=":onitu.png"> Onitu status : Started')
+            self.statusLabel.setText(
+                '<img src=":onitu.png"> Onitu status : Started'
+                )
 
             self.output = ""
             self.onituProcess.start("onitu")
@@ -86,7 +109,9 @@ class OnituGui(QWidget):
 
     def stopOnitu(self):
         if (self.onituProcess.state() != QProcess.NotRunning):
-            self.statusLabel.setText('<img src=":onitu_stopped.png"> Onitu status : Stopped')
+            self.statusLabel.setText(
+                '<img src=":onitu_stopped.png"> Onitu status : Stopped'
+                )
 
             self.onituProcess.terminate()
             self.onituProcess.waitForFinished()
@@ -106,7 +131,9 @@ class OnituGui(QWidget):
 
     def setScrollBarPosition(self):
         if self.bottom is True:
-            self.textEdit.verticalScrollBar().setValue(self.textEdit.verticalScrollBar().maximum())
+            self.textEdit.verticalScrollBar().setValue(
+                self.textEdit.verticalScrollBar().maximum()
+                )
 
     def updateTextEdit(self, textToAdd):
         self.output += textToAdd
@@ -130,6 +157,8 @@ class OnituGui(QWidget):
 def main():
     app = QApplication(sys.argv)
     gui = OnituGui()
+    # Fix pep :)
+    gui = gui
     sys.exit(app.exec_())
 
 
