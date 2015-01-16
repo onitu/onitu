@@ -35,7 +35,7 @@ def walkfiles(root):
 
 def update(metadata, mtime=None):
     if os.path.exists(to_tmp(metadata.path)):
-        return;
+        return
 
     try:
         metadata.size = os.path.getsize(metadata.path)
@@ -120,7 +120,7 @@ def set_status(abs_path, status):
 
     try:
         with open(tmp_filename, "w") as jsonFile:
-            jsonFile.write(json.dumps(data, indent = 4))
+            jsonFile.write(json.dumps(data, indent=4))
     except IOError as e:
         raise ServiceError(
             u"Error to write in status file '{}': {}".format(tmp_filename, e)
@@ -224,6 +224,7 @@ def abort_upload(metadata):
         )
 
     set_status(metadata.path, None)
+
 
 @plug.handler()
 def delete_file(metadata):

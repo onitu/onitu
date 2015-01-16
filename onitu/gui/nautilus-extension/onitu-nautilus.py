@@ -1,9 +1,9 @@
-import os.path
 import tempfile
 import json
 import urllib2
 
 from gi.repository import Nautilus, GObject
+
 
 class OnituIconOverlayExtension(GObject.GObject, Nautilus.InfoProvider):
     def __init__(self):
@@ -17,7 +17,7 @@ class OnituIconOverlayExtension(GObject.GObject, Nautilus.InfoProvider):
         try:
             with open(tmp_filename, "r") as jsonFile:
                 data = json.load(jsonFile)
-        except IOError as e:
+        except IOError:
             data = dict()
 
         file_path = urllib2.unquote(file.get_uri()[7:])
