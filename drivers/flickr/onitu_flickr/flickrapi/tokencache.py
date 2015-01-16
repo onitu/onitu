@@ -176,9 +176,9 @@ class OAuthTokenCache(object):
 
         db = sqlite3.connect(self.filename)
         curs = db.cursor()
-        curs.execute("SELECT oauth_token, oauth_token_secret, access_level, "
-                     "fullname, username, user_nsid"
-                     "FROM oauth_tokens WHERE api_key=? and lookup_key=?",
+        curs.execute('''SELECT oauth_token, oauth_token_secret, access_level,
+        fullname, username, user_nsid
+        FROM oauth_tokens WHERE api_key=? and lookup_key=?''',
                      (self.api_key, self.lookup_key))
         token_data = curs.fetchone()
 
