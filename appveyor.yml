@@ -6,7 +6,7 @@ environment:
     - PYTHON: "C:/Python34"
 
   global:
-      - BOOST_ROOT: "C:\Libraries\boost"
+    BOOST_ROOT: "C:\Libraries\boost"
 
 install:
   - "git clone https://github.com/bureau14/leveldb.git"
