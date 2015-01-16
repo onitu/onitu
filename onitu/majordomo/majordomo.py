@@ -52,11 +52,13 @@ class Majordomo(Broker):
                          frontend_req_uri, frontend_rep_uri)
 
     def new_remote(self, src_id):
+        # Use unicode
         dest_id = uuid.uuid4().hex
         self.nb_remotes += 1
         name = 'remote-{}'.format(self.nb_remotes)
         self.remote_names[src_id] = name
         self.escalator.put('service:{}:driver'.format(name), 'remote_driver')
+        # Protect over non-ascii ids
         self.escalator.put('service:{}:options'.format(name), {
             'id': dest_id,
             'remote_id': src_id,
@@ -65,7 +67,9 @@ class Majordomo(Broker):
             'handlers_uri': 'tcp://127.0.0.1:{}'.format(
                 self.backend.req_port)
         })
-        # protect query over non-ascii identities
+        self.escalator.put(u'service:{}:folders'.format(name), ['test'])
+        self.escalator.put(u'service:{}:folder:test:path'.format(name), u'/home/rozo_a/Projects/onitu/client/files')
+        self.escalator.put(u'service:{}:folder:test:options'.format(name), {})
         query = {
             "command": 'add',
             "properties": {
