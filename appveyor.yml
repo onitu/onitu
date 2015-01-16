@@ -7,7 +7,7 @@ environment:
 
 install:
   - "git clone https://github.com/bureau14/leveldb.git"
-  - "cd leveldb/ && msbuild.exe leveldb/"
+  - "cd leveldb/ && msbuild.exe"
 
 build: off
 deploy: off
