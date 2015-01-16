@@ -6,7 +6,8 @@ environment:
     - PYTHON: "C:/Python34"
 
 install:
-  - "msbuild.exe"
+  - "git clone https://github.com/bureau14/leveldb.git"
+  - "msbuild.exe leveldb/"
 
 build: off
 deploy: off
