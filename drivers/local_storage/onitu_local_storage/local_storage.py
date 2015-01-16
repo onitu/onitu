@@ -34,6 +34,9 @@ def walkfiles(root):
 
 
 def update(metadata, mtime=None):
+    if os.path.exists(to_tmp(metadata.path)):
+        return;
+
     try:
         metadata.size = os.path.getsize(metadata.path)
 
@@ -46,10 +49,12 @@ def update(metadata, mtime=None):
         )
     else:
         plug.update_file(metadata)
+        set_status(metadata.path, 'synced')
 
 
 def delete(metadata):
     plug.delete_file(metadata)
+    set_status(metadata.path, None)
 
 
 def move(old_metadata, new_filename):
@@ -59,6 +64,8 @@ def move(old_metadata, new_filename):
     # so the old metadata are not up-to-date
     new_metadata.size = os.path.getsize(new_metadata.path)
     new_metadata.write()
+    set_status(old_metadata.path, None)
+    set_status(new_metadata.path, 'synced')
 
 
 def check_changes(folder):
