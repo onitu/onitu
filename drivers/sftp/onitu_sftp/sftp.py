@@ -198,6 +198,28 @@ def delete_file(metadata):
         sftp.close()
 
 
+@plug.handler()
+def move_file(old_metadata, new_metadata):
+    plug.logger.debug(u"Moving file {} to {}"
+                      .format(old_metadata.path, new_metadata.path))
+    sftp = get_SFTP_client_from_plug()
+    try:
+        sftp.stat(new_metadata.path)
+    except IOError:  # file doesn't exist: good
+        try:
+            create_file_subdirs(sftp, new_metadata.path)
+            sftp.rename(old_metadata.path, new_metadata.path)
+        except IOError as ioe:
+            raise ServiceError(u"Error while moving file {} to {}: {}"
+                               .format(old_metadata.path, new_metadata.path,
+                                       ioe))
+    else:
+        raise ServiceError(u"File {} already exists !"
+                           .format(new_metadata.path))
+    finally:
+        sftp.close()
+
+
 class CheckChanges(threading.Thread):
 
     def __init__(self, folder, sftp, timer):
