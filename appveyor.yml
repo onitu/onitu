@@ -10,7 +10,9 @@ environment:
 
 install:
   - "git clone https://github.com/bureau14/leveldb.git"
-  - "cmake leveldb/"
+  - "cd leveldb/"
+  - "cmake ."
+  - "msbuild ."
   - ps: "Get-ChildItem . -recurse"
 
 build: off
