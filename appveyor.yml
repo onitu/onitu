@@ -11,7 +11,7 @@ environment:
 install:
   - "git clone https://github.com/bureau14/leveldb.git"
   - "cmake leveldb/"
-  - "tree ."
+  - ps: "Get-ChildItem leveldb/ -recurse"
 
 build: off
 deploy: off
