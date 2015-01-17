@@ -34,7 +34,8 @@ def get_private_key(pkey_path, passphrase):
     return private_key
 
 
-def get_SFTP_client(hostname, port, username, password, privateKey):
+def get_SFTP_client(hostname, port, username, password,
+                    pkey_path, passphrase):
     """Helper function to connect with SFTP. Tries to connect with the given
     connection infos and, if successful, returns a SFTPClient ready to be
     used.
@@ -44,11 +45,23 @@ def get_SFTP_client(hostname, port, username, password, privateKey):
         if password != '':
             transport.connect(username=username, password=password)
         else:
+            pkey_path = os.path.expanduser(pkey_path)
+            privateKey = get_private_key(pkey_path, passphrase)
             transport.connect(username=username, pkey=privateKey)
     except SSHException as se:
         raise DriverError(u"Failed to connect to host: {}".format(se))
     sftp = paramiko.SFTPClient.from_transport(transport)
     return sftp
+
+
+def get_SFTP_client_from_plug():
+    """Helper function to connect an SFTP client with the plug infos."""
+    return get_SFTP_client(plug.options['hostname'],
+                           plug.options['port'],
+                           plug.options['username'],
+                           plug.options['password'],
+                           plug.options['private_key_path'],
+                           plug.options['private_key_passphrase'])
 
 
 def create_dirs(sftp, path):
@@ -143,11 +156,11 @@ def abort_upload(metadata):
             "Error deleting file '{}': {}".format(metadata.filename, e)
         )
 
-
-@plug.handler()
-def close():
-    sftp.close()
-    transport.close()
+#
+# @plug.handler()
+# def close():
+#     sftp.close()
+#     transport.close()
 
 
 def update_file(metadata, stat_res):
@@ -164,72 +177,87 @@ def update_file(metadata, stat_res):
 
 class CheckChanges(threading.Thread):
 
-    def __init__(self, timer, sftp):
+    def __init__(self, folder, sftp, timer):
         super(CheckChanges, self).__init__()
-        self.stop = threading.Event()
-        self.timer = timer
+        self.stopEvent = threading.Event()
+        self.folder = folder
         self.sftp = sftp
-
-    def check_folder(self, path=''):
+        self.timer = timer
+        # Get in the right folder
         try:
-            filelist = sftp.listdir(path)
+            plug.logger.debug(u"Changing directory to {}".format(folder.path))
+            self.sftp.chdir(folder.path)
         except IOError as e:
-            raise ServiceError(
-                "Error listing file in '{}': {}".format(path, e)
-            )
+            raise ServiceError(u"Unable to chdir into {}: {}"
+                               .format(folder.path, e))
 
-        for f in filelist:
-            filepath = os.path.join(path, f)
-            try:
-                stat_res = sftp.stat(filepath)
+    def check_directory(self, path):
+        """Recursively searches for all regular files under a directory and
+        all its subdirectories, and update them if they have changed."""
+        plug.logger.debug(u"Checking remote subdirectory {}".format(path))
+        files = self.sftp.listdir_attr(path)
+        folders = []
+        for f in files:
+            if S_ISDIR(f.st_mode):
+                folders.append(f)
+            else:
+                self.check_regular_file(path, f)
+        for folder in folders:
+            dirPath = folder.filename
+            if path != ".":
+                dirPath = "{}/{}".format(path, dirPath)
+            self.check_directory(dirPath)
 
-            except IOError as e:
-                plug.logger.warn("Cant find file `{}` : {}",
-                                 filepath, e)
-                return
-
-            metadata = plug.get_metadata(filepath)
-            onitu_rev = metadata.extra.get('revision', 0.)
-
-            if stat_res.st_mtime > onitu_rev:
-                if S_ISDIR(stat_res.st_mode):
-                    self.check_folder(filepath)
-                else:
-                    update_file(metadata, stat_res)
+    def check_regular_file(self, path, regFile):
+        """Compares the modification time Onitu has for this file and its
+        actual modification time. If the latter is more recent, triggers an
+        update."""
+        filePath = regFile.filename
+        if path != ".":
+            filePath = "{}/{}".format(path, filePath)
+        plug.logger.debug(u"Checking regular file {}".format(filePath))
+        metadata = plug.get_metadata(filePath, self.folder)
+        onitu_mtime = metadata.extra.get('mtime', 0)
+        if regFile.st_mtime > onitu_mtime:
+            plug.logger.debug(u"Updating {}".format(filePath))
+            # metadata.size = regFile.attr['st_size']
+            # metadata.extra['mtime'] = regFile.attr['st_mtime']
+            # plug.update_file(metadata)
+        else:
+            plug.logger.debug(u"File {} is up-to-date".format(filePath))
 
     def run(self):
-        while not self.stop.isSet():
+        while not self.stopEvent.isSet():
             try:
-                self.check_folder()
+                plug.logger.debug(u"Checking remote folder {}"
+                                  .format(self.folder.path))
+                self.check_directory(".")
             except EscalatorClosed:
                 # We are closing
+                self.stop()
                 return
-            self.stop.wait(self.timer)
+            except IOError as ioe:
+                plug.logger.error(u"An error occurred while checking remote "
+                                  u"folder {}: {}"
+                                  .format(self.folder.path, ioe))
+            self.stopEvent.wait(self.timer)
 
     def stop(self):
-        self.stop.set()
+        plug.logger.debug("Closing SFTP connection")
+        self.sftp.close()
+        self.stopEvent.set()
 
 
 def start():
-    # First retrieve the user private key
-    privateKeyPath = plug.options.get('private_key_path', '~/.ssh/id_rsa')
-    privateKeyPath = os.path.expanduser(privateKeyPath)
-    passphrase = plug.options['private_key_passphrase']
-    privateKey = get_private_key(privateKeyPath, passphrase)
-
+    if (plug.options.get('password', None) is None
+       and plug.options.get('private_key_path', None) is None):
+        raise DriverError("You must configure a password or a private key")
+    timer = plug.options['changes_timer']
     for folder in plug.folders_to_watch:
         # Get a different client for each folder.
-        sftp = get_SFTP_client(plug.options['hostname'],
-                               plug.options['port'],
-                               plug.options['username'],
-                               plug.options['password'],
-                               privateKey)
-        try:
-            sftp.chdir(folder.path)
-        except IOError as e:
-            plug.logger.error(u"Unable to chdir into {}: {}", folder.path, e)
+        sftp = get_SFTP_client_from_plug()
         # Launch the changes detection
-        check_changes = CheckChanges(plug.options['changes_timer'], sftp)
+        check_changes = CheckChanges(folder, sftp, timer)
         check_changes.daemon = True
         check_changes.start()
 
