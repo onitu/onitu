@@ -12,7 +12,7 @@ install:
   - "git clone https://github.com/bureau14/leveldb.git"
   - "cd leveldb/"
   - "cmake ."
-  - "msbuild ."
+  - "msbuild leveldb.sln"
   - ps: "Get-ChildItem . -recurse"
 
 build: off
