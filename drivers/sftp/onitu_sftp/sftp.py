@@ -228,6 +228,7 @@ class CheckChanges(threading.Thread):
         self.folder = folder
         self.sftp = sftp
         self.timer = timer
+        self.deletedFiles = {}  # useful for deletion detection
         # Get in the right folder
         try:
             plug.logger.debug(u"Changing directory to {}".format(folder.path))
@@ -269,13 +270,30 @@ class CheckChanges(threading.Thread):
                             update_file=True)
         else:
             plug.logger.debug(u"File {} is up-to-date".format(filePath))
+        # Cross this file out from the deleted files list
+        if filePath in self.deletedFiles:
+            del self.deletedFiles[filePath]
+
+    def delete_removed_files(self):
+        """After having checked remote files, files still sitting in the
+        self.deletedFiles haven't been found, so we delete them on Onitu
+        side."""
+        for filePath in self.deletedFiles.keys():
+            if filePath not in events_to_ignore:
+                metadata = plug.get_metadata(filePath, self.folder)
+                plug.delete_file(metadata)
 
     def run(self):
         while not self.stopEvent.isSet():
             try:
                 plug.logger.debug(u"Checking remote folder {}"
                                   .format(self.folder.path))
+                # Get a list of the files we know. Check them out as we find
+                # them. The remaining are files that were deleted when we
+                # weren't looking.
+                self.deletedFiles = plug.list(self.folder)
                 self.check_directory(".")
+                self.delete_removed_files()
             except EscalatorClosed:
                 # We are closing
                 self.stop()
