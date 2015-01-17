@@ -63,7 +63,7 @@ def pack_obj(obj):
 
 def pack_msg(*args):
     """
-    Encore a message (list of arguments) with msgpack
+    Encode a message (list of arguments) with msgpack
     """
     return msgpack.packb(args, use_bin_type=True)
 
