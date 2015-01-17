@@ -1,7 +1,6 @@
 import os
 import json
-
-from plyvel import destroy_db
+import shutil
 
 from onitu.utils import TMPDIR, b, get_random_string
 
@@ -18,7 +17,10 @@ class Setup(object):
         self._json = None
 
         self.name = get_random_string(15)
-        self.filename = os.path.join(TMPDIR, "{}.json".format(self.name))
+        self.config_dir = os.path.join(TMPDIR, "onitu-{}".format(self.name))
+        self.filename = os.path.join(self.config_dir, "setup.json")
+
+        os.makedirs(self.config_dir)
 
     def add(self, service):
         service.connect(self.name)
@@ -35,11 +37,7 @@ class Setup(object):
             for service in self.services.values():
                 service.close()
 
-        try:
-            os.unlink(self.filename)
-            destroy_db(u'dbs/{}'.format(self.name))
-        except (OSError, IOError):
-            pass
+        shutil.rmtree(self.config_dir)
 
     @property
     def dump(self):
