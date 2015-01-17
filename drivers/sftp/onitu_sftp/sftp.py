@@ -64,115 +64,138 @@ def get_SFTP_client_from_plug():
                            plug.options['private_key_passphrase'])
 
 
-def create_dirs(sftp, path):
-    parent_exists = True
-    tmp_path = './'
-    dirs = path.split('/')
+def create_file_subdirs(sftp, filepath):
+    # Getting rid of the filename
+    lastSlash = filepath.rindex(u"/")
+    finalPath = filepath[:lastSlash]
+    dirs = finalPath.split(u"/")
 
-    for d in dirs:
-        tmp_path = os.path.join(tmp_path, d)
-
-        # If the parent exists, we check if the current path exists
-        if parent_exists is True:
-            try:
-                sftp.stat(tmp_path)
-            # The current path doesn't exists, so we create it
-            except IOError:
+    plug.logger.debug(u"Creating remote directory tree {}".format(finalPath))
+    currentDir = u""
+    doStat = True
+    try:
+        while dirs:
+            currentDir += dirs.pop(0) + u"/"
+            if doStat:
                 try:
-                    parent_exists = False
-                    sftp.mkdir(tmp_path)
-                except IOError as e:
-                    raise ServiceError(
-                        "Error creating dir '{}': {}".format(tmp_path, e)
-                        )
-        # If the parent doesn't exist, we can create the current dir without
-        # check if it exists
-        else:
-            try:
-                sftp.mkdir(tmp_path)
-            except IOError as e:
-                raise ServiceError(
-                    "Error creating dir '{}': {}".format(tmp_path, e)
-                    )
+                    sftp.stat(currentDir)
+                # The current dir doesn't exists, so we create it
+                except IOError as ioe:
+                    if ioe.errno == 2:
+                        plug.logger.debug(u"{} doesn't exist, creating it"
+                                          .format(currentDir))
+                        sftp.mkdir(currentDir)
+                        # If a dir was not found, it means all the next
+                        # won't exist either. So stop bothering to stat
+                        doStat = False
+                    else:
+                        raise
+            else:
+                plug.logger.debug(u"{} doesn't exist, creating it"
+                                  .format(currentDir))
+                sftp.mkdir(currentDir)
+    except IOError as ioe:
+        raise ServiceError(u"Error while creating subdirs {}: {}"
+                           .format(finalPath, ioe))
+
+
+def update_metadata(metadata, size, mtime, update_file=False):
+    metadata.size = size
+    metadata.extra['mtime'] = mtime
+    metadata.write()
+    if update_file:
+        plug.update_file(metadata)
 
 
 @plug.handler()
 def get_file(metadata):
-
+    plug.logger.debug(u"Getting remote file {}".format(metadata.path))
+    sftp = get_SFTP_client_from_plug()
     try:
-        f = sftp.open(metadata.filename, 'r')
+        f = sftp.open(metadata.path, 'r')
+        # "If reading the entire file, pre-fetching can dramatically improve
+        # the download speed by avoiding roundtrip latency."
+        # http://docs.paramiko.org/en/latest/api/sftp.html
+        # #paramiko.sftp_file.SFTPFile.prefetch
+        f.prefetch()
         data = f.read()
         return data
-
     except IOError as e:
-        raise ServiceError(
-            "Error getting file '{}': {}".format(metadata.filename, e)
-        )
+        raise ServiceError("Error getting file '{}': {}"
+                           .format(metadata.path, e))
+    finally:
+        sftp.close()
 
 
 @plug.handler()
 def start_upload(metadata):
-    events_to_ignore.add(metadata.filename)
-    create_dirs(sftp, os.path.dirname(metadata.filename))
-
-
-@plug.handler()
-def end_upload(metadata):
+    plug.logger.debug(u"Starting upload of {}".format(metadata.path))
+    sftp = get_SFTP_client_from_plug()
     try:
-        stat_res = sftp.stat(metadata.filename)
-        metadata.extra['revision'] = stat_res.st_mtime
-        metadata.write()
-
-    except (IOError, OSError) as e:
-        raise ServiceError(
-            "Error while updating metadata on file '{}': {}".format(
-                metadata.filename, e)
-        )
+        create_file_subdirs(sftp, metadata.path)
+        plug.logger.debug(u"Adding {} to ignored files".format(metadata.path))
+        events_to_ignore.add(metadata.path)
+    except ServiceError:
+        raise
     finally:
-        if metadata.filename in events_to_ignore:
-            events_to_ignore.remove(metadata.filename)
+        sftp.close()
 
 
 @plug.handler()
 def upload_file(metadata, content):
+    plug.logger.debug(u"Uploading file {}".format(metadata.path))
+    sftp = get_SFTP_client_from_plug()
     try:
-        f = sftp.open(metadata.filename, 'w+')
+        f = sftp.open(metadata.path, 'w')
         f.write(content)
         f.close()
     except (IOError, OSError) as e:
-        raise ServiceError(
-            "Error writting file '{}': {}".format(metadata.filename, e)
-        )
+        raise ServiceError("Error writing file '{}': {}"
+                           .format(metadata.path, e))
+    finally:
+        sftp.close()
+
+
+@plug.handler()
+def end_upload(metadata):
+    plug.logger.debug(u"Ending upload of file {}".format(metadata.path))
+    sftp = get_SFTP_client_from_plug()
+    try:
+        stat_res = sftp.stat(metadata.path)
+        update_metadata(metadata, stat_res.st_size, stat_res.st_mtime,
+                        update_file=False)
+    except (IOError, OSError) as e:
+        raise ServiceError(u"Error during upload ending on file '{}': {}"
+                           .format(metadata.path, e))
+    finally:
+        sftp.close()
+        if metadata.path in events_to_ignore:
+            plug.logger.debug(u"Removing {} to ignored files"
+                              .format(metadata.path))
+            events_to_ignore.remove(metadata.path)
 
 
 @plug.handler()
 def abort_upload(metadata):
+    plug.logger.debug(u"Aborting upload of file {}".format(metadata.path))
+    delete_file(metadata)
 
-    # Temporary solution to avoid problems
+
+@plug.handler()
+def delete_file(metadata):
+    plug.logger.debug(u"Deleting file {}".format(metadata.path))
+    sftp = get_SFTP_client_from_plug()
     try:
-        sftp.remove(metadata.filename)
+        sftp.remove(metadata.path)
     except (IOError, OSError) as e:
-        raise ServiceError(
-            "Error deleting file '{}': {}".format(metadata.filename, e)
-        )
-
-#
-# @plug.handler()
-# def close():
-#     sftp.close()
-#     transport.close()
-
-
-def update_file(metadata, stat_res):
-    try:
-        metadata.size = stat_res.st_size
-        metadata.extra['revision'] = stat_res.st_mtime
-        metadata.write()
-        plug.update_file(metadata)
-    except (IOError, OSError) as e:
-        raise ServiceError(
-            "Error updating file '{}': {}".format(metadata.filename, e)
-        )
+        raise ServiceError(u"Error deleting file '{}': {}"
+                           .format(metadata.path, e))
+    finally:
+        if metadata.path in events_to_ignore:
+            plug.logger.debug(u"Removing {} to ignored files"
+                              .format(metadata.path))
+            events_to_ignore.remove(metadata.path)
+        sftp.close()
 
 
 class CheckChanges(threading.Thread):
@@ -220,9 +243,8 @@ class CheckChanges(threading.Thread):
         onitu_mtime = metadata.extra.get('mtime', 0)
         if regFile.st_mtime > onitu_mtime:
             plug.logger.debug(u"Updating {}".format(filePath))
-            # metadata.size = regFile.attr['st_size']
-            # metadata.extra['mtime'] = regFile.attr['st_mtime']
-            # plug.update_file(metadata)
+            update_metadata(metadata, regFile.st_size, regFile.st_mtime,
+                            update_file=True)
         else:
             plug.logger.debug(u"File {} is up-to-date".format(filePath))
 
@@ -240,6 +262,7 @@ class CheckChanges(threading.Thread):
                 plug.logger.error(u"An error occurred while checking remote "
                                   u"folder {}: {}"
                                   .format(self.folder.path, ioe))
+            plug.logger.debug("Next check in {} seconds".format(self.timer))
             self.stopEvent.wait(self.timer)
 
     def stop(self):
@@ -260,5 +283,4 @@ def start():
         check_changes = CheckChanges(folder, sftp, timer)
         check_changes.daemon = True
         check_changes.start()
-
     plug.listen()
