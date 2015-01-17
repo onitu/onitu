@@ -19,6 +19,16 @@ class Folder(object):
         for folder in names:
             folders[folder] = cls.get(plug, folder)
 
+        # If after the normalization any folder is embedded in another, we
+        # throw an error.
+        for folder in folders.values():
+            for candidate in folders.values():
+                if candidate.contains(folder.path):
+                    raise DriverError(
+                        'Folder {} is embedded in folder {}. Please check '
+                        'your configuration.'.format(folder, candidate)
+                    )
+
         return folders
 
     @classmethod

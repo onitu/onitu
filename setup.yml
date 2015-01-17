@@ -8,11 +8,8 @@ folders:
     blacklist:
       - "*.bak"
       - Private/
-  backup:
-    blacklist:
-      - ".*"
     file_size:
-      max: 2G
+      max: 15 Mb
 
 services:
   A:
@@ -20,20 +17,8 @@ services:
     folders:
       music: ~/Music
       docs: ~/Docs
-      backup:
-        path: ~/
-        mode: ro
   B:
     driver: local_storage
     folders:
       music: ~/My Music
       docs: ~/My Documents
-      backup:
-        path: ~/
-        mode: ro
-  C:
-    driver: local_storage
-    folders:
-      backup:
-        path: backup
-        mode: wo

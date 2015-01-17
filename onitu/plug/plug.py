@@ -177,19 +177,9 @@ class Plug(object):
         return new_metadata
 
     def get_folder(self, filename):
-        folder = None
-
-        # We select the folder containing the file which is
-        # the closer to the root
-        for candidate in self.folders.values():
-            if candidate.contains(filename):
-                if folder:
-                    if folder.contains(candidate.path):
-                        folder = candidate
-                else:
-                    folder = candidate
-
-        return folder
+        for folder in self.folders.values():
+            if folder.contains(filename):
+                return folder
 
     def get_metadata(self, filename, folder=None):
         """
@@ -371,7 +361,6 @@ class Plug(object):
         """
         Return the list of the folders which should be watched by the driver
         """
-        return tuple(
-            folder for folder in self.folders.values()
-            if not any(f.contains(folder.path) for f in self.folders.values())
-        )
+        # As we don't handle read-only folders yet, this returns all the
+        # folders
+        return tuple(self.folders.values())
