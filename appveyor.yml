@@ -9,7 +9,7 @@ environment:
     BOOST_ROOT: "C:/Libraries/boost"
 
 install:
-  - "git clone https://github.com/bureau14/leveldb.git"
+  - "git clone https://github.com/onitu/leveldb.git"
   - "cd leveldb/"
   - "cmake ."
   - "msbuild leveldb.sln"
