@@ -8,7 +8,7 @@ from circus.client import CircusClient
 
 from logbook import Logger
 from onitu.escalator.client import Escalator
-from onitu.utils import get_circusctl_endpoint
+from onitu.utils import get_circusctl_endpoint, unpack_msg
 from .broker import Broker
 
 GRACEFUL_TIMEOUT = 1.
@@ -51,15 +51,16 @@ class Majordomo(Broker):
         self.logger.info('Starting listening on {} and {}',
                          frontend_req_uri, frontend_rep_uri)
 
-    def new_remote(self, src_id):
+    def new_remote(self, src_id, msg):
         # Use unicode
+        service, conf = unpack_msg(msg)
         dest_id = uuid.uuid4().hex
         self.nb_remotes += 1
-        name = 'remote-{}'.format(self.nb_remotes)
-        self.remote_names[src_id] = name
-        self.escalator.put('service:{}:driver'.format(name), 'remote_driver')
+        self.remote_names[src_id] = service
+        self.escalator.put('service:{}:driver'.format(service), 'remote_driver')
         # Protect over non-ascii ids
-        self.escalator.put('service:{}:options'.format(name), {
+        options = conf.get('options', {})
+        options.update({
             'id': dest_id,
             'remote_id': src_id,
             'remote_uri': 'tcp://127.0.0.1:{}'.format(
@@ -67,20 +68,28 @@ class Majordomo(Broker):
             'handlers_uri': 'tcp://127.0.0.1:{}'.format(
                 self.backend.req_port)
         })
-        self.escalator.put('services', self.escalator.get('services') + (name,))
-        self.escalator.put(u'service:{}:folders'.format(name), ['test'])
-        self.escalator.put(u'service:{}:folder:test:path'.format(name), u'/home/rozo_a/Projects/onitu/client/files')
-        self.escalator.put(u'service:{}:folder:test:options'.format(name), {})
+        self.escalator.put('service:{}:options'.format(service), options)
+        self.escalator.put('services', self.escalator.get('services') + (service,))
+        folders = conf.get('folders', {})
+        self.escalator.put(u'service:{}:folders'.format(service), list(folders.keys()))
+        for name, options in folders.items():
+            if type(options) != dict:
+                path = options
+                options = {}
+            else:
+                path = options.pop('path', '/')
+            self.escalator.put(u'service:{}:folder:{}:path'.format(service, name), path)
+            self.escalator.put(u'service:{}:folder:{}:options'.format(service, name), options)
         query = {
             "command": 'add',
             "properties": {
-                "name": name,
+                "name": service,
                 "cmd": sys.executable,
                 "args": ('-m',
                          'onitu.service',
                          self.session,
                          'remote_driver',
-                         name),
+                         service),
                 "copy_env": True,
                 "start": True,
                 "graceful_timeout": GRACEFUL_TIMEOUT
@@ -106,8 +115,10 @@ class Majordomo(Broker):
 
 @Majordomo.handle('f-req')
 def majordomo_handle_socket(majordomo, relay, msg):
-    if not msg.dest_id and msg.content == b'start':
-        return majordomo.new_remote(msg.src_id)
+    #if not msg.dest_id and msg.content == b'start':
+    #    return majordomo.new_remote(msg.src_id)
+    if not msg.dest_id and msg.content.startswith(b'start'):
+        return majordomo.new_remote(msg.src_id, msg.content[5:])
     elif not msg.dest_id and msg.content == b'stop':
         return majordomo.close_remote(msg.src_id)
     return Broker.get_handler(relay.name)(majordomo, relay, msg)

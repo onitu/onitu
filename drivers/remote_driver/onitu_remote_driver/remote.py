@@ -25,7 +25,7 @@ class Remote(threading.Thread):
 
     def run(self):
         self.socket.send_multipart((b(self.plug.options['remote_id']),
-                                    b(self.plug.name)))
+                                    b''))
         while True:
             try:
                 req_id, msg = self.socket.recv_multipart()
