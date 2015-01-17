@@ -170,7 +170,7 @@ def get_setup(setup_file):
                 "You provided a YAML setup file, but PyYAML was not found on "
                 "your system."
             )
-        loader = lambda f: yaml.load(f.read())
+        loader = yaml.load
     elif setup_file.endswith('.json'):
         import json
         loader = json.load
