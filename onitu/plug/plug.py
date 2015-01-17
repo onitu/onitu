@@ -16,7 +16,7 @@ from .exceptions import DriverError, AbortOperation
 
 from onitu.escalator.client import Escalator
 from onitu.utils import get_events_uri, log_traceback
-from onitu.referee import UP, DEL, MOV
+from onitu.referee import UP, DEL, MOV, RST
 
 
 class Plug(object):
@@ -175,6 +175,9 @@ class Plug(object):
         self.notify_referee(metadata.fid, MOV, self.name, new_metadata.fid)
 
         return new_metadata
+
+    def reset_referee(self):
+        self.notify_referee(0, RST)
 
     def get_folder(self, filename):
         folder = None

@@ -7,7 +7,7 @@ from logbook import Logger
 from onitu.escalator.client import Escalator, EscalatorClosed
 from onitu.utils import get_events_uri, b, log_traceback
 
-from .cmd import UP, DEL, MOV
+from .cmd import UP, DEL, MOV, RST
 from .folder import Folder
 
 
@@ -48,6 +48,7 @@ class Referee(object):
             UP: self._handle_update,
             DEL: self._handle_deletion,
             MOV: self._handle_move,
+            RST: self._handle_reset
         }
 
     def start(self):
@@ -152,7 +153,16 @@ class Referee(object):
             metadata['filename'], source, folder
         )
 
+        print('targets', folder.targets(metadata, source))
         self.notify(folder.targets(metadata, source), UP, fid, source)
+
+    def _handle_reset(self, fid):
+        print('RESET')
+        self.services = self.escalator.get('services', default=[])
+        self.folders = Folder.get_folders(
+            self.escalator, self.services, self.logger
+        )
+        print(self.services)
 
     def notify(self, services, cmd, fid, *args):
         if not services:
