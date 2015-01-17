@@ -67,6 +67,7 @@ class Majordomo(Broker):
             'handlers_uri': 'tcp://127.0.0.1:{}'.format(
                 self.backend.req_port)
         })
+        self.escalator.put('services', self.escalator.get('services') + (name,))
         self.escalator.put(u'service:{}:folders'.format(name), ['test'])
         self.escalator.put(u'service:{}:folder:test:path'.format(name), u'/home/rozo_a/Projects/onitu/client/files')
         self.escalator.put(u'service:{}:folder:test:options'.format(name), {})

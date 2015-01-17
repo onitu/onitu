@@ -7,8 +7,7 @@ def metadata_serializer(m):
 
 def metadata_unserialize(plug, m):
     fid, props, extra = m
-    filename = props[0]
-    metadata = plug.get_metadata(filename)
+    metadata = plug.get_metadata(props[0], Folder.get(plug, props[1]))
     if metadata is None:
         return None
     for name, prop in zip(metadata.PROPERTIES, props):

@@ -59,6 +59,7 @@ def start():
     remote = Remote(plug, remote_socket)
     remote.start()
 
+    plug.reset_referee()
     plug.listen()
     remote.join()
     remote_socket.close()
