@@ -2,16 +2,53 @@ import os
 import threading
 
 import paramiko
+from paramiko import PasswordRequiredException, SSHException
 
 from stat import S_ISDIR
-from onitu.plug import Plug, ServiceError
+from onitu.plug import Plug, DriverError, ServiceError
 from onitu.escalator.client import EscalatorClosed
 
 plug = Plug()
-root = None
-sftp = None
-transport = None
 events_to_ignore = set()
+
+
+def get_private_key(pkey_path, passphrase):
+    """Returns a Paramiko.RSAKey based upon the given informations.
+    Raises DriverError if anything has gone wrong generating the key."""
+    error = None
+    private_key = None
+    try:
+        private_key = paramiko.RSAKey.from_private_key_file(
+            pkey_path, password=passphrase)
+    except IOError as e:
+        error = u"Unable to read file {}: {}".format(pkey_path, e)
+    except PasswordRequiredException as pre:
+        error = (u"Private key file {} is encrypted, passphrase required,"
+                 u" has {} ({})".format(pkey_path, passphrase, pre))
+    except SSHException as se:
+        error = u"Private key file {} is invalid ({})".format(pkey_path, se)
+    finally:
+        if error is not None:
+            raise DriverError(u"Failed to create private key: {}"
+                              .format(error))
+    return private_key
+
+
+def get_SFTP_client(hostname, port, username, password, privateKey):
+    """Helper function to connect with SFTP. Tries to connect with the given
+    connection infos and, if successful, returns a SFTPClient ready to be
+    used.
+    Raises DriverError if an error occurred during the client setup."""
+    transport = paramiko.Transport((hostname, port))
+    try:
+        if password != '':
+            transport.connect(username=username, password=password)
+        else:
+            transport.connect(username=username, pkey=privateKey)
+    except SSHException as se:
+        raise DriverError(u"Failed to connect to host: {}".format(se))
+    sftp = paramiko.SFTPClient.from_transport(transport)
+    return sftp
 
 
 def create_dirs(sftp, path):
@@ -174,57 +211,26 @@ class CheckChanges(threading.Thread):
 
 
 def start():
-    global root
+    # First retrieve the user private key
+    privateKeyPath = plug.options.get('private_key_path', '~/.ssh/id_rsa')
+    privateKeyPath = os.path.expanduser(privateKeyPath)
+    passphrase = plug.options['private_key_passphrase']
+    privateKey = get_private_key(privateKeyPath, passphrase)
 
-    # Clean the root
-    root = plug.options['root']
-    if root.endswith('/'):
-        root = root[:-1]
-
-    hostname = plug.options['hostname']
-    username = plug.options['username']
-    password = plug.options['password']
-    port = plug.options['port']
-    timer = plug.options['changes_timer']
-    private_key_passphrase = plug.options['private_key_passphrase']
-    private_key_path = plug.options.get('private_key_path', '~/.ssh/id_rsa')
-    private_key_file = os.path.expanduser(private_key_path)
-
-    private_key_error = None
-    try:
-        private_key = paramiko.RSAKey.from_private_key_file(
-            private_key_file, password=private_key_passphrase)
-    except IOError as e:
-        private_key_error = e
-
-    global transport
-    transport = paramiko.Transport((hostname, port))
-    try:
-        if password != '':
-            transport.connect(username=username, password=password)
-        else:
-            if private_key_error is not None:
-                plug.logger.error("SFTP driver connection failed : {}",
-                                  private_key_error)
-                transport.close()
-                return
-            transport.connect(username=username, pkey=private_key)
-    except paramiko.AuthenticationException as e:
-        plug.logger.error("SFTP driver connection failed : {}", e)
-        transport.close()
-        return
-
-    global sftp
-    sftp = paramiko.SFTPClient.from_transport(transport)
-
-    try:
-        sftp.chdir(root)
-    except IOError as e:
-        plug.logger.error("{}: {}", root, e)
-
-    # Launch the changes detection
-    check_changes = CheckChanges(timer, sftp)
-    check_changes.daemon = True
-    check_changes.start()
+    for folder in plug.folders_to_watch:
+        # Get a different client for each folder.
+        sftp = get_SFTP_client(plug.options['hostname'],
+                               plug.options['port'],
+                               plug.options['username'],
+                               plug.options['password'],
+                               privateKey)
+        try:
+            sftp.chdir(folder.path)
+        except IOError as e:
+            plug.logger.error(u"Unable to chdir into {}: {}", folder.path, e)
+        # Launch the changes detection
+        check_changes = CheckChanges(plug.options['changes_timer'], sftp)
+        check_changes.daemon = True
+        check_changes.start()
 
     plug.listen()
