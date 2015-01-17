@@ -20,6 +20,7 @@ install:
   - "msbuild leveldb.sln"
   - "cp Debug/leveldbd.lib %PYTHON%/libs/"
   - "cp include/leveldb %PYTHON%/Include"
+  - "cd ../"
   - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
 
 build: off
