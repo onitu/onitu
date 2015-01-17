@@ -108,4 +108,4 @@ class Router(object):
             )
             return [FILE, self.call('get_file', metadata)]
         elif 'get_chunk' in self.plug._handlers:
-            return self._handle_get_chunk(metadata, '0', str(metadata.size))
+            return self._handle_get_chunk(metadata, b'0', str(metadata.size))
