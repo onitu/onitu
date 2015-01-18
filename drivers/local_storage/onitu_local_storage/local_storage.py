@@ -88,7 +88,11 @@ def check_changes(folder):
 
     for filename in expected_files:
         metadata = plug.get_metadata(filename, folder)
-        plug.delete_file(metadata)
+        # If we don't see this file and we're not uptodate, this could
+        # mean that we simply never transfered it, so we shouldn't trigger
+        # a deletion (cf https://github.com/onitu/onitu/issues/130)
+        if plug.name in metadata.uptodate:
+            plug.delete_file(metadata)
 
 
 @plug.handler()
