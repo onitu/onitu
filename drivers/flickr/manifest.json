@@ -16,7 +16,7 @@
 	    "name": "Changes timer",
 	    "description": "The amount of time you want Onitu to wait between each check for new files on your Flickr account, in seconds. Defaults to 30.",
 	    "type": "integer",
-	    "default": 30
+	    "default": 300
 	},
 	"png_header": {
 	    "name": "PNG header prepending",

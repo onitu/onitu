@@ -35,18 +35,18 @@ class Driver(driver.Driver):
         self.handler.flickr_api.photosets.delete(photoset_id=self.root_id)
 
     def mkdir(self, subdirs):
-        photosetID = self.handler.getPhotosetID(subdirs)
+        photosetID = self.handler.get_photoset_ID(subdirs)
         ppid = "14592381294"  # TODO: Fix that ?
         self.handler.flickr_api.photosets.create(photoset_id=photosetID,
                                                  primary_photo_id=ppid)
 
     def rmdir(self, path):
-        photosetID = self.handler.getPhotosetID(path)
+        photosetID = self.handler.get_photoset_ID(path)
         self.handler.flickr_api.photosets.delete(photoset_id=photosetID)
 
     def write(self, filename, content):
         data = BytesIO(content)
-        self.handler.uploadPhotoInPhotoset(filename, data, self.root)
+        self.handler.upload_photo_in_photoset(filename, data, self.root)
 
     def generate(self, filename, size):
         self.write(filename, os.urandom(size))
@@ -63,16 +63,16 @@ class Driver(driver.Driver):
         return False
 
     def unlink(self, filename):
-        photoID = self.handler.getPhotoID(filename, self.root_id)
+        photoID = self.handler.get_photo_ID(filename, self.root_id)
         self.handler.flickr_api.photos.delete(photo_id=photoID)
 
     def rename(self, source, target):
-        photoID = self.handler.getPhotoID(source, self.root_id)
+        photoID = self.handler.get_photo_ID(source, self.root_id)
         self.handler.flickr_api.setMeta(photo_id=photoID, title=target)
 
     def checksum(self, filename):
-        photoID = self.handler.getPhotoID(filename, self.root_id)
-        data = self.handler.downloadPhotoContent(photoID)
+        photoID = self.handler.get_photo_ID(filename, self.root_id)
+        data = self.handler.download_photo_content(photoID)
         return hashlib.md5(data.read()).hexdigest()
 
 
