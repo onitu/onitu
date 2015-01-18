@@ -235,7 +235,7 @@ def main():
     parser.add_argument(
         '--majordomo_keys_dir',
         help="Directory where clients' public keys are stored",
-        default='authorized_keys'
+        default='keys'
     )
     parser.add_argument(
         '--majordomo_server_key',
