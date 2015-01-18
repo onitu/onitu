@@ -1,4 +1,5 @@
 import sys
+import json
 
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
@@ -12,6 +13,8 @@ if PY2:
     from urllib import unquote as unquote_
 else:
     from urllib.parse import unquote as unquote_
+
+ONITU_READTHEDOCS = "https://onitu.readthedocs.org/en/latest/api.html"
 
 host = 'localhost'
 port = 3862
@@ -82,6 +85,13 @@ def file_not_found(name):
     )
 
 
+def file_not_found_in_folder(name, folder):
+    return error(
+        error_code=404,
+        error_message="file {} not found in folder {}".format(name, folder)
+    )
+
+
 def service_not_found(name):
     return error(
         error_code=404,
@@ -106,17 +116,26 @@ def timeout():
     )
 
 
+@app.route('/', method='GET')
+def api_doc():
+    redirect("https://onitu.github.io")
+
+
 @app.route('/api', method='GET')
 @app.route('/api/v1.0', method='GET')
 def api_doc():
-    redirect("https://onitu.readthedocs.org/en/latest/api.html")
+    redirect(ONITU_READTHEDOCS)
 
 
 @app.route('/api/v1.0/files/id/<folder>/<name>', method='GET')
 def get_file_id(folder, name):
     folder = unquote(folder)
     name = unquote(name)
-    return {name: get_fid(folder, name)}
+    fid = get_fid(folder, name)
+    metadata = escalator.get('file:{}'.format(fid), default=None)
+    if metadata is None:
+        return file_not_found_in_folder(name, folder)
+    return {name: fid}
 
 
 @app.route('/api/v1.0/files', method='GET')
@@ -297,6 +316,27 @@ def restart_service(name):
     return resp
 
 
+@app.error(404)
+def error404(error_data):
+    # we have to define the content type ourselves and to use the
+    # module json because bottle does not respect the content type on
+    # error routings
+    # https://github.com/bottlepy/bottle/issues/359
+    response.content_type = 'application/json; charset=UTF-8'
+    return json.dumps(
+        error(
+            error_code=404,
+            error_message="the route is not valid. The documentation is on {}"
+            .format(ONITU_READTHEDOCS)
+        )
+    )
+
+@app.error(500)
+def error500(error_data):
+    response.content_type = 'application/json; charset=UTF-8'
+    return json.dumps(
+        error()
+    )
 if __name__ == '__main__':
     with ZeroMQHandler(get_logs_uri(session), multi=True).applicationbound():
         logger.info("Starting on {}:{}".format(host, port))
