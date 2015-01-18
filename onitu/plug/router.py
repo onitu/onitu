@@ -12,6 +12,11 @@ FILE = b'F'
 ERROR = b'E'
 OK = b'O'
 
+GET_CHUNK = b'1'
+GET_FILE = b'2'
+GET_OAUTH_URL = b'3'
+SET_OAUTH_TOKEN = b'4'
+
 
 class Router(object):
     """Receive and reply to requests from other drivers. This is the
@@ -32,7 +37,9 @@ class Router(object):
 
         self.handlers = {
             CHUNK: self._handle_get_chunk,
-            FILE: self._handle_get_file
+            FILE: self._handle_get_file,
+            GET_CHUNK: self._handle_get_chunk,
+            GET_FILE: self._handle_get_file
         }
 
     def run(self):

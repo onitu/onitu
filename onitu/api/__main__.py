@@ -1,4 +1,6 @@
 import sys
+
+import zmq
 import json
 
 from logbook import Logger
@@ -7,7 +9,9 @@ from bottle import Bottle, run, response, abort, redirect
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
-from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint, u, PY2
+from onitu.utils import get_fid, u, b, PY2, get_circusctl_endpoint
+from onitu.utils import get_events_uri, get_logs_uri
+from onitu.plug.router import GET_FILE, ERROR
 
 if PY2:
     from urllib import unquote as unquote_
@@ -116,8 +120,21 @@ def timeout():
     )
 
 
+def call_handler(service, cmd, *args):
+    context = zmq.Context.instance()
+    dealer = context.socket(zmq.DEALER)
+    dealer.connect(get_events_uri(session, service, 'router'))
+
+    try:
+        message = [cmd] + [b(arg) for arg in args]
+        dealer.send_multipart(message)
+        return dealer.recv_multipart()
+    finally:
+        dealer.close()
+
+
 @app.route('/', method='GET')
-def api_doc():
+def api_root():
     redirect("https://onitu.github.io")
 
 
@@ -158,6 +175,23 @@ def get_file(fid):
         abort(404)
     metadata['fid'] = fid
     return metadata
+
+
+@app.route('/api/v1.0/files/<fid>/content', method='GET')
+def get_file_content(fid):
+    fid = unquote(fid)
+    metadata = escalator.get('file:{}'.format(fid), default=None)
+    if not metadata:
+        return file_not_found(fid)
+    service = metadata['uptodate'][0]
+    content = call_handler(service, GET_FILE, fid)
+    if content[0] != ERROR:
+        response.content_type = metadata['mimetype']
+        response.headers['Content-Disposition'] = (
+            'attachment; filename="{}"'.format(metadata['filename'])
+        )
+        return content[1]
+    return error()
 
 
 @app.route('/api/v1.0/services', method='GET')
@@ -331,12 +365,15 @@ def error404(error_data):
         )
     )
 
+
 @app.error(500)
 def error500(error_data):
     response.content_type = 'application/json; charset=UTF-8'
     return json.dumps(
         error()
     )
+
+
 if __name__ == '__main__':
     with ZeroMQHandler(get_logs_uri(session), multi=True).applicationbound():
         logger.info("Starting on {}:{}".format(host, port))
