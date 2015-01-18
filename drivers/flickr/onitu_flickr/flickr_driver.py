@@ -273,7 +273,11 @@ class CheckChanges(threading.Thread):
         self.stopEvent = threading.Event()
         self.folder = folder
         self.timer = timer
-        self.photosetID = flickr.get_photoset_ID(self.folder.path)
+        try:
+            self.photosetID = flickr.get_photoset_ID(self.folder.path)
+        except DriverError:
+            plug.logger.warning(u"The given album {} doesn't exist"
+                                u" on Flickr.", folder.path)
         # Set default as 1 for the last update timestamp because Flickr throws
         # an error if we start from 0... -.-
         self.lastUpdateTimestamp = plug.service_db.get('timestamp', default=1)
@@ -283,23 +287,32 @@ class CheckChanges(threading.Thread):
     def run(self):
         while not self.stopEvent.isSet():
             try:
+                warn = None
+                albumNotFound = False
                 # Getting it every time because of the photoset ID
                 # modifications that could occur during runtime (album
                 # automatic deletions, etc.)
                 self.photosetID = flickr.get_photoset_ID(self.folder.path)
                 self.check_photoset()
             except FlickrError as fe:
-                warn = u"An unknown Flickr error occurred: {}".format(
-                       fe.message)
+
                 if fe.message == u"Error: 1: Photoset not found":
-                    warn = (u"The album {} doesn't exist on Flickr."
-                            .format(self.folder.path))
-                plug.logger.warning(warn)
+                    albumNotFound = True
+                else:
+                    warn = u"An unknown Flickr error occurred: {}".format(
+                           fe.message)
+            except DriverError:  # The photoset doesn't exist
+                albumNotFound = True
             except EscalatorClosed:
                 # We are closing
                 return
-            plug.logger.debug(u"Waiting {} seconds before checking album '{}'"
-                              u" again".format(self.timer, self.folder.path))
+            finally:
+                if albumNotFound:
+                    warn = (u"The album {} doesn't exist on Flickr."
+                            .format(self.folder.path))
+                if warn is not None:
+                    plug.logger.warning(warn)
+            plug.logger.debug(u"Next check in {} seconds", self.timer)
             self.stopEvent.wait(self.timer)
 
     def stop(self):
