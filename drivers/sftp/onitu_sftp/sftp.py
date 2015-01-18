@@ -70,7 +70,6 @@ def create_file_subdirs(sftp, filepath):
     finalPath = filepath[:lastSlash]
     dirs = finalPath.split(u"/")
 
-    plug.logger.debug(u"Creating remote directory tree {}".format(finalPath))
     currentDir = u""
     doStat = True
     try:
@@ -82,8 +81,6 @@ def create_file_subdirs(sftp, filepath):
                 # The current dir doesn't exists, so we create it
                 except IOError as ioe:
                     if ioe.errno == 2:
-                        plug.logger.debug(u"{} doesn't exist, creating it"
-                                          .format(currentDir))
                         sftp.mkdir(currentDir)
                         # If a dir was not found, it means all the next
                         # won't exist either. So stop bothering to stat
@@ -91,8 +88,6 @@ def create_file_subdirs(sftp, filepath):
                     else:
                         raise
             else:
-                plug.logger.debug(u"{} doesn't exist, creating it"
-                                  .format(currentDir))
                 sftp.mkdir(currentDir)
     except IOError as ioe:
         raise ServiceError(u"Error while creating subdirs {}: {}"
@@ -146,7 +141,7 @@ def upload_file(metadata, content):
     plug.logger.debug(u"Uploading file {}".format(metadata.path))
     sftp = get_SFTP_client_from_plug()
     try:
-        f = sftp.open(metadata.path, 'w')
+        f = sftp.open(metadata.path, 'w+')
         f.write(content)
         f.close()
     except (IOError, OSError) as e:
@@ -229,13 +224,17 @@ class CheckChanges(threading.Thread):
         self.sftp = sftp
         self.timer = timer
         self.deletedFiles = {}  # useful for deletion detection
+        dirPath = folder.path
+        if not dirPath.endswith(u"/"):
+            dirPath += u"/"
         # Get in the right folder
         try:
-            plug.logger.debug(u"Changing directory to {}".format(folder.path))
-            self.sftp.chdir(folder.path)
+            create_file_subdirs(self.sftp, dirPath)
+            plug.logger.debug(u"Changing directory to {}".format(dirPath))
+            self.sftp.chdir(dirPath)
         except IOError as e:
             raise ServiceError(u"Unable to chdir into {}: {}"
-                               .format(folder.path, e))
+                               .format(dirPath, e))
 
     def check_directory(self, path):
         """Recursively searches for all regular files under a directory and
