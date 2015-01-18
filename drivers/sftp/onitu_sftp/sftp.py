@@ -12,6 +12,7 @@ plug = Plug()
 events_to_ignore = set()
 sftp = None
 
+
 def get_private_key(pkey_path, passphrase):
     """Returns a Paramiko.RSAKey based upon the given informations.
     Raises DriverError if anything has gone wrong generating the key."""
