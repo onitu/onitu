@@ -287,7 +287,7 @@ class CheckChanges(threading.Thread):
                 # modifications that could occur during runtime (album
                 # automatic deletions, etc.)
                 self.photosetID = flickr.get_photoset_ID(self.folder.path)
-                self.checkPhotoset()
+                self.check_photoset()
             except FlickrError as fe:
                 warn = u"An unknown Flickr error occurred: {}".format(
                        fe.message)
@@ -305,7 +305,7 @@ class CheckChanges(threading.Thread):
     def stop(self):
         self.stopEvent.set()
 
-    def checkPhotoset(self):
+    def check_photoset(self):
         # First retrieve the photos updated since last time.
         # Flickr doesn't provide a way to do it for just a particular album
         ts = self.lastUpdateTimestamp
@@ -326,15 +326,15 @@ class CheckChanges(threading.Thread):
             # If this photo is in our album
             if photo.attrib['id'] in photosetIDs:
                 # check if we should update it
-                self.processPhoto(photo)
+                self.process_photo(photo)
             else:
                 plug.logger.debug(u"Photo {} isn't in album {}"
                                   .format(photo.attrib['title'],
                                           self.folder.path))
         # Update the timestamp to ask changes since now, next time
-        self.updateTimestamp()
+        self.update_timestamp()
 
-    def processPhoto(self, photo):
+    def process_photo(self, photo):
         # Add the extension since Flickr strips it
         filename = u"{}.{}".format(photo.attrib['title'],
                                    photo.attrib['originalformat'])
@@ -362,7 +362,7 @@ class CheckChanges(threading.Thread):
             plug.logger.debug(u"Photo {} is up-to-date"
                               .format(filename))
 
-    def updateTimestamp(self):
+    def update_timestamp(self):
         nowInSecs = (datetime.utcnow() - datetime(1970, 1, 1)).total_seconds()
         nowInSecs = int(nowInSecs)
         self.lastUpdateTimestamp = nowInSecs
