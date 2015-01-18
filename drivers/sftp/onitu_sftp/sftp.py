@@ -95,8 +95,7 @@ def create_file_subdirs(sftpClient, filepath):
                            .format(finalPath, ioe))
 
 
-def update_metadata(metadata, size, mtime, update_file=False):
-    metadata.size = size
+def update_metadata(metadata, mtime, update_file=False):
     metadata.extra['mtime'] = mtime
     metadata.write()
     if update_file:
@@ -156,7 +155,7 @@ def end_upload(metadata):
     plug.logger.debug(u"Ending upload of file {}", metadata.path)
     try:
         stat_res = sftp.stat(metadata.path)
-        update_metadata(metadata, stat_res.st_size, stat_res.st_mtime,
+        update_metadata(metadata, stat_res.st_mtime,
                         update_file=False)
     except (IOError, OSError) as e:
         raise ServiceError(u"Error during upload ending on file '{}': {}"
@@ -214,7 +213,7 @@ class CheckChanges(threading.Thread):
         # Get in the right folder
         try:
             create_file_subdirs(self.sftp, dirPath)
-            plug.logger.debug(u"Changing directory to {}".format(dirPath))
+            plug.logger.debug(u"Changing directory to {}", dirPath)
             self.sftp.chdir(dirPath)
         except IOError as e:
             raise ServiceError(u"Unable to chdir into {}: {}"
@@ -244,15 +243,16 @@ class CheckChanges(threading.Thread):
         filePath = regFile.filename
         if path != ".":
             filePath = "{}/{}".format(path, filePath)
-        plug.logger.debug(u"Checking regular file {}".format(filePath))
+        plug.logger.debug(u"Checking regular file {}", filePath)
         metadata = plug.get_metadata(filePath, self.folder)
         onitu_mtime = metadata.extra.get('mtime', 0)
         if regFile.st_mtime > onitu_mtime:
-            plug.logger.debug(u"Updating {}".format(filePath))
-            update_metadata(metadata, regFile.st_size, regFile.st_mtime,
+            plug.logger.debug(u"Updating {}", filePath)
+            metadata.size = regFile.st_size
+            update_metadata(metadata, regFile.st_mtime,
                             update_file=True)
         else:
-            plug.logger.debug(u"File {} is up-to-date".format(filePath))
+            plug.logger.debug(u"File {} is up-to-date", filePath)
         # Cross this file out from the deleted files list
         if filePath in self.deletedFiles:
             del self.deletedFiles[filePath]
@@ -269,8 +269,8 @@ class CheckChanges(threading.Thread):
     def run(self):
         while not self.stopEvent.isSet():
             try:
-                plug.logger.debug(u"Checking remote folder {}"
-                                  .format(self.folder.path))
+                plug.logger.debug(u"Checking remote folder {}",
+                                  self.folder.path)
                 # Get a list of the files we know. Check them out as we find
                 # them. The remaining are files that were deleted when we
                 # weren't looking.
@@ -283,9 +283,8 @@ class CheckChanges(threading.Thread):
                 return
             except IOError as ioe:
                 plug.logger.error(u"An error occurred while checking remote "
-                                  u"folder {}: {}"
-                                  .format(self.folder.path, ioe))
-            plug.logger.debug("Next check in {} seconds".format(self.timer))
+                                  u"folder {}: {}", self.folder.path, ioe)
+            plug.logger.debug("Next check in {} seconds", self.timer)
             self.stopEvent.wait(self.timer)
 
     def stop(self):
