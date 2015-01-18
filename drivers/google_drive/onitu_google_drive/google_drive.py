@@ -19,7 +19,7 @@ def check_and_add_folder(metadata):
     mutex.acquire()
     global tree
     try:
-        path = metadata.filename.split("/")
+        path = metadata.path.split("/")
         path = [p for p in path if p != u""]
         tmproot = root_id
         if len(path) > 1:
@@ -56,7 +56,7 @@ def get_token():
 def get_chunk(metadata, offset, size):
     plug.logger.debug(u"Getting chunk of size {} from file {}"
                       u" from offset {} to {}"
-                      .format(size, metadata.filename,
+                      .format(size, metadata.path,
                               offset, offset+(size-1)))
     if size > metadata.size:
         size = metadata.size
@@ -65,14 +65,14 @@ def get_chunk(metadata, offset, size):
                                     offset, size)
     plug.logger.debug(u"Getting chunk of size {} from file {}"
                       u" from offset {} to {} - Done"
-                      .format(size, metadata.filename,
+                      .format(size, metadata.path,
                               offset, offset+(size-1)))
     return content
 
 
 @plug.handler()
 def start_upload(metadata):
-    plug.logger.debug(u"Start updload {}".format(metadata.filename))
+    plug.logger.debug(u"Start updload {}".format(metadata.path))
     metadata.extra["inProcess"] = ""
     metadata.write()
     tmproot, path = check_and_add_folder(metadata)
@@ -90,16 +90,16 @@ def start_upload(metadata):
         metadata.extra["location"] = h["location"]
     metadata.extra["parent_id"] = tmproot
     metadata.write()
-    plug.logger.debug(u"Start updload {} - Done".format(metadata.filename))
+    plug.logger.debug(u"Start updload {} - Done".format(metadata.path))
 
 
 @plug.handler()
 def end_upload(metadata):
-    plug.logger.debug(u"End updload {}".format(metadata.filename))
+    plug.logger.debug(u"End updload {}".format(metadata.path))
     del metadata.extra["inProcess"]
     if "location" in metadata.extra:
         del metadata.extra["location"]
-    path = metadata.filename.split("/")
+    path = metadata.path.split("/")
     path = [p for p in path if p != u""]
     _, data = libdrive.get_information(access_token,
                                        path[len(path)-1],
@@ -110,14 +110,14 @@ def end_upload(metadata):
     db = plug.service_db
     db.put('listes:{}'.format(metadata.extra["id"]), metadata.fid)
     metadata.write()
-    plug.logger.debug(u"End updload {} - Done".format(metadata.filename))
+    plug.logger.debug(u"End updload {} - Done".format(metadata.path))
 
 
 @plug.handler()
 def upload_chunk(metadata, offset, chunk):
     plug.logger.debug(u"Uploading chunk of size {} from file {}"
                       u" from offset {} to {}"
-                      .format(len(chunk), metadata.filename,
+                      .format(len(chunk), metadata.path,
                               offset, offset+(len(chunk)-1)))
 
     _, data = libdrive.upload_chunk(access_token,
@@ -125,7 +125,7 @@ def upload_chunk(metadata, offset, chunk):
                                     offset, chunk, metadata.size)
     plug.logger.debug(u"Uploading chunk of size {} from file {}"
                       u" from offset {} to {} - Done"
-                      .format(len(chunk), metadata.filename,
+                      .format(len(chunk), metadata.path,
                               offset, offset+(len(chunk)-1)))
 #
 #
@@ -148,12 +148,12 @@ def set_chunk_size(size):
 
 @plug.handler()
 def delete_file(metadata):
-    plug.logger.debug(u"Deleting '{}'".format(metadata.filename))
+    plug.logger.debug(u"Deleting '{}'".format(metadata.path))
     global tree
     id_d = metadata.extra["id"]
     tree = {k: v for k, v in tree.items() if v == id_d or k == id_d}
     libdrive.delete_by_id(access_token, id_d)
-    plug.logger.debug(u"Deleting '{}' - Done".format(metadata.filename))
+    plug.logger.debug(u"Deleting '{}' - Done".format(metadata.path))
 
 
 @plug.handler()
@@ -162,7 +162,7 @@ def move_file(old_metadata, new_metadata):
     tmproot, path = check_and_add_folder(new_metadata)
 
     plug.logger.debug(u"Moving '{}' to '{}'"
-                      .format(old_metadata.filename, new_metadata.filename))
+                      .format(old_metadata.path, new_metadata.path))
 
     params = {
         "addParents": [tmproot],
@@ -179,7 +179,7 @@ def move_file(old_metadata, new_metadata):
     new_metadata.write()
 
     plug.logger.debug(u"Moving '{}' to '{}' - Done"
-                      .format(old_metadata.filename, new_metadata.filename))
+                      .format(old_metadata.path, new_metadata.path))
 
 
 class CheckChanges(threading.Thread):
@@ -192,18 +192,34 @@ class CheckChanges(threading.Thread):
 
     def update_metadata(self, filepath, f):
         db = plug.service_db
+        print
         plug.logger.debug("Update metadata ?: {} {}", filepath, f)
-        try:
-            fid = db.get('listes:{}'.format(f["id"]))
-            metadata = Metadata.get_by_id(plug, fid)
+        # try:
+        # fid = db.get('listes:{}'.format(f["id"]))
+        path = filepath.split("/")[0]
+
+        files =  plug.list(path)
+        fid = None
+        for file in files:
+            if file[0] == filepath:
+                fid = file[1]
+                break
+
+        if fid is None:
+            plug.logger.debug("No fid find for {}", filepath)
+
+        metadata = Metadata.get_by_id(plug, fid)
+        if metadata is not None:
             while "inProcess" in metadata.extra:
                 metadata = Metadata.get_by_id(plug, fid)
                 time.sleep(0.1)
-        except:
+        else:
             metadata = plug.get_metadata(filepath)
-            while "inProcess" in metadata.extra:
-                metadata = plug.get_metadata(filepath)
-                time.sleep(0.1)
+        # except:
+        #     metadata = plug.get_metadata(filepath)
+        #     while "inProcess" in metadata.extra:
+        #         metadata = plug.get_metadata(filepath)
+        #         time.sleep(0.1)
         revision = ""
         if "revision" in metadata.extra:
             revision = metadata.extra["revision"]
@@ -351,10 +367,16 @@ class CheckChanges(threading.Thread):
                 self.update_metadata(filepath, f)
                 plug.logger.debug(u"file change path: {}".format(path))
             for id_file in bufDel:
-                db = plug.service_db
-                if db.exists('listes:{}'.format(id_file)):
-                    fid = db.get('listes:{}'.format(id_file))
-                    m = Metadata.get_by_id(plug, fid)
+                path = filepath.split("/")[0]
+
+                files =  plug.list(path)
+                m = None
+                for file in files:
+                    metadata = Metadata.get_by_id(plug, file[1])
+                    if metadata.extra["id"] == id_file:
+                        m = metadata
+                        break
+
                     if m is not None:
                         plug.delete_file(m)
                         plug.logger.debug(u"file delete path: {}".format(path))
