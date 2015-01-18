@@ -2,6 +2,7 @@ import threading
 
 import zmq
 
+
 class HeartBeat(threading.Thread):
     def __init__(self, identity):
         super(HeartBeat, self).__init__()

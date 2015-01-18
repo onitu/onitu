@@ -1,5 +1,6 @@
 from onitu.plug.folder import Folder
 
+
 def metadata_serializer(m):
     props = [getattr(m, p) for p in m.PROPERTIES]
     return m.fid, props, m.extra
@@ -15,8 +16,10 @@ def metadata_unserialize(plug, m):
     metadata.extra = extra
     return metadata
 
+
 def folder_serializer(f):
     return f.name, f.path, f.options
+
 
 def folder_unserialize(plug, f):
     return Folder(*f)

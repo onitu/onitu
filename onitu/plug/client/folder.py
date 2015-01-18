@@ -1,6 +1,7 @@
 from onitu.utils import pack_msg, unpack_msg
 from .exceptions import DriverError
 
+
 class FolderWrapper(object):
     def __init__(self, name, path, options):
         self.name = name
@@ -34,6 +35,7 @@ class FolderWrapper(object):
 
     def contains(self, filename):
         return filename != self.path and filename.startswith(self.path)
+
 
 def folder_serializer(f):
     return f.name, f.path, f.options

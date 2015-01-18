@@ -57,7 +57,8 @@ class Majordomo(Broker):
         dest_id = uuid.uuid4().hex
         self.nb_remotes += 1
         self.remote_names[src_id] = service
-        self.escalator.put('service:{}:driver'.format(service), 'remote_driver')
+        self.escalator.put('service:{}:driver'.format(service),
+                           'remote_driver')
         # Protect over non-ascii ids
         options = conf.get('options', {})
         options.update({
@@ -68,18 +69,25 @@ class Majordomo(Broker):
             'handlers_uri': 'tcp://127.0.0.1:{}'.format(
                 self.backend.req_port)
         })
-        self.escalator.put('service:{}:options'.format(service), options)
-        self.escalator.put('services', self.escalator.get('services') + (service,))
+        self.escalator.put('service:{}:options'.format(service),
+                           options)
+        self.escalator.put('services',
+                           self.escalator.get('services') + (service,))
         folders = conf.get('folders', {})
-        self.escalator.put(u'service:{}:folders'.format(service), list(folders.keys()))
+        self.escalator.put(u'service:{}:folders'.format(service),
+                           list(folders.keys()))
         for name, options in folders.items():
             if type(options) != dict:
                 path = options
                 options = {}
             else:
                 path = options.pop('path', '/')
-            self.escalator.put(u'service:{}:folder:{}:path'.format(service, name), path)
-            self.escalator.put(u'service:{}:folder:{}:options'.format(service, name), options)
+            self.escalator.put(u'service:{}:folder:{}:path'.format(service,
+                                                                   name),
+                               path)
+            self.escalator.put(u'service:{}:folder:{}:options'.format(service,
+                                                                      name),
+                               options)
         query = {
             "command": 'add',
             "properties": {
@@ -115,8 +123,6 @@ class Majordomo(Broker):
 
 @Majordomo.handle('f-req')
 def majordomo_handle_socket(majordomo, relay, msg):
-    #if not msg.dest_id and msg.content == b'start':
-    #    return majordomo.new_remote(msg.src_id)
     if not msg.dest_id and msg.content.startswith(b'start'):
         return majordomo.new_remote(msg.src_id, msg.content[5:])
     elif not msg.dest_id and msg.content == b'stop':

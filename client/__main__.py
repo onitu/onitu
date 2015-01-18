@@ -2,8 +2,6 @@
 
 import os
 import argparse
-import json
-from importlib import import_module
 
 from logbook import Logger, INFO, DEBUG, NullHandler, NestedSetup
 from logbook.queues import ZeroMQHandler, ZeroMQSubscriber
@@ -14,6 +12,7 @@ from onitu.utils import get_available_drivers, get_logs_uri
 os.environ['ONITU_CLIENT'] = 'client'
 
 logger = None
+
 
 def get_logs_dispatcher(uri=None, debug=False):
     """Configure the dispatcher that will print the logs received
@@ -61,6 +60,7 @@ def get_setup(setup_file):
         logger.error(
             "Can't process setup file '{}' : {}", setup_file, e
         )
+
 
 def main():
     global logger

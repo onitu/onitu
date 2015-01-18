@@ -6,11 +6,13 @@ import zmq.auth
 
 from logbook import Logger
 
-from onitu.utils import b, u, pack_obj, pack_msg, unpack_msg
+from onitu.utils import b, pack_obj, pack_msg, unpack_msg
 from .escalator import Escalator
+from .exceptions import _HandlerException
 from .metadata import MetadataWrapper, metadata_serializer
 from .folder import FolderWrapper, folder_serializer
 # from .heartbeat import HeartBeat
+
 
 class PlugProxy(object):
     def __init__(self):
@@ -121,7 +123,8 @@ class PlugProxy(object):
 
     def get_metadata(self, filename, folder):
         self.logger.debug('get_metadata {} {}', filename, folder)
-        m = self.request(pack_msg('get_metadata', filename, folder_serializer(folder)))
+        m = self.request(pack_msg('get_metadata', filename,
+                                  folder_serializer(folder)))
         metadata = self.metadata_unserialize(unpack_msg(m))
         return metadata
 
@@ -144,7 +147,8 @@ class PlugProxy(object):
     @property
     def folders_to_watch(self):
         return tuple(folder for folder in self.folders.values()
-                     if not any(f.contains(folder.path) for f in self.folders.values()))
+                     if not any(f.contains(folder.path)
+                                for f in self.folders.values()))
 
     def get_folder(self, filename):
         folder = None
@@ -162,5 +166,5 @@ class PlugProxy(object):
         return unpack_msg(r)
 
     def exists(self, folder, path):
-        r = self.request(pack_mag('exists', folder_serializer(folder), path))
+        r = self.request(pack_msg('exists', folder_serializer(folder), path))
         return unpack_msg(r)

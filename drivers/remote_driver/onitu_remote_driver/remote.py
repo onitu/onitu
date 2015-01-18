@@ -75,18 +75,21 @@ def metadata_write(plug, remote_socket, m):
     metadata.write()
     remote_socket.send_multipart((b(plug.options['remote_id']), b''))
 
+
 @remote_command()
 def get_folder(plug, remote_socket, folder):
     folder = Folder.get(plug, folder)
     f = pack_obj(folder_serializer(folder))
     remote_socket.send_multipart((b(plug.options['remote_id']), f))
 
+
 @remote_command()
 def get_folders(plug, remote_socket):
     folders = Folder.get_folders(plug)
-    f = pack_obj({name:folder_serializer(value)
+    f = pack_obj({name: folder_serializer(value)
                   for (name, value) in folders.items()})
     remote_socket.send_multipart((b(plug.options['remote_id']), f))
+
 
 @remote_command()
 def list(plug, remote_socket, folder, path):
@@ -94,11 +97,13 @@ def list(plug, remote_socket, folder, path):
     r = pack_obj(plug.list(folder, path))
     remote_socket.send_multipart((b(plug.options['remote_id']), r))
 
+
 @remote_command()
 def exists(plug, remote_socket, folder, path):
     folder = folder_unserialize(plug, folder)
     r = pack_obj(plug.exists(folder, path))
     remote_socket.send_multipart((b(plug.options['remote_id']), r))
+
 
 @remote_command()
 def escalator(plug, remote_socket, method, args, kwargs):

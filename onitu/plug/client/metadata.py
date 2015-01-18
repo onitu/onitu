@@ -1,6 +1,7 @@
 from onitu.utils import pack_msg
 from .folder import FolderWrapper
 
+
 class MetadataWrapper(object):
     PROPERTIES = ('filename', 'folder_name', 'size', 'uptodate', 'mimetype')
 
@@ -23,6 +24,7 @@ class MetadataWrapper(object):
         if not self._path:
             self._path = self.folder.join(self.filename)
         return self._path
+
 
 def metadata_serializer(m):
     props = [getattr(m, p) for p in m.PROPERTIES]
