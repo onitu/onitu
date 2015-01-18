@@ -12,11 +12,31 @@ from onitu.utils import u
 
 TIMESTAMP_FMT = '%a, %d %b %Y %H:%M:%S %Z'
 plug = Plug()
-webd = None
 events_to_ignore = set()
 
 
-def create_dirs(path):
+def get_WEBDAV_client(hostname, username, password):
+    options = {
+        'webdav_hostname': hostname,
+        'webdav_login': username,
+        'webdav_password': password,
+    }
+    webd = wc.Client(options)
+    return webd
+
+
+def get_WEBDAV_client_from_plug():
+    hostname = plug.options['hostname']
+    username = plug.options['username']
+    password = plug.options['password']
+    return get_WEBDAV_client(
+        hostname,
+        username,
+        password
+    )
+
+
+def create_dirs(webd, path):
     plug.logger.debug("create dirs: {}", path)
     root = ''
     dirs = path.split('/')
@@ -28,12 +48,14 @@ def create_dirs(path):
 
 @plug.handler()
 def delete_file(metadata):
+    webd = get_WEBDAV_client_from_plug()
     plug.logger.debug("delete file: {}", metadata.path)
     webd.clean(metadata.path)
 
 
 @plug.handler()
 def get_file(metadata):
+    webd = get_WEBDAV_client_from_plug()
     try:
         plug.logger.debug("get file, metadata {}", metadata.path)
         buff = BytesIO()
@@ -48,13 +70,15 @@ def get_file(metadata):
 
 @plug.handler()
 def start_upload(metadata):
+    webd = get_WEBDAV_client_from_plug()
     plug.logger.debug("start upload: {}", metadata.path)
     events_to_ignore.add(metadata.path)
-    create_dirs(os.path.dirname(metadata.path))
+    create_dirs(webd, os.path.dirname(metadata.path))
 
 
 @plug.handler()
 def upload_file(metadata, content):
+    webd = get_WEBDAV_client_from_plug()
     try:
         plug.logger.debug("upload file, metadata {}", metadata.path)
         buff = BytesIO(content)
@@ -67,6 +91,7 @@ def upload_file(metadata, content):
 
 @plug.handler()
 def end_upload(metadata):
+    webd = get_WEBDAV_client_from_plug()
     try:
         plug.logger.debug("end upload, metadata {}", metadata.path)
         infos = webd.info(metadata.path)
@@ -186,22 +211,8 @@ class CheckChanges(threading.Thread):
 
 
 def start():
-    hostname = plug.options['hostname']
-    username = plug.options['username']
-    password = plug.options['password']
+    webd = get_WEBDAV_client_from_plug()
     timer = plug.options['changes_timer']
-
-    global prefix
-    prefix = hostname
-
-    global webd
-    options = {
-        'webdav_hostname': hostname,
-        'webdav_login': username,
-        'webdav_password': password,
-    }
-    webd = wc.Client(options)
-
     # Launch the changes detection
     check_changes = CheckChanges(timer, webd)
     check_changes.daemon = True
