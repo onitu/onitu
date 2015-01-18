@@ -1,160 +1,92 @@
 import os
 import uuid
 import hashlib
-import paramiko
 import getpass
-
-from tests.utils.testdriver import TestDriver
 from stat import S_ISDIR
 
+from onitu.plug import DriverError
+from onitu.utils import u
+from tests.utils import driver
+from onitu_sftp.sftp import get_SFTP_client, create_file_subdirs
 
-class Driver(TestDriver):
+
+class Driver(driver.Driver):
 
     def __init__(self, *args, **options):
-
-        # Clean the root
-        username = getpass.getuser()
-        self.default_root = "/home/{}/{}".format(username, str(uuid.uuid4()))
-
-        self.root = os.getenv("ONITU_SFTP_ROOT", self.default_root)
-        if self.root.endswith('/'):
-            self.root = self.root[:-1]
-
-        # To use this default configuration, you need:
-            # An ssh server on your local machine
-            # An ssh key pair without passphrase
-            # This ssh key in your authorized_keys files
-        # Otherwise, you can set your personal informations with your
-        # environment variables (e.g: ONITU_SFTP_HOSTNAME, ONITU_SFTP_USERNAME)
-        options['root'] = self.root
-        options['hostname'] = os.getenv("ONITU_SFTP_HOSTNAME", "localhost")
-        options['username'] = os.getenv("ONITU_SFTP_USERNAME", username)
-        options['password'] = os.getenv("ONITU_SFTP_PASSWORD", "")
+        default_user = getpass.getuser()
+        # Default root
+        self._root = os.getenv("ONITU_SFTP_ROOT",
+                               u"/home/{}".format(default_user))
+        if not self._root.endswith(u"/"):
+            self._root += u"/"
+        self._root += u(str(uuid.uuid4()))
+        # To use the default configuration, you need:
+        # An ssh server on your local machine
+        # An ssh key pair without passphrase
+        # This ssh key in your authorized_keys files
+        # Otherwise, you can set your personal informations with the
+        # env variables (e.g: ONITU_SFTP_HOSTNAME, ONITU_SFTP_USERNAME)
+        options['hostname'] = os.getenv("ONITU_SFTP_HOSTNAME", u"localhost")
+        options['username'] = os.getenv("ONITU_SFTP_USERNAME", default_user)
+        options['password'] = os.getenv("ONITU_SFTP_PASSWORD", u"")
         options['port'] = os.getenv("ONITU_SFTP_PORT", 22)
         options['private_key_passphrase'] = os.getenv(
-            "ONITU_SFTP_KEY_PASSPHRASE", ""
+            "ONITU_SFTP_KEY_PASSPHRASE", u""
         )
         options['private_key_path'] = os.getenv(
-            "ONITU_SFTP_KEY_PATH", "~/.ssh/id_rsa"
+            "ONITU_SFTP_KEY_PATH", u"~/.ssh/id_rsa"
         )
-        options['changes_timer'] = os.getenv("ONITU_SFTP_CHANGES_TIMER", 10)
+        options['changes_timer'] = os.getenv("ONITU_SFTP_CHANGES_TIMER", 5)
 
         super(Driver, self).__init__('sftp', *args, **options)
 
-        hostname = options['hostname']
-        username = options['username']
-        password = options['password']
-        port = options['port']
-        private_key_passphrase = options['private_key_passphrase']
-        private_key_path = options['private_key_path']
+        self.sftp = get_SFTP_client(options['hostname'], options['port'],
+                                    options['username'], options['password'],
+                                    options['private_key_path'],
+                                    options['private_key_passphrase'])
 
-        private_key_file = os.path.expanduser(private_key_path)
-        private_key_error = None
-        try:
-            private_key = paramiko.RSAKey.from_private_key_file(
-                private_key_file, password=private_key_passphrase)
-        except IOError as e:
-            private_key_error = e
+        if not self._root.endswith(u"/"):
+            self._root += u"/"
+        # Create the test directory
+        create_file_subdirs(self.sftp, self._root)
+        self.sftp.chdir(self._root)
 
-        transport = paramiko.Transport((hostname, port))
-        try:
-            if password != '':
-                transport.connect(username=username, password=password)
-            else:
-                if private_key_error is not None:
-                    raise RuntimeError(
-                        "SFTP driver connection failed : {}".format(
-                            private_key_error
-                        )
-                    )
-                    transport.close()
-                    return
-
-                transport.connect(username=username, pkey=private_key)
-        except paramiko.AuthenticationException as e:
-            raise RuntimeError(
-                "SFTP driver connection failed : {}".format(e)
-            )
-            transport.close()
-            return
-
-        self.sftp = paramiko.SFTPClient.from_transport(transport)
-        self.create_dirs(self.root)
-
-        try:
-            self.sftp.chdir(self.root)
-        except IOError as e:
-            raise RuntimeError(
-                "{}: {}".format(self.root, e)
-            )
-
-    def rm_folder(self, path):
-        try:
-            filelist = self.sftp.listdir(path)
-        except IOError as e:
-            raise RuntimeError(
-                "Error listing file in '{}': {}".format(path, e)
-            )
-
-        for f in filelist:
-            filepath = os.path.join(path, f)
-            stat_res = self.sftp.stat(filepath)
-
-            if S_ISDIR(stat_res.st_mode):
-                self.rm_folder(filepath)
-            else:
-                self.sftp.remove(filepath)
-
-        # Remove the root
-        self.sftp.rmdir(path)
-
-    def create_dirs(self, path):
-        parent_exists = True
-
-        tmp_path = ''
-        if path.startswith('/'):
-            tmp_path = '/'
-        dirs = path.split('/')
-
-        for d in dirs:
-            tmp_path = os.path.join(tmp_path, d)
-            if tmp_path == '':
-                continue
-
-            # If the parent exists, we check if the current path exists
-            if parent_exists is True:
-                try:
-                    self.sftp.stat(tmp_path)
-                # The current path doesn't exists, so we create it
-                except IOError:
-                    try:
-                        parent_exists = False
-                        self.sftp.mkdir(tmp_path)
-                    except IOError as e:
-                        raise RuntimeError(
-                            "Error creating dir '{}': {}".format(tmp_path, e)
-                            )
-
-            # If the parent doesn't exist, we can create the current dir
-            # without check if it exists
-            else:
-                try:
-                    self.sftp.mkdir(tmp_path)
-                except IOError as e:
-                    raise RuntimeError(
-                        "Error creating dir '{}': {}".format(tmp_path, e)
-                    )
+    @property
+    def root(self):
+        return self._root
 
     def close(self):
-        self.rmdir(self.root)
+        try:
+            self.rmdir(self.root)
+            self.sftp.close()
+        except IOError as e:
+            raise DriverError(e)
+
+    def recursive_rmdir(self, path):
+        """sftp.rmdir won't delete any non-empty folder so we got to go
+        recursively removing each subdirectory and files before
+        actually rmdir"""
+        files = self.sftp.listdir_attr(path)
+        if not path.endswith(u'/'):
+            path += u"/"
+        for f in files:
+            fileName = u"{}{}".format(path, f.filename)
+            if S_ISDIR(f.st_mode):
+                self.recursive_rmdir(fileName)
+            else:
+                self.sftp.remove(fileName)
+        self.sftp.rmdir(path)
 
     def mkdir(self, subdirs):
-        self.create_dirs(subdirs)
+        if not subdirs.endswith(u"/"):
+            subdirs += u"/"
+        create_file_subdirs(self.sftp, subdirs)
 
     def rmdir(self, path):
-        self.rm_folder(path)
+        self.recursive_rmdir(path)
 
     def write(self, filename, content):
+        create_file_subdirs(self.sftp, filename)
         f = self.sftp.open(filename, 'w+')
         f.write(content)
         f.close()
@@ -178,4 +110,10 @@ class Driver(TestDriver):
     def checksum(self, filename):
         f = self.sftp.open(filename, 'r')
         data = f.read()
-        return hashlib.md5(data).hexdigest()
+        md5 = hashlib.md5(data).hexdigest()
+        f.close()
+        return md5
+
+
+class DriverFeatures(driver.DriverFeatures):
+    move_file_to_onitu = False

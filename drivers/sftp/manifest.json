@@ -1,5 +1,5 @@
 {
-  "name": "SFTP",
+  "name": "sftp",
   "description": "Store files on a remote machine using SFTP.",
   "options": {
     "hostname": {
