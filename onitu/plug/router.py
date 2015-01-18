@@ -1,7 +1,7 @@
 import zmq
 from logbook import Logger
 
-from onitu.utils import get_events_uri, log_traceback
+from onitu.utils import b, get_events_uri, log_traceback
 from onitu.escalator.client import EscalatorClosed
 
 from .metadata import Metadata
@@ -108,4 +108,5 @@ class Router(object):
             )
             return [FILE, self.call('get_file', metadata)]
         elif 'get_chunk' in self.plug._handlers:
-            return self._handle_get_chunk(metadata, b'0', str(metadata.size))
+            return self._handle_get_chunk(metadata, b'0',
+                                          b(str(metadata.size)))
