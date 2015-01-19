@@ -5,7 +5,7 @@ from collections import defaultdict
 import logbook
 from logbook.queues import ZeroMQSubscriber
 
-from onitu.utils import get_logs_uri, u
+from onitu.utils import get_logs_uri, u, IS_WINDOWS
 
 from .targetdriver import TargetDriver, if_feature
 from .testdriver import TestDriver
@@ -67,7 +67,10 @@ class Launcher(object):
             self.wait()
 
     def quit(self, wait=True):
-        self._kill(signal.SIGINT, wait)
+        if IS_WINDOWS:
+            self._kill(signal.CTRL_C_EVENT, wait)
+        else:
+            self._kill(signal.SIGINT, wait)
 
     def kill(self, wait=True):
         self._kill(signal.SIGTERM, wait)

@@ -6,7 +6,7 @@ import tempfile
 from path import path
 
 from tests.utils import driver
-
+from onitu.utils import b
 
 class Driver(driver.Driver):
     SPEED_BUMP = 1
@@ -39,7 +39,7 @@ class Driver(driver.Driver):
         shutil.rmtree(self.root / path)
 
     def write(self, filename, content):
-        with open(self.root / filename, 'w+') as f:
+        with open(self.root / filename, 'wb+') as f:
             f.write(content)
 
     def generate(self, filename, size):
@@ -55,7 +55,7 @@ class Driver(driver.Driver):
         return os.rename(self.root / source, self.root / target)
 
     def checksum(self, filename):
-        with open(self.root / filename) as f:
+        with open(self.root / filename, 'rb') as f:
             return hashlib.md5(f.read()).hexdigest()
 
 
