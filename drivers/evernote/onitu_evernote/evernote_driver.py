@@ -22,6 +22,7 @@ notestore_onitu = None
 notebook_onitu = None
 plug = Plug()
 
+
 # ############################## EVERNOTE ####################################
 
 def update_resource_metadata(onituMetadata, resource, updateFile=False):
@@ -72,11 +73,11 @@ def connect_client():
 def create_notebook(name):
     plug.logger.debug(u"Creating notebook {}".format(name))
     return notestore_onitu.createNotebook(token,
-                                     Types.Notebook(name=name))
+                                          Types.Notebook(name=name))
 
 
 def create_root_notebook():
-    """Creates the notebook named by the Onitu root if it doesn't already exist
+    """Creates the notebook named by Onitu root if it doesn't already exist
     We take care of stripping the slashes before and after"""
     # Clean the root before trying to create the Onitu notebook
     global root
@@ -134,9 +135,10 @@ def create_note(metadata, content):
     note.notebookGuid = notebook_onitu.guid
     return notestore_onitu.createNote(note)
 
-# ############################# ONITU HANDLERS ###################################
 
-#Unexpected error calling 'move_file': 'str' object has no attribute 'write' ?
+# ############################# ONITU HANDLERS ###############################
+
+# Unexpected error calling 'move_file': 'str' object has no attribute 'write'
 # with updateresource we cannot update the content, only metadata
 @plug.handler()
 def move_file(old_metadata, new_metadata):
@@ -146,7 +148,7 @@ def move_file(old_metadata, new_metadata):
     note = notestore_onitu.getNote(token, old_metadata.extra['guid'],
                                    False, False, True, False)
 
-    res = note.resources[0] #Types.Resource()
+    res = note.resources[0]  # Types.Resource()
     attr = Types.ResourceAttributes()
     attr.fileName = new_metadata.filename
     print
@@ -156,7 +158,7 @@ def move_file(old_metadata, new_metadata):
 #    res.guid = note.resources[0].guid
     res.attributes = attr
     res.mime = new_metadata.mimetype
-    notestore_onitu.updateResource(dev_token, res)
+    # notestore_onitu.updateResource(dev_token, res)
 
 
 @plug.handler()
@@ -197,6 +199,7 @@ def upload_file(metadata, content):
             note = update_note_content(metadata, content)
             note = notestore_onitu.updateNote(token, note)
         return note
+
     def upload_resource(metadata, content):
         """The process of updating a resource is quite the same than to delete
         one."""
@@ -206,8 +209,8 @@ def upload_file(metadata, content):
         # Get the note and manually update the resource in the resource list
         # Yep, that's dirty, because there's no dedicated API
         # call, but it is the official best practice...
-        note = notestore_onitu.getNote(token, resourceNoteGuid,
-                                       False, False, False, False)
+        # note = notestore_onitu.getNote(token, resourceNoteGuid,
+        #                               False, False, False, False)
         resource = None
         # Reconstruct the list omitting the concerned resource.
         for rsc in note.resources:
@@ -218,9 +221,9 @@ def upload_file(metadata, content):
         if resource is None:
             raise DriverError(u"No Evernote Resource GUID for file {} !"
                               .format(metadata.filename))
-        note = notestore_onitu.updateNote(token, note)
         plug.logger.debug("Successfully updated the resource")
         return resource
+
     # TODO Correctly manage upload_file
     # If upload_file modifies the content of the note, we have to call
     # update_file in the end to notify the other drivers
@@ -236,13 +239,13 @@ def upload_file(metadata, content):
         # note's contents. E.g. when creating a new note, the user may
         # forget to enclose the content evernote boilerplate markup. It's
         # likely to raise an error in case of empty note or premature content
-        # start. We must detect those cases and try to add the markup ourselves
+        # start. We must detect those cases and try to add the markup
         knownErrors = ['Content is not allowed in prolog.',
                        'Premature end of file.']
         if (eue.errorCode == EDAMErrorCode.ENML_VALIDATION
-            and eue.parameter in knownErrors):
-            plug.logger.warning("Catched content-related exception, trying to"
-                                " fix by enclosing content in Evernote markup")
+           and eue.parameter in knownErrors):
+            plug.logger.warning("Catched content exception, trying to"
+                                " fix by putting content in Evernote markup")
             content = enclose_content_with_markup(content)
             note = upload_note(metadata, content)  # Try again
             update = True
@@ -258,9 +261,10 @@ def upload_file(metadata, content):
     if metadata.extra.get('evernote_note_guid', None) is not None:
         update_resource_metadata(metadata, resource)
     else:
-        # Call plug.update_file if we modified the content by enclosing ENML markup
+        # Call plug.update_file if we modified the content by
+        # enclosing ENML markup
         update_note_metadata(metadata, note, updateFile=update)
-    plug.logger.debug(u"Upload of file {} completed".format(metadata.filename))
+    plug.logger.debug(u"Upload of file {} completed", metadata.filename)
 
 
 @plug.handler()
@@ -272,19 +276,20 @@ def delete_file(metadata):
     all the necessary files, so it's not currently implemented."""
     resourceNoteGuid = metadata.extra.get('evernote_note_guid', None)
     try:
-        # We didn't store any owning note GUID for this file so it must be a note
+        # We didn't store any owning note GUID for this file
+        # so it must be a note
         if not resourceNoteGuid:
-            plug.logger.debug(u"Removing note {} (GUID {})"
-                              .format(metadata.filename, guid))
-            res = notestore_onitu.deleteNote(token,
-                                             metadata.extra['evernote_guid'])
+            plug.logger.debug(u"Removing note {} (GUID {})",
+                              metadata.filename, resourceNoteGuid)
+            # res = notestore_onitu.deleteNote(token,
+            #                                 metadata.extra['evernote_guid'])
         else:  # it is a resource of a file
             guid = metadata.extra['evernote_guid']  # guid of the resource
             plug.logger.debug(u"Removing note resource {} (GUID {})"
                               .format(metadata.filename, guid))
-            # Get the note and manually remove the resource in the resource list
+            # Get the note, manually remove the resource in the resource list
             # Yep, that's dirty, because e.g. the note's markup keeps
-            # referencing a broken resource, but since there's no dedicated API
+            # referencing a broken resource, but there's no dedicated API
             # call, it is the official best practice...
             note = notestore_onitu.getNote(token, resourceNoteGuid,
                                            False, False, False, False)
@@ -297,11 +302,11 @@ def delete_file(metadata):
                            .format(metadata.filename, exc))
 
 
-# ############################## WATCHER ######################################
+# ############################## WATCHER #####################################
 
 class CheckChanges(threading.Thread):
-    """A class spawned in a thread to poll for changes on the Evernote notebook
-    Evernote lets us know if we're up-to-date with a sync state number. Once we
+    """A class polling for changes on the Evernote notebook
+    Evernote lets us know if we're up-to-date with a sync state number. If
     see our number doesn't match anymore the server's one, we start an
     update."""
 
@@ -312,16 +317,18 @@ class CheckChanges(threading.Thread):
         self.root = root
         # The last update count of the notebook we're aware of.
         self.notebookUSN = plug.entry_db.get('notebook_USN', default=0)
-        #self.notebookUSN = 0
+        # self.notebookUSN = 0
         # We don't want to paginate. Ask all teh notes in one time
         self.maxNotes = EDAM_USER_NOTES_MAX
         # Filter to include only notes from our notebook
         self.noteFilter = NoteFilter(order=NoteSortOrder.RELEVANCE,
                                      notebookGuid=notebook_onitu.guid)
         # Note spec to filter even more the findNotesMetadata result
-        self.resultSpec = NotesMetadataResultSpec(includeTitle=True, 
-                                                  includeContentLength=True,
-                                                  includeUpdateSequenceNum=True)
+        self.resultSpec = (
+            NotesMetadataResultSpec(includeTitle=True,
+                                    includeContentLength=True,
+                                    includeUpdateSequenceNum=True)
+        )
         self.first_start = True
         self.note_store = notestore_onitu
 
@@ -330,7 +337,7 @@ class CheckChanges(threading.Thread):
         resource files. We come to this function when we already know the
         server copy is more recent than ours.
         But to ensure it is a change of content, we store the hash, and we
-        compare the current with the one we stored when a file gets updated."""
+        compare the current with the one we have when a file gets updated."""
         # First just check the hash
         plug.logger.debug(u"Getting content hash of {}"
                           .format(noteMetadata.title))
@@ -355,9 +362,9 @@ class CheckChanges(threading.Thread):
         if note.resources is None:
             return
         for (idx, resource) in enumerate(note.resources):
-            resourceName = resource.attributes.fileName
-            plug.logger.debug(u"Processing note {}'s resource {}"
-                              .format(note.title, resource.attributes.fileName))
+            # resourceName = resource.attributes.fileName
+            plug.logger.debug(u"Processing note {}'s resource {}", note.title,
+                              resource.attributes.fileName)
             resourceMetadata = plug.get_metadata(resource.attributes.fileName)
             onitu_USN = resourceMetadata.extra.get('evernote_USN', 0)
             # Nothing fancy about the resources: if the USN changed,
@@ -367,7 +374,7 @@ class CheckChanges(threading.Thread):
                                          updateFile=True)
 
     def check_changes(self):
-        """The function that will check the notes in the notebook are uptodate.
+        """The function that will check the notes in the notebook are uptodate
         Evernote doesn't let us check regular and deleted files at the same
         time, so we have to do two separate passes."""
         plug.logger.debug("CHECKONS!")
@@ -392,7 +399,7 @@ class CheckChanges(threading.Thread):
             for noteMetadata in res.notes:
                 # Why we don't append .html: it causes name inconsistencies,
                 # e.g. if we create a note called 'empty' on Onitu side, and
-                # modify it on Evernote side, on the way back onitu will create
+                # modify it on Evernote side, onitu will create
                 # a new file called 'empty.html'. It's not first priority now
                 # but it may be discussed in the future.
                 filename = noteMetadata.title
@@ -401,9 +408,9 @@ class CheckChanges(threading.Thread):
                 onituMetadata = plug.get_metadata(filename)
                 # Update Sequence Num is like a kind of operation counter.
                 # If it is higher than what we had, something new happened.
-                # The flaw in this logic is that it can have nothing to do with
-                # the logic Onitu is interested in, e.g. the note has a new tag
-                # AFAIK there is no better solution right now.
+                # The flaw in this logic is that it can have nothing to do
+                # with what Onitu is interested in, e.g. the note has a new
+                # tag. AFAIK there is no better solution right now.
                 usn = noteMetadata.updateSequenceNum
                 onitu_usn = onituMetadata.extra.get('evernote_USN', 0)
                 plug.logger.debug(u"Has USN {}, server has {} for {}"
@@ -421,53 +428,6 @@ class CheckChanges(threading.Thread):
             # Update the offset to ask the rest of the notes next time
             offset = res.startIndex + len(res.notes)
             remaining = res.totalNotes - offset
-
-    def check_deleted(self):
-        """Checks for deleted notes on the Onitu notebook."""
-        escalator = plug.escalator
-
-        # The field that we want in the response
-        result_spec = NotesMetadataResultSpec()
-        result_spec.includeDeleted = True
-        result_spec.includeTitle = True
-
-        note_deleted = NoteFilter(order=NoteSortOrder.UPDATED, inactive=True)
-        note_deleted.inactive = True
-        note_deleted.words = self.basic_filters
-
-        if self.first_start is False:
-            note_deleted.words += " deleted:{}".format(self.last_check)
-
-        page_size = 200
-        i = 0
-        while 42:
-            res = self.note_store.findNotesMetadata(dev_token, note_deleted, i, page_size, result_spec)
-            for n in res.notes:
-                try:
-                    res_guid = escalator.get('note_guid:{}'.format(n.guid))
-                except KeyError:
-                    res_guid = None
-
-                if res_guid is None:
-                    note = self.note_store.getNote(dev_token, n.guid, False, True, False, False)
-                    res_guid = note.resources[0].guid  # Only one resource per note
-
-                resource = self.note_store.getResource(dev_token, res_guid, False, False, True, False)
-                filename = resource.attributes.fileName
-
-                metadata = plug.get_metadata(filename)
-                print "DELETE REVIEW OF FILE "+ filename + " --- Title= " + n.title
-
-                if n.deleted is not None:
-                    plug.delete_file(metadata)
-                    print
-                    print "DELETE FILE " + filename + " ---- Title= " + n.title
-                    print
-
-            # update the range that we want or break iff there is no more notes
-            if (res.totalNotes == 0) or (i + len(res.notes) >= res.totalNotes):
-                break
-            i = i + page_size
 
     def run(self):
         while not self.stop.isSet():
@@ -501,12 +461,13 @@ class CheckChanges(threading.Thread):
                 raise ServiceError("Error while polling Evernote changes: {}"
                                    .format(exc))
             except ResponseNotReady:
-                plug.logger.warning("Cannot poll changes because notebook data"
-                                    " isn't ready. Will retry later...")
+                plug.logger.warning("Cannot poll changes, the notebook data"
+                                    " isn't ready.")
             except Exception as e:
                 # Some weird things can happen in the Thrift lib.
                 # Usually retry later is fine.
                 plug.logger.warning("Unexpected error : {}".format(e))
+            plug.logger.debug("Next check in {} seconds", self.timer)
             self.stop.wait(self.timer)
 
     def stop(self):
@@ -518,7 +479,7 @@ def start():
     changes_timer = plug.options['changes_timer']
     if changes_timer < 0:
         raise DriverError("Changes timer must be a positive value")
-    
+
     # Start the Evernote connection and retrieve our note store
     connect_client()
     # Try to create the onitu notebook
