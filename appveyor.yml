@@ -18,7 +18,7 @@ install:
   - "cmake ."
   - "msbuild leveldb.sln"
   - "cp Debug/leveldbd.lib %PYTHON%/libs/"
-  - "xcopy /s /e /y include/leveldb %PYTHON%/Include"
+  - "xcopy include/leveldb %PYTHON%/Include /e"
   - "cd ../"
   - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
 
