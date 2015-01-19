@@ -11,11 +11,10 @@ from evernote.edam.type.ttypes import NoteSortOrder
 from evernote.edam.limits.constants import EDAM_USER_NOTES_MAX
 
 from onitu.plug import Plug, DriverError, ServiceError
-from onitu.utils import u, b
+from onitu.utils import b
 
 root = None
 token = None
-changes_timer = None
 onitu_recent_search = None
 onitu_search = None
 notestore_onitu = None
@@ -65,39 +64,33 @@ def connect_client():
         notestore_onitu = client.get_note_store()
     except (EDAMUserException, EDAMSystemException) as e:
         raise ServiceError(
-            "Cannot connect to Evernote: {}".format(e)
+            u"Cannot connect to Evernote: {}".format(e)
         )
     plug.logger.debug("Connection successful")
 
 
 def create_notebook(name):
     plug.logger.debug(u"Creating notebook {}".format(name))
-    return notestore_onitu.createNotebook(token,
-                                          Types.Notebook(name=name))
+    try:
+        notebook = notestore_onitu.createNotebook(token,
+                                                  Types.Notebook(name=name))
+    except EDAMUserException as eue:
+        raise ServiceError(u"Cannot create notebook - {}".format(eue))
+    return notebook
 
 
-def create_root_notebook():
-    """Creates the notebook named by Onitu root if it doesn't already exist
-    We take care of stripping the slashes before and after"""
-    # Clean the root before trying to create the Onitu notebook
-    global root
-    root = u(plug.options['root'])
-    if root.startswith(u'/'):
-        root = root[1:]
-    if root.endswith(u'/'):
-        root = root[:-1]
-    global notebook_onitu
-    for n in notestore_onitu.listNotebooks():
-        if n.name == root:
-            plug.logger.debug(u"Found {} notebook".format(root))
-            notebook_onitu = n
-            break
-    # The notebook does not exist: create it
-    if notebook_onitu is None:
-        try:
-            notebook_onitu = create_notebook(root)
-        except (EDAMUserException, EDAMSystemException) as exc:
-            raise ServiceError(u"Error creating '{}' notebook: {}", root, exc)
+def find_notebook(name, create=False):
+    """Creates the notebook named. If create is True, we create the notebook
+    if it doesn't exist yet"""
+    try:
+        for notebook in notestore_onitu.listNotebooks():
+            if notebook.name == name:
+                plug.logger.debug(u"Found {} notebook".format(name))
+                return notebook
+    except (EDAMUserException, EDAMSystemException) as exc:
+        raise ServiceError(u"Cannot list notebooks - {}".format(exc))
+    if create:
+        return create_notebook(name)
 
 
 def enclose_content_with_markup(content):
@@ -310,19 +303,21 @@ class CheckChanges(threading.Thread):
     see our number doesn't match anymore the server's one, we start an
     update."""
 
-    def __init__(self, root, timer):
+    def __init__(self, folder, timer):
         threading.Thread.__init__(self)
-        self.stop = threading.Event()
+        self.stopEvent = threading.Event()
         self.timer = timer
-        self.root = root
+        self.folder = self.folder
+        self.note_store = notestore_onitu
+        self.notebook = find_notebook(folder.path)
         # The last update count of the notebook we're aware of.
-        self.notebookUSN = plug.entry_db.get('notebook_USN', default=0)
-        # self.notebookUSN = 0
+        notebook_db_key = 'notebook_{}_USN'.format(folder.path)
+        self.notebookUSN = plug.entry_db.get(notebook_db_key, default=0)
         # We don't want to paginate. Ask all teh notes in one time
         self.maxNotes = EDAM_USER_NOTES_MAX
         # Filter to include only notes from our notebook
         self.noteFilter = NoteFilter(order=NoteSortOrder.RELEVANCE,
-                                     notebookGuid=notebook_onitu.guid)
+                                     notebookGuid=self.notebook.guid)
         # Note spec to filter even more the findNotesMetadata result
         self.resultSpec = (
             NotesMetadataResultSpec(includeTitle=True,
@@ -330,7 +325,6 @@ class CheckChanges(threading.Thread):
                                     includeUpdateSequenceNum=True)
         )
         self.first_start = True
-        self.note_store = notestore_onitu
 
     def update_note(self, noteMetadata, onituMetadata):
         """Update a given note's information, content and also its
@@ -381,7 +375,7 @@ class CheckChanges(threading.Thread):
         self.check_updated()
         #        self.check_deleted()
         plug.logger.debug("Done checking changes, retry in {} seconds"
-                          .format(changes_timer))
+                          .format(self.timer))
 
     def check_updated(self):
         """Checks for updated notes on the Onitu notebook.
@@ -468,26 +462,22 @@ class CheckChanges(threading.Thread):
                 # Usually retry later is fine.
                 plug.logger.warning("Unexpected error : {}".format(e))
             plug.logger.debug("Next check in {} seconds", self.timer)
-            self.stop.wait(self.timer)
+            self.stopEvent.wait(self.timer)
 
     def stop(self):
-        self.stop.set()
+        self.stopEvent.set()
 
 
 def start():
-    global changes_timer
-    changes_timer = plug.options['changes_timer']
-    if changes_timer < 0:
+    if plug.options['changes_timer'] < 0:
         raise DriverError("Changes timer must be a positive value")
 
     # Start the Evernote connection and retrieve our note store
     connect_client()
-    # Try to create the onitu notebook
-    create_root_notebook()
-
-    # Launch the changes detection
-    check = CheckChanges(root, plug.options['changes_timer'])
-    check.daemon = True
-    check.start()
+    for folder in plug.folders_to_watch:
+        # Launch the changes detection
+        check = CheckChanges(folder, plug.options['changes_timer'])
+        check.daemon = True
+        check.start()
 
     plug.listen()
