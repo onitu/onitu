@@ -17,12 +17,12 @@ install:
   - "cd leveldb/"
   - "cmake ."
   - "msbuild leveldb.sln"
-  - ps: "Get-ChildItem -Path C:/ -Filter libboost_filesystem-vc120-mt-gd-1_56.lib -Recurse"
-#  - "cp Debug/leveldbd.lib %PYTHON%/libs/leveldb.lib"
-#  - "cp port/win/stdint.h %PYTHON%/Include"
-#  - ps: "Copy-Item include/leveldb $Env:PYTHON/Include -recurse"
-# - "cd ../"
-# - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
+  - "cp C:/Libraries/boost/stage/lib/libboost_filesystem-vc120-mt-gd-1_56.lib %PYTHON%/libs/"
+  - "cp Debug/leveldbd.lib %PYTHON%/libs/leveldb.lib"
+  - "cp port/win/stdint.h %PYTHON%/Include"
+  - ps: "Copy-Item include/leveldb $Env:PYTHON/Include -recurse"
+  - "cd ../"
+  - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
 
 build: off
 deploy: off
