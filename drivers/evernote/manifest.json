@@ -2,12 +2,6 @@
   "name": "Evernote",
   "description": "Store files on your Evernote account.",
   "options": {
-    "root": {
-      "name": "Root",
-      "description": "The root of the directories under Onitu's watch",
-      "type": "string",
-      "default": "basic_evernote_root_for_onitu"
-    },
     "changes_timer": {
       "name": "Timer for modification check",
       "description": "Time in seconds between two checks for files modifications",
@@ -15,8 +9,8 @@
       "default": 10
     },
     "token": {
-      "name": "Your evenote token",
-      "description": "Your evernote token retrieved with the get_token.py script",
+      "name": "Your Evernote token",
+      "description": "Your Evernote token retrieved with the get_token.py script",
       "type": "string"
     }
   }

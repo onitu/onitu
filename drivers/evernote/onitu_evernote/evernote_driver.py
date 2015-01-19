@@ -4,7 +4,7 @@ from httplib import ResponseNotReady
 
 import evernote.edam.type.ttypes as Types
 from evernote.edam.error.ttypes import EDAMUserException, EDAMSystemException
-from evernote.edam.error.ttypes import EDAMNotFoundException, EDAMErrorCode
+from evernote.edam.error.ttypes import EDAMNotFoundException
 from evernote.api.client import EvernoteClient
 from evernote.edam.notestore.ttypes import NoteFilter, NotesMetadataResultSpec
 from evernote.edam.type.ttypes import NoteSortOrder
@@ -79,8 +79,25 @@ def create_notebook(name):
     return notebook
 
 
-def find_notebook(name, create=False):
-    """Creates the notebook named. If create is True, we create the notebook
+def find_notebook_by_guid(guid, name=None, create=False):
+    """Find the notebook with this GUID. If create is True, we create it
+    if it doesn't exist"""
+    try:
+        notebook = notestore_onitu.getNotebook(token, guid)
+    except EDAMNotFoundException as enfe:
+        if create:
+            return create_notebook(name)
+        else:
+            raise ServiceError(u"Notebook with GUID {} not found - {}"
+                               .format(guid, enfe))
+    except EDAMUserException as eue:
+        raise ServiceError(u"Cannot find notebook with GUID {} - {}"
+                           .format(guid, eue))
+    return notebook
+
+
+def find_notebook_by_name(name, create=False):
+    """Find the notebook named. If create is True, we create the notebook
     if it doesn't exist yet"""
     try:
         for notebook in notestore_onitu.listNotebooks():
@@ -133,166 +150,166 @@ def create_note(metadata, content):
 
 # Unexpected error calling 'move_file': 'str' object has no attribute 'write'
 # with updateresource we cannot update the content, only metadata
-@plug.handler()
-def move_file(old_metadata, new_metadata):
-    global notestore_onitu
-    global dev_token
-
-    note = notestore_onitu.getNote(token, old_metadata.extra['guid'],
-                                   False, False, True, False)
-
-    res = note.resources[0]  # Types.Resource()
-    attr = Types.ResourceAttributes()
-    attr.fileName = new_metadata.filename
-    print
-    print "MOVE: New filename =" + attr.fileName
-    print
-
-#    res.guid = note.resources[0].guid
-    res.attributes = attr
-    res.mime = new_metadata.mimetype
-    # notestore_onitu.updateResource(dev_token, res)
-
-
-@plug.handler()
-def get_file(metadata):
-    # We MUST have a guid when working with Evernote files
-    guid = metadata.extra.get('evernote_guid', None)
-    if guid is None:
-        raise DriverError(u"No GUID for file '{}'!".format(metadata.filename))
-    # We must use a different API call if the file is actually a resource !
-    noteGuid = metadata.extra.get('evernote_note_guid', None)
-    data = ''
-    try:
-        if noteGuid is None:  # The file is a note
-            # Only request the note content
-            data = notestore_onitu.getNoteContent(guid)
-        else:  # The file is a note's resource
-            data = notestore_onitu.getResourceData(guid)
-    except (EDAMUserException, EDAMSystemException,
-            EDAMNotFoundException) as exc:
-        raise ServiceError(u"Could not get file {}: {}"
-                           .format(metadata.filename, exc))
-    except Exception as e:
-        raise DriverError("Unexpected exception: {}".format(e))
-    return data
-
-
-@plug.handler()
-def upload_file(metadata, content):
-    # A couple of helper nested functions to easily handle retries
-    def upload_note(metadata, content):
-        if metadata.extra.get('evernote_guid', None) is None:
-            # Create the note via the Evernote API in case of new file
-            plug.logger.debug(u"Creating note {}".format(metadata.filename))
-            note = create_note(metadata, content)
-        else:
-            # If it is a file already registered to Evernote, just update it
-            plug.logger.debug(u"Updating note {}".format(metadata.filename))
-            note = update_note_content(metadata, content)
-            note = notestore_onitu.updateNote(token, note)
-        return note
-
-    def upload_resource(metadata, content):
-        """The process of updating a resource is quite the same than to delete
-        one."""
-        guid = metadata.extra['evernote_guid']  # guid of the resource
-        plug.logger.debug(u"Updating note resource {} (GUID {})"
-                          .format(metadata.filename, guid))
-        # Get the note and manually update the resource in the resource list
-        # Yep, that's dirty, because there's no dedicated API
-        # call, but it is the official best practice...
-        # note = notestore_onitu.getNote(token, resourceNoteGuid,
-        #                               False, False, False, False)
-        resource = None
-        # Reconstruct the list omitting the concerned resource.
-        for rsc in note.resources:
-            if rsc.guid == guid:
-                rsc.data = content
-                resource = rsc
-                break
-        if resource is None:
-            raise DriverError(u"No Evernote Resource GUID for file {} !"
-                              .format(metadata.filename))
-        plug.logger.debug("Successfully updated the resource")
-        return resource
-
-    # TODO Correctly manage upload_file
-    # If upload_file modifies the content of the note, we have to call
-    # update_file in the end to notify the other drivers
-    update = False
-    try:
-        # If it's a resource
-        if metadata.extra.get('evernote_note_guid', None) is not None:
-            resource = upload_resource(metadata, content)
-        else:
-            note = upload_note(metadata, content)
-    except EDAMUserException as eue:
-        # Evernote can raise content-related errors when the user updates the
-        # note's contents. E.g. when creating a new note, the user may
-        # forget to enclose the content evernote boilerplate markup. It's
-        # likely to raise an error in case of empty note or premature content
-        # start. We must detect those cases and try to add the markup
-        knownErrors = ['Content is not allowed in prolog.',
-                       'Premature end of file.']
-        if (eue.errorCode == EDAMErrorCode.ENML_VALIDATION
-           and eue.parameter in knownErrors):
-            plug.logger.warning("Catched content exception, trying to"
-                                " fix by putting content in Evernote markup")
-            content = enclose_content_with_markup(content)
-            note = upload_note(metadata, content)  # Try again
-            update = True
-        else:  # A UserException we don't know
-            raise ServiceError(u"Couldn't upload note {}: {}"
-                               .format(metadata.filename, eue))
-    except (EDAMSystemException, EDAMNotFoundException) as exc:
-        raise ServiceError(u"Couldn't upload note {}: {}"
-                           .format(metadata.filename, exc))
-    except Exception as e:
-        raise DriverError("Unexpected error {}".format(e))
-    # If the evernote part was OK, update onitu metadata
-    if metadata.extra.get('evernote_note_guid', None) is not None:
-        update_resource_metadata(metadata, resource)
-    else:
-        # Call plug.update_file if we modified the content by
-        # enclosing ENML markup
-        update_note_metadata(metadata, note, updateFile=update)
-    plug.logger.debug(u"Upload of file {} completed", metadata.filename)
-
-
-@plug.handler()
-def delete_file(metadata):
-    """Handler to delete a file. This gets called for the notes AND for the
-    resources. But we can't do the same thing for both, so it contains
-    specific checks. Ideally, when we delete a note, the driver should delete
-    all resource files of this note, but it's a bit complex to keep track of
-    all the necessary files, so it's not currently implemented."""
-    resourceNoteGuid = metadata.extra.get('evernote_note_guid', None)
-    try:
-        # We didn't store any owning note GUID for this file
-        # so it must be a note
-        if not resourceNoteGuid:
-            plug.logger.debug(u"Removing note {} (GUID {})",
-                              metadata.filename, resourceNoteGuid)
-            # res = notestore_onitu.deleteNote(token,
-            #                                 metadata.extra['evernote_guid'])
-        else:  # it is a resource of a file
-            guid = metadata.extra['evernote_guid']  # guid of the resource
-            plug.logger.debug(u"Removing note resource {} (GUID {})"
-                              .format(metadata.filename, guid))
-            # Get the note, manually remove the resource in the resource list
-            # Yep, that's dirty, because e.g. the note's markup keeps
-            # referencing a broken resource, but there's no dedicated API
-            # call, it is the official best practice...
-            note = notestore_onitu.getNote(token, resourceNoteGuid,
-                                           False, False, False, False)
-            # Reconstruct the list omitting the concerned resource.
-            note.resources = [rc for rc in note.resources if rc.guid != guid]
-            note = notestore_onitu.updateNote(token, note)
-    except (EDAMUserException, EDAMSystemException,
-            EDAMNotFoundException) as exc:
-        raise ServiceError(u"Unable to delete file {}: {}"
-                           .format(metadata.filename, exc))
+# @plug.handler()
+# def move_file(old_metadata, new_metadata):
+#     global notestore_onitu
+#     global dev_token
+#
+#     note = notestore_onitu.getNote(token, old_metadata.extra['guid'],
+#                                    False, False, True, False)
+#
+#     res = note.resources[0]  # Types.Resource()
+#     attr = Types.ResourceAttributes()
+#     attr.fileName = new_metadata.filename
+#     print
+#     print "MOVE: New filename =" + attr.fileName
+#     print
+#
+# #    res.guid = note.resources[0].guid
+#     res.attributes = attr
+#     res.mime = new_metadata.mimetype
+#     # notestore_onitu.updateResource(dev_token, res)
+#
+#
+# @plug.handler()
+# def get_file(metadata):
+#     # We MUST have a guid when working with Evernote files
+#     guid = metadata.extra.get('evernote_guid', None)
+#     if guid is None:
+#         raise DriverError(u"No GUID for file '{}'!".format(metadata.filename))
+#     # We must use a different API call if the file is actually a resource !
+#     noteGuid = metadata.extra.get('evernote_note_guid', None)
+#     data = ''
+#     try:
+#         if noteGuid is None:  # The file is a note
+#             # Only request the note content
+#             data = notestore_onitu.getNoteContent(guid)
+#         else:  # The file is a note's resource
+#             data = notestore_onitu.getResourceData(guid)
+#     except (EDAMUserException, EDAMSystemException,
+#             EDAMNotFoundException) as exc:
+#         raise ServiceError(u"Could not get file {}: {}"
+#                            .format(metadata.filename, exc))
+#     except Exception as e:
+#         raise DriverError("Unexpected exception: {}".format(e))
+#     return data
+#
+#
+# @plug.handler()
+# def upload_file(metadata, content):
+#     # A couple of helper nested functions to easily handle retries
+#     def upload_note(metadata, content):
+#         if metadata.extra.get('evernote_guid', None) is None:
+#             # Create the note via the Evernote API in case of new file
+#             plug.logger.debug(u"Creating note {}".format(metadata.filename))
+#             note = create_note(metadata, content)
+#         else:
+#             # If it is a file already registered to Evernote, just update it
+#             plug.logger.debug(u"Updating note {}".format(metadata.filename))
+#             note = update_note_content(metadata, content)
+#             note = notestore_onitu.updateNote(token, note)
+#         return note
+#
+#     def upload_resource(metadata, content):
+#         """The process of updating a resource is quite the same than to delete
+#         one."""
+#         guid = metadata.extra['evernote_guid']  # guid of the resource
+#         plug.logger.debug(u"Updating note resource {} (GUID {})"
+#                           .format(metadata.filename, guid))
+#         # Get the note and manually update the resource in the resource list
+#         # Yep, that's dirty, because there's no dedicated API
+#         # call, but it is the official best practice...
+#         # note = notestore_onitu.getNote(token, resourceNoteGuid,
+#         #                               False, False, False, False)
+#         resource = None
+#         # Reconstruct the list omitting the concerned resource.
+#         for rsc in note.resources:
+#             if rsc.guid == guid:
+#                 rsc.data = content
+#                 resource = rsc
+#                 break
+#         if resource is None:
+#             raise DriverError(u"No Evernote Resource GUID for file {} !"
+#                               .format(metadata.filename))
+#         plug.logger.debug("Successfully updated the resource")
+#         return resource
+#
+#     # TODO Correctly manage upload_file
+#     # If upload_file modifies the content of the note, we have to call
+#     # update_file in the end to notify the other drivers
+#     update = False
+#     try:
+#         # If it's a resource
+#         if metadata.extra.get('evernote_note_guid', None) is not None:
+#             resource = upload_resource(metadata, content)
+#         else:
+#             note = upload_note(metadata, content)
+#     except EDAMUserException as eue:
+#         # Evernote can raise content-related errors when the user updates the
+#         # note's contents. E.g. when creating a new note, the user may
+#         # forget to enclose the content evernote boilerplate markup. It's
+#         # likely to raise an error in case of empty note or premature content
+#         # start. We must detect those cases and try to add the markup
+#         knownErrors = ['Content is not allowed in prolog.',
+#                        'Premature end of file.']
+#         if (eue.errorCode == EDAMErrorCode.ENML_VALIDATION
+#            and eue.parameter in knownErrors):
+#             plug.logger.warning("Catched content exception, trying to"
+#                                 " fix by putting content in Evernote markup")
+#             content = enclose_content_with_markup(content)
+#             note = upload_note(metadata, content)  # Try again
+#             update = True
+#         else:  # A UserException we don't know
+#             raise ServiceError(u"Couldn't upload note {}: {}"
+#                                .format(metadata.filename, eue))
+#     except (EDAMSystemException, EDAMNotFoundException) as exc:
+#         raise ServiceError(u"Couldn't upload note {}: {}"
+#                            .format(metadata.filename, exc))
+#     except Exception as e:
+#         raise DriverError("Unexpected error {}".format(e))
+#     # If the evernote part was OK, update onitu metadata
+#     if metadata.extra.get('evernote_note_guid', None) is not None:
+#         update_resource_metadata(metadata, resource)
+#     else:
+#         # Call plug.update_file if we modified the content by
+#         # enclosing ENML markup
+#         update_note_metadata(metadata, note, updateFile=update)
+#     plug.logger.debug(u"Upload of file {} completed", metadata.filename)
+#
+#
+# @plug.handler()
+# def delete_file(metadata):
+#     """Handler to delete a file. This gets called for the notes AND for the
+#     resources. But we can't do the same thing for both, so it contains
+#     specific checks. Ideally, when we delete a note, the driver should delete
+#     all resource files of this note, but it's a bit complex to keep track of
+#     all the necessary files, so it's not currently implemented."""
+#     resourceNoteGuid = metadata.extra.get('evernote_note_guid', None)
+#     try:
+#         # We didn't store any owning note GUID for this file
+#         # so it must be a note
+#         if not resourceNoteGuid:
+#             plug.logger.debug(u"Removing note {} (GUID {})",
+#                               metadata.filename, resourceNoteGuid)
+#             # res = notestore_onitu.deleteNote(token,
+#             #                                 metadata.extra['evernote_guid'])
+#         else:  # it is a resource of a file
+#             guid = metadata.extra['evernote_guid']  # guid of the resource
+#             plug.logger.debug(u"Removing note resource {} (GUID {})"
+#                               .format(metadata.filename, guid))
+#             # Get the note, manually remove the resource in the resource list
+#             # Yep, that's dirty, because e.g. the note's markup keeps
+#             # referencing a broken resource, but there's no dedicated API
+#             # call, it is the official best practice...
+#             note = notestore_onitu.getNote(token, resourceNoteGuid,
+#                                            False, False, False, False)
+#             # Reconstruct the list omitting the concerned resource.
+#             note.resources = [rc for rc in note.resources if rc.guid != guid]
+#             note = notestore_onitu.updateNote(token, note)
+#     except (EDAMUserException, EDAMSystemException,
+#             EDAMNotFoundException) as exc:
+#         raise ServiceError(u"Unable to delete file {}: {}"
+#                            .format(metadata.filename, exc))
 
 
 # ############################## WATCHER #####################################
@@ -309,10 +326,15 @@ class CheckChanges(threading.Thread):
         self.timer = timer
         self.folder = self.folder
         self.note_store = notestore_onitu
-        self.notebook = find_notebook(folder.path)
+        notebook_db_key = 'nb_{}_guid'.format(folder.path)
+        guid = plug.entry_db.get(notebook_db_key, default="")
+        if guid == "":
+            self.notebook = find_notebook_by_name(folder.path, create=True)
+        else:
+            self.notebook = find_notebook_by_guid(guid, create=True)
         # The last update count of the notebook we're aware of.
-        notebook_db_key = 'notebook_{}_USN'.format(folder.path)
-        self.notebookUSN = plug.entry_db.get(notebook_db_key, default=0)
+        notebook_db_key = 'nb_{}_syncState'.format(folder.path)
+        self.nb_syncState = plug.entry_db.get(notebook_db_key, default=0)
         # We don't want to paginate. Ask all teh notes in one time
         self.maxNotes = EDAM_USER_NOTES_MAX
         # Filter to include only notes from our notebook
@@ -332,10 +354,8 @@ class CheckChanges(threading.Thread):
         server copy is more recent than ours.
         But to ensure it is a change of content, we store the hash, and we
         compare the current with the one we have when a file gets updated."""
-        # First just check the hash
-        plug.logger.debug(u"Getting content hash of {}"
-                          .format(noteMetadata.title))
-        # Get the resource data as well
+        plug.logger.debug(u"Updating file {}", onituMetadata.path)
+        # First just check the hash (we get the resource data as well)
         note = notestore_onitu.getNote(noteMetadata.guid, False, True, False,
                                        False)
         onituHash = onituMetadata.extra.get('evernote_hash', "")
@@ -344,11 +364,11 @@ class CheckChanges(threading.Thread):
         if note.contentHash != onituHash:
             updateFile = True
             plug.logger.debug(u"Note {} updated".format(note.title))
-        update_note_metadata(onituMetadata, note, updateFile=updateFile)
         if not updateFile:
-            plug.logger.debug(u"Update on note {} isn't content-related, "
-                              u"I update the metadata but won't call "
-                              u"plug.update_file".format(note.title))
+            plug.logger.debug(u"Non content-related update on note {}, "
+                              u"updating metadata but won't call "
+                              u"plug.update_file", note.title)
+        update_note_metadata(onituMetadata, note, updateFile=updateFile)
         # Check the resources now
         # TODO: File names could change! Find a way to manage that...
         # Maybe an entry_db field keeping track of all the files that
@@ -360,12 +380,39 @@ class CheckChanges(threading.Thread):
             plug.logger.debug(u"Processing note {}'s resource {}", note.title,
                               resource.attributes.fileName)
             resourceMetadata = plug.get_metadata(resource.attributes.fileName)
-            onitu_USN = resourceMetadata.extra.get('evernote_USN', 0)
-            # Nothing fancy about the resources: if the USN changed,
-            # re-download it
+            onitu_USN = resourceMetadata.extra.get('USN', 0)
             if onitu_USN < resource.updateSequenceNum:
                 update_resource_metadata(resourceMetadata, resource,
                                          updateFile=True)
+
+    def check_updated(self):
+        """Checks for updated notes on the Onitu notebook.
+        Loops the findNotesMetadata operation until everything is gone."""
+        remaining = 1
+        offset = 0
+        while remaining:
+            res = notestore_onitu.findNotesMetadata(self.noteFilter, offset,
+                                                    self.maxNotes,
+                                                    self.resultSpec)
+            plug.logger.debug("Processing {} notes", res.totalNotes)
+            for noteMetadata in res.notes:
+                filename = noteMetadata.title
+                if not filename.endswith(".enml"):
+                    filename += ".enml"
+                onituMetadata = plug.get_metadata(filename)
+                # The flaw in checking the USN is that it increases even for
+                # non content-related changes (e.g. a tag added). But that's
+                # the best way to do it.
+                evernote_usn = noteMetadata.updateSequenceNum
+                onitu_usn = onituMetadata.extra.get('USN', 0)
+                if onitu_usn < evernote_usn:
+                    self.update_note(noteMetadata, onituMetadata)
+                else:
+                    plug.logger.debug(u"Note {} is up-to-date",
+                                      noteMetadata.title)
+            # Update the offset to ask the rest of the notes next time
+            offset = res.startIndex + len(res.notes)
+            remaining = res.totalNotes - offset
 
     def check_changes(self):
         """The function that will check the notes in the notebook are uptodate
@@ -377,90 +424,33 @@ class CheckChanges(threading.Thread):
         plug.logger.debug("Done checking changes, retry in {} seconds"
                           .format(self.timer))
 
-    def check_updated(self):
-        """Checks for updated notes on the Onitu notebook.
-        Loops the findNotesMetadata operation until everything is gone."""
-        remaining = 1
-        offset = 0
-        while remaining:
-            # Ask as much notes as possible in one shot
-            res = notestore_onitu.findNotesMetadata(self.noteFilter, offset,
-                                                    self.maxNotes,
-                                                    self.resultSpec)
-            plug.logger.debug(res.totalNotes)
-            # In spite of one could think, res.notes actually are Evernote
-            # NoteMetadata, not Note instances...
-            for noteMetadata in res.notes:
-                # Why we don't append .html: it causes name inconsistencies,
-                # e.g. if we create a note called 'empty' on Onitu side, and
-                # modify it on Evernote side, onitu will create
-                # a new file called 'empty.html'. It's not first priority now
-                # but it may be discussed in the future.
-                filename = noteMetadata.title
-                #                if not filename.endswith(".html"):
-                #                   filename += ".html"
-                onituMetadata = plug.get_metadata(filename)
-                # Update Sequence Num is like a kind of operation counter.
-                # If it is higher than what we had, something new happened.
-                # The flaw in this logic is that it can have nothing to do
-                # with what Onitu is interested in, e.g. the note has a new
-                # tag. AFAIK there is no better solution right now.
-                usn = noteMetadata.updateSequenceNum
-                onitu_usn = onituMetadata.extra.get('evernote_USN', 0)
-                plug.logger.debug(u"Has USN {}, server has {} for {}"
-                                  .format(onitu_usn, usn, noteMetadata.title))
-                if onitu_usn < usn:
-                    try:
-                        self.update_note(noteMetadata, onituMetadata)
-                    except (EDAMUserException, EDAMSystemException,
-                            EDAMNotFoundException) as exc:
-                        plug.logger.error(u"Couldn't update note {}: {}"
-                                          .format(noteMetadata.title, exc))
-                else:
-                    plug.logger.debug(u"Note {} is up-to-date"
-                                      .format(noteMetadata.title))
-            # Update the offset to ask the rest of the notes next time
-            offset = res.startIndex + len(res.notes)
-            remaining = res.totalNotes - offset
-
     def run(self):
         while not self.stop.isSet():
             try:
-                # Let's see if we're up-to-date
-                # Update the notebook Onitu watches
-                global notebook_onitu
-                notebook_onitu = notestore_onitu.getNotebook(
-                    notebook_onitu.guid)
+                # The USN is now an unreliable way of checking updates on a
+                # notebook, because it doesn't increment with its notes ones
+                # anymore. So the new best practice is to get the global sync
+                # state of the account, and check when it has changed. Sadly.
                 syncState = notestore_onitu.getSyncState()
                 # There has been a new transaction on the notebook
-                plug.logger.debug("My USN: {} EN USN: {}"
-                                  " syncstate updatecount: {}"
-                                  .format(self.notebookUSN,
-                                          notebook_onitu.updateSequenceNum,
-                                          syncState.updateCount))
-#                if self.notebookUSN < notebook_onitu.updateSequenceNum:
-                if self.notebookUSN < syncState.updateCount:
-                    plug.logger.debug("Notebook USN {} is more recent than "
-                                      "mine ({}), updating myself"
-                                      .format(syncState.updateCount,
-                                              self.notebookUSN))
+                if self.nb_syncState < syncState.updateCount:
+                    plug.logger.debug(u"Server SyncState has changed,"
+                                      u"checking notebook {}",
+                                      self.folder.path)
                     self.check_changes()
                     # Update ourselves
-                    self.notebookUSN = syncState.updateCount
-                    plug.entry_db.put('notebook_USN',
+                    self.nb_syncState = syncState.updateCount
+                    plug.entry_db.put('nb_{}_syncState',
                                       syncState.updateCount)
                 else:
                     plug.logger.debug("I'm up to date")
-            except (EDAMUserException, EDAMSystemException) as exc:
-                raise ServiceError("Error while polling Evernote changes: {}"
+            except (EDAMUserException, EDAMSystemException,
+                    EDAMNotFoundException) as exc:
+                raise ServiceError(u"Error while polling Evernote changes: {}"
                                    .format(exc))
             except ResponseNotReady:
                 plug.logger.warning("Cannot poll changes, the notebook data"
                                     " isn't ready.")
-            except Exception as e:
-                # Some weird things can happen in the Thrift lib.
-                # Usually retry later is fine.
-                plug.logger.warning("Unexpected error : {}".format(e))
             plug.logger.debug("Next check in {} seconds", self.timer)
             self.stopEvent.wait(self.timer)
 
