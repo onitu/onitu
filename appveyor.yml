@@ -17,10 +17,9 @@ install:
   - "cd leveldb/"
   - "cmake ."
   - "msbuild leveldb.sln"
-  - "cp Debug/leveldbd.lib %PYTHON%/libs/"
+  - "cp Debug/leveldbd.lib %PYTHON%/libs/leveldb.lib"
   - "cp port/win/stdint.h %PYTHON%/Include"
   - ps: "Copy-Item include/leveldb $Env:PYTHON/Include -recurse"
-  - ps: "Get-ChildItem $Env:PYTHON/Include -recurse"
   - "cd ../"
   - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
 
