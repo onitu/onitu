@@ -14,12 +14,9 @@ from onitu.plug import Plug, DriverError, ServiceError
 from onitu.escalator.client import EscalatorClosed
 from onitu.utils import b
 
-root = None
 token = None
-onitu_recent_search = None
-onitu_search = None
 notestore_onitu = None
-notebook_onitu = None
+files_to_ignore = set()
 plug = Plug()
 
 
@@ -138,7 +135,7 @@ def update_note_content(metadata, content, note=None):
     that it won't be retrieved twice."""
     if note is None:
         # Ask only for note and its content, no resource info
-        note = notestore_onitu.getNote(token, metadata.extra['evernote_guid'],
+        note = notestore_onitu.getNote(token, metadata.extra['guid'],
                                        True, False, False, False)
     note.content = content
     md5_hash = hashlib.md5()
@@ -149,12 +146,12 @@ def update_note_content(metadata, content, note=None):
     return note
 
 
-def create_note(metadata, content):
+def create_note(metadata, content, notebook):
     """Creates an Evernote note out of a new file, prior to uploading it."""
     note = Types.Note()
     note.title = metadata.filename
     note = update_note_content(metadata, content, note)
-    note.notebookGuid = notebook_onitu.guid
+    note.notebookGuid = notebook.guid
     return notestore_onitu.createNote(note)
 
 
@@ -288,13 +285,12 @@ def get_file(metadata):
 #     plug.logger.debug(u"Upload of file {} completed", metadata.filename)
 #
 #
-# @plug.handler()
-# def delete_file(metadata):
-#     """Handler to delete a file. This gets called for the notes AND for the
-#     resources. But we can't do the same thing for both, so it contains
-#     specific checks. Ideally, when we delete a note, the driver should delete
-#     all resource files of this note, but it's a bit complex to keep track of
-#     all the necessary files, so it's not currently implemented."""
+@plug.handler()
+def delete_file(metadata):
+    """Handler to delete a file. This gets called for the notes AND for the
+    resources. So if the file is an Evernote note, we also delete all the
+    files that are its resources on Evernote."""
+    plug.logger.debug(u"Deleting {}", metadata.path)
 #     resourceNoteGuid = metadata.extra.get('evernote_note_guid', None)
 #     try:
 #         # We didn't store any owning note GUID for this file
@@ -357,7 +353,7 @@ class CheckChanges(threading.Thread):
                                     includeContentLength=True,
                                     includeUpdateSequenceNum=True)
         )
-        self.first_start = True
+        self.filesToDelete = []
 
     def update_note_resources(self, note, noteOnituMetadata):
         """Checks if a note's resources are up to date. Returns whether we
@@ -380,6 +376,8 @@ class CheckChanges(threading.Thread):
                     doWrite = True
                 update_resource_metadata(resourceMetadata, resource,
                                          updateFile=True)
+            if resourceMetadata.filename in self.filesToDelete:
+                del self.filesToDelete[resourceMetadata.filename]
         return doWrite
 
     def update_note(self, noteMetadata, onituMetadata):
@@ -429,17 +427,28 @@ class CheckChanges(threading.Thread):
                 else:
                     plug.logger.debug(u"Note {} is up-to-date",
                                       noteMetadata.title)
+                # Cross this file out from the deleted files list
+                if filename in self.filesToDelete:
+                    del self.filesToDelete[filename]
             # Update the offset to ask the rest of the notes next time
             offset = res.startIndex + len(res.notes)
             remaining = res.totalNotes - offset
 
     def check_deleted(self):
-        pass
+        plug.logger.debug(u"Have {} files to delete in notebook {}",
+                          len(self.filesToDelete), self.folder.path)
+        for filename in self.filesToDelete:
+            # Ignored because this file is currently in a transfer
+            if filename in files_to_ignore:
+                continue
+            metadata = plug.get_metadata(filename, self.folder)
+            plug.delete_file(metadata)
 
     def check_changes(self):
         """The function that will check the notes in the notebook are uptodate
         Evernote doesn't let us check regular and deleted files at the same
         time, so we have to do two separate passes."""
+        self.filesToDelete = plug.list(self.folder)
         self.check_updated()
         self.check_deleted()
 
