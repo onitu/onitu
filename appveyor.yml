@@ -9,21 +9,23 @@ environment:
     BOOST_ROOT: "C:/Libraries/boost"
 
 install:
-  - '"C:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\SetEnv.cmd" /x86'
-  - ps: (new-object net.webclient).DownloadFile('https://downloads.sourceforge.net/project/pywin32/pywin32/Build%20219/pywin32-219.win32-py2.7.exe', 'C:/pywin32-219.win32-py2.7.exe')
-  - ps: (new-object net.webclient).DownloadFile('https://raw.github.com/pypa/pip/master/contrib/get-pip.py', 'C:/get-pip.py')
-  - "%PYTHON%/python.exe C:/get-pip.py"
-  - "%PYTHON%/Scripts/easy_install.exe C:/pywin32-219.win32-py2.7.exe"
-  - "git clone https://github.com/onitu/leveldb.git"
-  - "cd leveldb/"
-  - "cmake ."
-  - "msbuild leveldb.sln"
-  - "cp Debug/leveldbd.lib %PYTHON%/libs/leveldb.lib"
-  - "cp port/win/stdint.h %PYTHON%/Include"
-  - ps: "Copy-Item include/leveldb $Env:PYTHON/Include -recurse"
-  - ps: "Copy-Item C:/Libraries/boost/stage/lib/*.lib $Env:PYTHON/libs/"
-  - "cd ../"
-  - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
+  - nuget install LevelDB
+  - cd LevelDB
+  - msbuild .
+  # - ps: (new-object net.webclient).DownloadFile('https://downloads.sourceforge.net/project/pywin32/pywin32/Build%20219/pywin32-219.win32-py2.7.exe', 'C:/pywin32-219.win32-py2.7.exe')
+  # - ps: (new-object net.webclient).DownloadFile('https://raw.github.com/pypa/pip/master/contrib/get-pip.py', 'C:/get-pip.py')
+  # - "%PYTHON%/python.exe C:/get-pip.py"
+  # - "%PYTHON%/Scripts/easy_install.exe C:/pywin32-219.win32-py2.7.exe"
+  # - "git clone https://github.com/onitu/leveldb.git"
+  # - "cd leveldb/"
+  # - "cmake ."
+  # - "msbuild leveldb.sln"
+  # - "cp Debug/leveldbd.lib %PYTHON%/libs/leveldb.lib"
+  # - "cp port/win/stdint.h %PYTHON%/Include"
+  # - ps: "Copy-Item include/leveldb $Env:PYTHON/Include -recurse"
+  # - ps: "Copy-Item C:/Libraries/boost/stage/lib/*.lib $Env:PYTHON/libs/"
+  # - "cd ../"
+  # - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
 
 build: off
 deploy: off
