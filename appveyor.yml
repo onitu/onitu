@@ -2,8 +2,8 @@ version: '{build}'
 
 environment:
   matrix:
-    - PYTHON: "C:\Python27"
-    - PYTHON: "C:\Python34"
+    - PYTHON: "C:/Python27"
+    - PYTHON: "C:/Python34"
 
   global:
     BOOST_ROOT: "C:/Libraries/boost"
@@ -18,7 +18,7 @@ install:
   - "cmake ."
   - "msbuild leveldb.sln"
   - "cp Debug/leveldbd.lib %PYTHON%/libs/"
-  - "xcopy include\leveldb %PYTHON%\Include /e"
+  - "xcopy include/leveldb %PYTHON%/Include /e"
   - "cd ../"
   - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
 
