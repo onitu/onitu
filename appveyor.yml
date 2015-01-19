@@ -20,6 +20,7 @@ install:
   - "cp Debug/leveldbd.lib %PYTHON%/libs/"
   - "cp port/win/stdint.h %PYTHON%/Include"
   - ps: "Copy-Item include/leveldb %PYTHON%/Include -recurse"
+  - ps: "Get-ChildItem %PYTHON%/Include -recurse"
   - "cd ../"
   - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
 
