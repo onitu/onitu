@@ -120,7 +120,7 @@ def get_chunk(metadata, offset, size):
 @plug.handler()
 def start_upload(metadata):
     tmp_file = to_tmp(metadata.path)
-    plug.logger.info("start_upload {} {}".format(tmp_file, metadata.path))
+    plug.logger.info("start_upload {} {}".format(u(tmp_file), u(metadata.path)))
     if IS_WINDOWS:
         ignoreNotif[metadata.path] = False
         sleep(1)
@@ -249,6 +249,8 @@ if IS_WINDOWS:
 
     def fileAction(filename, abs_path, action, ignoreNotif, writingDict,
                    transferSet, actions_names, Rtime):
+        filename = u(filename)
+        abs_path = u(abs_path)
         metadata = plug.get_metadata(filename)
         if metadata == None:
             return
@@ -362,7 +364,7 @@ if IS_WINDOWS:
                     not (win32api.GetFileAttributes(abs_path)
                          & win32con.FILE_ATTRIBUTE_ARCHIVE))):
                     continue
-                filename = root.relpathto(abs_path)
+                filename = u(root.relpathto(abs_path))
                 try:
                     with file_lock:
                         fileAction(filename, abs_path, action, ignoreNotif,
