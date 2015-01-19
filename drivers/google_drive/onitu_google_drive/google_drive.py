@@ -6,7 +6,7 @@ from onitu.plug.metadata import Metadata
 
 tree = None
 access_token = None
-root_id = None
+root_watched = {}
 token_expi = None
 
 
@@ -18,8 +18,17 @@ ft = 'application/vnd.google-apps.folder'
 def check_and_add_folder(metadata):
     mutex.acquire()
     global tree
+
+    #TODO remove medata.filename to metadata.path and check on root list
+    folder_path = metadata.path.replace(metadata.filename, "")
+    plug.logger.debug("path file: {}, folder: {}, filename: {}", metadata.path, folder_path, metadata.filename)
+    if folder_path != "/":
+        folder_path = folder_path.rstrip('/')
+
+    root_id = root_watched[folder_path]
+
     try:
-        path = metadata.path.split("/")
+        path = metadata.filename.split("/")
         path = [p for p in path if p != u""]
         tmproot = root_id
         if len(path) > 1:
@@ -214,6 +223,7 @@ class CheckChanges(threading.Thread):
                 metadata = Metadata.get_by_id(plug, fid)
                 time.sleep(0.1)
         else:
+            plug.logger.debug("filepath= {}", filepath)
             metadata = plug.get_metadata(filepath)
         # except:
         #     metadata = plug.get_metadata(filepath)
@@ -244,6 +254,7 @@ class CheckChanges(threading.Thread):
                     self.check_folder_list_file(path + "/" + f["title"],
                                                 f["id"])
             else:
+                plug.logger.debug("Getted path: {}", path)
                 if path == "":
                     filepath = f["title"]
                 else:
@@ -277,12 +288,24 @@ class CheckChanges(threading.Thread):
 
     def get_path(self, parent_id):
         path = []
-        while parent_id != root_id and parent_id != "root":
+        isParent = False
+        f_path = None
+        for folder_path, folder_id in root_watched.items():
+            if parent_id == folder_id:
+                isParent = True
+                f_path = folder_path
+        while not isParent and parent_id != "root":
             _, info = libdrive.get_information_by_id(access_token,
                                                      parent_id)
             path.append(info["title"])
             parent_id = tree[parent_id]
-        return "/".join(reversed(path))
+            for folder_path, folder_id in root_watched.items():
+                if parent_id == folder_id:
+                    isParent = True
+                    f_path = folder_path
+
+        f_path = f_path.split("/")
+        return "/".join(f_path + list(reversed(path)))
 
     def check_if_parent_exist(self, file_id):
         global tree
@@ -297,7 +320,11 @@ class CheckChanges(threading.Thread):
                 tree[file_id] = p["id"]
             return True
         else:
-            if p["isRoot"] is True or p["id"] == root_id:
+            isRoot = False
+            for _, folder_id in root_watched.items():
+                if p["id"] == folder_id:
+                    isRoot = True
+            if p["isRoot"] is True or isRoot:
                 return False
             else:
                 ret = self.check_if_parent_exist(p["id"])
@@ -314,7 +341,8 @@ class CheckChanges(threading.Thread):
         if self.lasterChangeId == 0:
             _, data = libdrive.get_change(access_token, 1, 1)
             self.lasterChangeId = data["largestChangeId"]
-            self.check_folder_list_file("", root_id)
+            for folder_path, folder_id in root_watched.items():
+                self.check_folder_list_file(folder_path, folder_id)
         else:
             buf = {}
             bufDel = {}
@@ -352,20 +380,27 @@ class CheckChanges(threading.Thread):
                 page_token = data.get("nextPageToken")
                 if not page_token:
                     break
+
             for id_file in buf:
                 f = buf[id_file]
+
                 if self.check_if_path_exist(f["parents"]):
                     path = self.get_path(f["parents"])
+                    plug.logger.debug("get path: {}", path)
                 else:
                     if self.check_if_parent_exist(f["id"]) is False:
                         continue
                     path = self.get_path(f["parents"])
+                    plug.logger.debug("get path: {}", path)
+
                 if path == "":
                     filepath = f["title"]
                 else:
                     filepath = path + "/" + f["title"]
+
                 self.update_metadata(filepath, f)
                 plug.logger.debug(u"file change path: {}".format(path))
+
             for id_file in bufDel:
                 path = filepath.split("/")[0]
 
@@ -381,11 +416,11 @@ class CheckChanges(threading.Thread):
                         plug.delete_file(m)
                         plug.logger.debug(u"file delete path: {}".format(path))
 
-
     def run(self):
         while not self.stop.isSet():
             get_token()
-            self.check_folder("", root_id)
+            for _, folder_id in root_watched.items():
+                self.check_folder("", folder_id)
             self.stop.wait(self.timer)
 
     def stop(self):
@@ -393,28 +428,33 @@ class CheckChanges(threading.Thread):
 
 
 def start(*args, **kwargs):
-    path = plug.options["root"].split("/")
-    path = [p for p in path if p != u""]
     global access_token
     access_token = ""
     global token_expi
     token_expi = 0.0
-    global root_id
-    root_id = "root"
     global tree
     tree = {}
     get_token()
-    for f in path:
-        _, data = libdrive.get_information(access_token, f, root_id)
-        if (data["items"] != []):
-            prev_id = root_id
-            root_id = data["items"][0]["id"]
-            tree[root_id] = prev_id
-        else:
-            _, data = libdrive.add_folder(access_token, f, root_id)
-            prev_id = root_id
-            root_id = data["id"]
-            tree[root_id] = prev_id
+    global root_watched
+    for folder in plug.folders_to_watch:
+        plug.logger.debug("{}", folder.path)
+    for watch in plug.folders_to_watch:
+        root_id = "root"
+        prev_id = ""
+        path = watch.path.split("/")
+        path = [p for p in path if p != u""]
+        for f in path:
+            _, data = libdrive.get_information(access_token, f, root_id)
+            if (data["items"] != []):
+                prev_id = root_id
+                root_id = data["items"][0]["id"]
+                tree[root_id] = prev_id
+            else:
+                _, data = libdrive.add_folder(access_token, f, root_id)
+                prev_id = root_id
+                root_id = data["id"]
+        tree[root_id] = prev_id
+        root_watched[watch.path] = root_id
     check = CheckChanges(int(plug.options['changes_timer']))
     check.setDaemon(True)
     check.start()
