@@ -9,22 +9,24 @@ environment:
     BOOST_ROOT: "C:/Libraries/boost"
 
 install:
-  - nuget install LevelDB
-  - msbuild LevelDB.1.16.0.5
-  # - ps: (new-object net.webclient).DownloadFile('https://downloads.sourceforge.net/project/pywin32/pywin32/Build%20219/pywin32-219.win32-py2.7.exe', 'C:/pywin32-219.win32-py2.7.exe')
-  # - ps: (new-object net.webclient).DownloadFile('https://raw.github.com/pypa/pip/master/contrib/get-pip.py', 'C:/get-pip.py')
-  # - "%PYTHON%/python.exe C:/get-pip.py"
-  # - "%PYTHON%/Scripts/easy_install.exe C:/pywin32-219.win32-py2.7.exe"
-  # - "git clone https://github.com/onitu/leveldb.git"
-  # - "cd leveldb/"
-  # - "cmake ."
-  # - "msbuild leveldb.sln"
-  # - "cp Debug/leveldbd.lib %PYTHON%/libs/leveldb.lib"
-  # - "cp port/win/stdint.h %PYTHON%/Include"
-  # - ps: "Copy-Item include/leveldb $Env:PYTHON/Include -recurse"
-  # - ps: "Copy-Item C:/Libraries/boost/stage/lib/*.lib $Env:PYTHON/libs/"
-  # - "cd ../"
-  # - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
+  - if "%PLATFORM%" == "Win32" set CMAKE_GENERATOR="Visual Studio 12"
+  - if "%PLATFORM%" == "x64"   set CMAKE_GENERATOR="Visual Studio 12 Win64"
+  - if "%PLATFORM%" == "Win32" set BOOST_DEFINITIONS=-DBOOST_ROOT="%BOOST_ROOT%" -DBOOST_LIBRARYDIR="%BOOST_ROOT%/lib32-msvc-12.0"
+  - if "%PLATFORM%" == "x64"   set BOOST_DEFINITIONS=-DBOOST_ROOT="%BOOST_ROOT%" -DBOOST_LIBRARYDIR="%BOOST_ROOT%/lib64-msvc-12.0"
+  - ps: (new-object net.webclient).DownloadFile('https://downloads.sourceforge.net/project/pywin32/pywin32/Build%20219/pywin32-219.win32-py2.7.exe', 'C:/pywin32-219.win32-py2.7.exe')
+  - ps: (new-object net.webclient).DownloadFile('https://raw.github.com/pypa/pip/master/contrib/get-pip.py', 'C:/get-pip.py')
+  - "%PYTHON%/python.exe C:/get-pip.py"
+  - "%PYTHON%/Scripts/easy_install.exe C:/pywin32-219.win32-py2.7.exe"
+  - "git clone https://github.com/onitu/leveldb.git"
+  - "cd leveldb/"
+  - "cmake ."
+  - "msbuild leveldb.sln"
+  - "cp Debug/leveldbd.lib %PYTHON%/libs/leveldb.lib"
+  - "cp port/win/stdint.h %PYTHON%/Include"
+  - ps: "Copy-Item include/leveldb $Env:PYTHON/Include -recurse"
+  - ps: "Copy-Item C:/Libraries/boost/stage/lib/*.lib $Env:PYTHON/libs/"
+  - "cd ../"
+  - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
 
 build: off
 deploy: off
