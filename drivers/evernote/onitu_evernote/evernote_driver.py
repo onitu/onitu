@@ -11,6 +11,7 @@ from evernote.edam.type.ttypes import NoteSortOrder
 from evernote.edam.limits.constants import EDAM_USER_NOTES_MAX
 
 from onitu.plug import Plug, DriverError, ServiceError
+from onitu.escalator.client import EscalatorClosed
 from onitu.utils import b
 
 root = None
@@ -24,16 +25,26 @@ plug = Plug()
 
 # ############################## EVERNOTE ####################################
 
+def register_note_resource(noteMetadata, resource):
+    """Register a resource GUID and filename in the metadata of its note."""
+    rscFilename = resource.attributes.fileName
+    plug.logger.debug(u"Registering resource {} in note {} metadata",
+                      rscFilename, noteMetadata.path)
+    if noteMetadata.extra.get('resources', None) is None:
+        noteMetadata.extra['resources'] = {}
+    noteMetadata.extra['resources'][resource.guid] = rscFilename
+
+
 def update_resource_metadata(onituMetadata, resource, updateFile=False):
     """Updates the Onitu metadata of a resource file. Quite not the same thing
     as updating a note."""
     # Data may not be set so be careful
     if resource.data is not None:
         onituMetadata.size = resource.data.size
-    onituMetadata.extra['evernote_guid'] = resource.guid
+    onituMetadata.extra['guid'] = resource.guid
     # noteGuid helps us to remember if a file is a file's resource or not
-    onituMetadata.extra['evernote_note_guid'] = resource.noteGuid
-    onituMetadata.extra['evernote_USN'] = resource.updateSequenceNum
+    onituMetadata.extra['note_guid'] = resource.noteGuid
+    onituMetadata.extra['USN'] = resource.updateSequenceNum
     if updateFile:
         plug.update_file(onituMetadata)
 
@@ -42,12 +53,11 @@ def update_note_metadata(onituMetadata, note, updateFile=False):
     """Updates the Onitu metadata of an Evernote note. If updateFile is True,
     call plug.update_file. If not, just call metadata.write"""
     onituMetadata.size = note.contentLength
-    onituMetadata.extra['evernote_guid'] = note.guid
-    onituMetadata.extra['evernote_hash'] = note.contentHash
-    onituMetadata.extra['evernote_USN'] = note.updateSequenceNum
+    onituMetadata.extra['guid'] = note.guid
+    onituMetadata.extra['hash'] = note.contentHash
+    onituMetadata.extra['USN'] = note.updateSequenceNum
     # Usually this function gets called if an update has been detected, but
     # we must call plug.update_file only if it's a content-related change.
-    # Yet we have to update ourseslves about the USN, for example.
     if updateFile:
         plug.update_file(onituMetadata)
     else:
@@ -70,7 +80,7 @@ def connect_client():
 
 
 def create_notebook(name):
-    plug.logger.debug(u"Creating notebook {}".format(name))
+    plug.logger.debug(u"Creating notebook {}", name)
     try:
         notebook = notestore_onitu.createNotebook(token,
                                                   Types.Notebook(name=name))
@@ -82,6 +92,7 @@ def create_notebook(name):
 def find_notebook_by_guid(guid, name=None, create=False):
     """Find the notebook with this GUID. If create is True, we create it
     if it doesn't exist"""
+    plug.logger.debug(u"Getting notebook with GUID {}", guid)
     try:
         notebook = notestore_onitu.getNotebook(token, guid)
     except EDAMNotFoundException as enfe:
@@ -99,10 +110,11 @@ def find_notebook_by_guid(guid, name=None, create=False):
 def find_notebook_by_name(name, create=False):
     """Find the notebook named. If create is True, we create the notebook
     if it doesn't exist yet"""
+    plug.logger.debug(u"Searching notebook {}", name)
     try:
         for notebook in notestore_onitu.listNotebooks():
             if notebook.name == name:
-                plug.logger.debug(u"Found {} notebook".format(name))
+                plug.logger.debug(u"Found {} notebook", name)
                 return notebook
     except (EDAMUserException, EDAMSystemException) as exc:
         raise ServiceError(u"Cannot list notebooks - {}".format(exc))
@@ -120,7 +132,7 @@ def enclose_content_with_markup(content):
     return content
 
 
-def update_note_content(metadata, content, note=None, commit=False):
+def update_note_content(metadata, content, note=None):
     """Updates the content of an Evernote note with the given content.
     Also provides content hash and length. An existing note can be passed, so
     that it won't be retrieved twice."""
@@ -170,31 +182,30 @@ def create_note(metadata, content):
 #     res.mime = new_metadata.mimetype
 #     # notestore_onitu.updateResource(dev_token, res)
 #
-#
-# @plug.handler()
-# def get_file(metadata):
-#     # We MUST have a guid when working with Evernote files
-#     guid = metadata.extra.get('evernote_guid', None)
-#     if guid is None:
-#         raise DriverError(u"No GUID for file '{}'!".format(metadata.filename))
-#     # We must use a different API call if the file is actually a resource !
-#     noteGuid = metadata.extra.get('evernote_note_guid', None)
-#     data = ''
-#     try:
-#         if noteGuid is None:  # The file is a note
-#             # Only request the note content
-#             data = notestore_onitu.getNoteContent(guid)
-#         else:  # The file is a note's resource
-#             data = notestore_onitu.getResourceData(guid)
-#     except (EDAMUserException, EDAMSystemException,
-#             EDAMNotFoundException) as exc:
-#         raise ServiceError(u"Could not get file {}: {}"
-#                            .format(metadata.filename, exc))
-#     except Exception as e:
-#         raise DriverError("Unexpected exception: {}".format(e))
-#     return data
-#
-#
+
+
+@plug.handler()
+def get_file(metadata):
+    # We MUST have a guid when working with Evernote files
+    guid = metadata.extra.get('guid', None)
+    if guid is None:
+        raise DriverError(u"No GUID for file '{}'!".format(metadata.path))
+    # We must use a different API call if the file is actually a resource !
+    noteGuid = metadata.extra.get('note_guid', None)
+    data = ''
+    try:
+        if noteGuid is None:  # The file is a note
+            # Only request the note content
+            data = notestore_onitu.getNoteContent(guid)
+        else:  # The file is a note's resource
+            data = notestore_onitu.getResourceData(guid)
+    except (EDAMUserException, EDAMSystemException,
+            EDAMNotFoundException) as exc:
+        raise ServiceError(u"Could not get file {}: {}"
+                           .format(metadata.path, exc))
+    return data
+
+
 # @plug.handler()
 # def upload_file(metadata, content):
 #     # A couple of helper nested functions to easily handle retries
@@ -324,17 +335,17 @@ class CheckChanges(threading.Thread):
         threading.Thread.__init__(self)
         self.stopEvent = threading.Event()
         self.timer = timer
-        self.folder = self.folder
+        self.folder = folder
         self.note_store = notestore_onitu
         notebook_db_key = 'nb_{}_guid'.format(folder.path)
-        guid = plug.entry_db.get(notebook_db_key, default="")
+        guid = plug.service_db.get(notebook_db_key, default="")
         if guid == "":
             self.notebook = find_notebook_by_name(folder.path, create=True)
         else:
             self.notebook = find_notebook_by_guid(guid, create=True)
         # The last update count of the notebook we're aware of.
         notebook_db_key = 'nb_{}_syncState'.format(folder.path)
-        self.nb_syncState = plug.entry_db.get(notebook_db_key, default=0)
+        self.nb_syncState = plug.service_db.get(notebook_db_key, default=0)
         # We don't want to paginate. Ask all teh notes in one time
         self.maxNotes = EDAM_USER_NOTES_MAX
         # Filter to include only notes from our notebook
@@ -348,17 +359,38 @@ class CheckChanges(threading.Thread):
         )
         self.first_start = True
 
+    def update_note_resources(self, note, noteOnituMetadata):
+        """Checks if a note's resources are up to date. Returns whether we
+        should call metadata.write on the note's metadata or not (depending
+        on if we found new resources or not)."""
+        if note.resources is None:
+            plug.logger.debug("No resource")
+            return False
+        doWrite = False
+        for resource in note.resources:
+            # resourceName = resource.attributes.fileName
+            plug.logger.debug(u"Processing note {}'s resource {}", note.title,
+                              resource.attributes.fileName)
+            resourceMetadata = plug.get_metadata(resource.attributes.fileName,
+                                                 self.folder)
+            onitu_USN = resourceMetadata.extra.get('USN', 0)
+            if onitu_USN < resource.updateSequenceNum:
+                if onitu_USN == 0:  # new resource
+                    register_note_resource(noteOnituMetadata, resource)
+                    doWrite = True
+                update_resource_metadata(resourceMetadata, resource,
+                                         updateFile=True)
+        return doWrite
+
     def update_note(self, noteMetadata, onituMetadata):
-        """Update a given note's information, content and also its
-        resource files. We come to this function when we already know the
-        server copy is more recent than ours.
-        But to ensure it is a change of content, we store the hash, and we
-        compare the current with the one we have when a file gets updated."""
+        """Updates a note. Checks that the content has changed by doing
+        a hash comparison. Also updates the note's resources."""
         plug.logger.debug(u"Updating file {}", onituMetadata.path)
-        # First just check the hash (we get the resource data as well)
-        note = notestore_onitu.getNote(noteMetadata.guid, False, True, False,
-                                       False)
-        onituHash = onituMetadata.extra.get('evernote_hash', "")
+        # Check the hash first (get the resource data as well)
+        note = notestore_onitu.getNote(noteMetadata.guid,
+                                       False, False, False, False)
+        onituHash = onituMetadata.extra.get('hash', "")
+        updateMetadata = False
         updateFile = False
         # The content hash changed: notify an update
         if note.contentHash != onituHash:
@@ -368,22 +400,11 @@ class CheckChanges(threading.Thread):
             plug.logger.debug(u"Non content-related update on note {}, "
                               u"updating metadata but won't call "
                               u"plug.update_file", note.title)
-        update_note_metadata(onituMetadata, note, updateFile=updateFile)
-        # Check the resources now
-        # TODO: File names could change! Find a way to manage that...
-        # Maybe an entry_db field keeping track of all the files that
-        # are actually resources ?
-        if note.resources is None:
-            return
-        for (idx, resource) in enumerate(note.resources):
-            # resourceName = resource.attributes.fileName
-            plug.logger.debug(u"Processing note {}'s resource {}", note.title,
-                              resource.attributes.fileName)
-            resourceMetadata = plug.get_metadata(resource.attributes.fileName)
-            onitu_USN = resourceMetadata.extra.get('USN', 0)
-            if onitu_USN < resource.updateSequenceNum:
-                update_resource_metadata(resourceMetadata, resource,
-                                         updateFile=True)
+        # Now check the resources of the note
+        updateMetadata = self.update_note_resources(note, onituMetadata)
+        # We could want to call plug.update_file or just metadata.write
+        if updateMetadata or updateFile:
+            update_note_metadata(onituMetadata, note, updateFile)
 
     def check_updated(self):
         """Checks for updated notes on the Onitu notebook.
@@ -396,10 +417,8 @@ class CheckChanges(threading.Thread):
                                                     self.resultSpec)
             plug.logger.debug("Processing {} notes", res.totalNotes)
             for noteMetadata in res.notes:
-                filename = noteMetadata.title
-                if not filename.endswith(".enml"):
-                    filename += ".enml"
-                onituMetadata = plug.get_metadata(filename)
+                filename = noteMetadata.title + ".enml"
+                onituMetadata = plug.get_metadata(filename, self.folder)
                 # The flaw in checking the USN is that it increases even for
                 # non content-related changes (e.g. a tag added). But that's
                 # the best way to do it.
@@ -414,18 +433,18 @@ class CheckChanges(threading.Thread):
             offset = res.startIndex + len(res.notes)
             remaining = res.totalNotes - offset
 
+    def check_deleted(self):
+        pass
+
     def check_changes(self):
         """The function that will check the notes in the notebook are uptodate
         Evernote doesn't let us check regular and deleted files at the same
         time, so we have to do two separate passes."""
-        plug.logger.debug("CHECKONS!")
         self.check_updated()
-        #        self.check_deleted()
-        plug.logger.debug("Done checking changes, retry in {} seconds"
-                          .format(self.timer))
+        self.check_deleted()
 
     def run(self):
-        while not self.stop.isSet():
+        while not self.stopEvent.isSet():
             try:
                 # The USN is now an unreliable way of checking updates on a
                 # notebook, because it doesn't increment with its notes ones
@@ -435,15 +454,18 @@ class CheckChanges(threading.Thread):
                 # There has been a new transaction on the notebook
                 if self.nb_syncState < syncState.updateCount:
                     plug.logger.debug(u"Server SyncState has changed,"
-                                      u"checking notebook {}",
+                                      u" checking notebook {}",
                                       self.folder.path)
                     self.check_changes()
                     # Update ourselves
                     self.nb_syncState = syncState.updateCount
-                    plug.entry_db.put('nb_{}_syncState',
-                                      syncState.updateCount)
+                    plug.service_db.put('nb_{}_syncState'.format(
+                                        self.folder.path),
+                                        syncState.updateCount)
                 else:
-                    plug.logger.debug("I'm up to date")
+                    plug.logger.debug(u"notebook {} is up to date with "
+                                      u"sync state {}", self.folder.path,
+                                      self.nb_syncState)
             except (EDAMUserException, EDAMSystemException,
                     EDAMNotFoundException) as exc:
                 raise ServiceError(u"Error while polling Evernote changes: {}"
@@ -451,7 +473,11 @@ class CheckChanges(threading.Thread):
             except ResponseNotReady:
                 plug.logger.warning("Cannot poll changes, the notebook data"
                                     " isn't ready.")
-            plug.logger.debug("Next check in {} seconds", self.timer)
+            except EscalatorClosed:
+                # We are closing
+                return
+            plug.logger.debug(u"Next check on {} in {} seconds",
+                              self.folder.path, self.timer)
             self.stopEvent.wait(self.timer)
 
     def stop(self):
