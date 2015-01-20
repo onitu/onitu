@@ -11,10 +11,10 @@ setup(
     package_data={'': ['manifest.json']},
     entry_points={
         'onitu.drivers': [
-            'wd = onitu_webdav'
+            'webdav = onitu_webdav'
         ],
         'onitu.tests': [
-            'wd = onitu_webdav.tests'
+            'webdav = onitu_webdav.tests'
         ]
     }
 )
