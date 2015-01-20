@@ -12,7 +12,7 @@ install:
   - "%PYTHON%/Scripts/easy_install.exe C:/pywin32-219.win32-py2.7.exe"
   - "git clone https://github.com/onitu/leveldb.git"
   - "cd leveldb/"
-  - ps: "Get-ChildItem -path C:/Libraries/boost -recursive"
+  - ps: "Get-ChildItem -path C:/Libraries/boost -recurse"
   - cmake . -G "Visual Studio 9 2008" -DBOOST_ROOT="C:/Libraries/boost" -DBOOST_LIBRARYDIR="C:/Libraries/boost/lib32-msvc-12.0"
   - "msbuild leveldb.sln"
   - ps: "Get-ChildItem -path . -recurse"
