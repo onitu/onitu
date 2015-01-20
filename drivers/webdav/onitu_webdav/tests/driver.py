@@ -15,9 +15,10 @@ class Driver(driver.Driver):
         )
         options['username'] = os.getenv("ONITU_WEBDAV_USERNAME", "")
         options['password'] = os.getenv("ONITU_WEBDAV_PASSWORD", "")
-        options['changes_timer'] = os.getenv("ONITU_WEBDAV_CHANGES_TIMER", 10)
+        options['changes_timer'] = os.getenv("ONITU_WEBDAV_CHANGES_TIMER", 5)
+        root = os.getenv("ONITU_WEBDAV_ROOT", u"/")
 
-        self._root = u"/" + get_random_string(10)
+        self._root = root + get_random_string(10)
 
         hostname = options['hostname']
         username = options['username']
@@ -69,3 +70,7 @@ class Driver(driver.Driver):
         data = buff.getvalue()
         md5 = hashlib.md5(data).hexdigest()
         return md5
+
+
+class DriverFeatures(driver.DriverFeatures):
+    pass

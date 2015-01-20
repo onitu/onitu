@@ -37,7 +37,6 @@ def get_WEBDAV_client_from_plug():
 
 
 def create_dirs(webd, path):
-    plug.logger.debug("create dirs: {}", path)
     root = ''
     dirs = path.split('/')
     for d in dirs[1:]:
@@ -127,6 +126,8 @@ class CheckChanges(threading.Thread):
         self.stop = threading.Event()
         self.timer = timer
         self.webdav = webdav
+        for folder in plug.folders_to_watch:
+            create_dirs(self.webdav, folder.path)
 
     def check_folder(self, path):
         if path.endswith('/'):
