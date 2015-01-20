@@ -19,7 +19,7 @@ install:
   - "%PYTHON%/Scripts/easy_install.exe C:/pywin32-219.win32-py2.7.exe"
   - "git clone https://github.com/onitu/leveldb.git"
   - "cd leveldb/"
-  - "cmake . -G %CMAKE_GENERATOR% %BOOST_DEFINITIONS%"
+  - cmake . -G "%CMAKE_GENERATOR%" "%BOOST_DEFINITIONS%"
   - "msbuild leveldb.sln"
   - ps: "Get-ChildItem -path . -recurse"
   - "cp Debug/leveldbd.lib %PYTHON%/libs/leveldb.lib"
