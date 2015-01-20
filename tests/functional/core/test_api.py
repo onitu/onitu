@@ -144,6 +144,7 @@ def test_file_id(module_launcher):
     json = extract_json(r)
     assert r.status_code == 200
     assert json[filename] == get_fid(folder, filename)
+    module_launcher.delete_file(folder, filename, rep1, rep2)
 
 
 def test_list_files(module_launcher):
@@ -185,6 +186,7 @@ def test_file_content(module_launcher):
     r = get(url)
     assert r.status_code == 200
     assert len(r.content) == 100
+    module_launcher.delete_file(folder, filename, rep1, rep2)
 
 
 def test_file_fail(module_launcher):
