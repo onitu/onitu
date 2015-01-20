@@ -15,6 +15,7 @@ install:
   - "%PYTHON%/python.exe C:/get-pip.py"
   - "%PYTHON%/Scripts/easy_install.exe C:/pywin32-219.win32-py2.7.exe"
   - "cp leveldb.lib leveldb.dll %PYTHON%/libs/"
+  - "cp leveldb.lib leveldb.dll ../"
   - "cp port/win/stdint.h %PYTHON%/Include"
   - ps: "Copy-Item include/leveldb $Env:PYTHON/Include -recurse"
   - "cd ../"
