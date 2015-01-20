@@ -157,8 +157,7 @@ class OnituGui(QWidget):
 def main():
     app = QApplication(sys.argv)
     gui = OnituGui()
-    # Fix pep :)
-    gui = gui
+    gui.hide()
     sys.exit(app.exec_())
 
 
