@@ -24,7 +24,7 @@ plug = Plug()
 
 def register_note_resource(noteMetadata, resourceData, resourceMetadata):
     """Register a resource GUID and filename in the metadata of its note."""
-    rscFilename = resourceData.attributes.fileName
+    rscFilename = resourceMetadata.filename
     plug.logger.debug(u"Registering resource {} in note {} metadata",
                       rscFilename, noteMetadata.path)
     if noteMetadata.extra.get(u'resources', None) is None:
@@ -330,7 +330,6 @@ def delete_file(metadata):
     try:
         if resourceNoteGUID is None:
             delete_note_resources(metadata)
-            plug.logger.debug("DELETING DELTING DELTING")
             notestore_onitu.deleteNote(token, metadata.extra['guid'])
             plug.delete_file(metadata)
         else:
@@ -417,7 +416,9 @@ class CheckChanges(threading.Thread):
             # resourceName = resource.attributes.fileName
             plug.logger.debug(u"Processing note {}'s resource {}", note.title,
                               resource.attributes.fileName)
-            resourceMetadata = plug.get_metadata(resource.attributes.fileName,
+            rscPath = u"{}/{}".format(note.title,
+                                      resource.attributes.fileName)
+            resourceMetadata = plug.get_metadata(rscPath,
                                                  self.folder)
             onitu_USN = resourceMetadata.extra.get(u'USN', 0)
             if onitu_USN < resource.updateSequenceNum:
@@ -470,7 +471,8 @@ class CheckChanges(threading.Thread):
                                                     self.resultSpec)
             plug.logger.debug("Processing {} notes", res.totalNotes)
             for noteMetadata in res.notes:
-                filename = noteMetadata.title + u".enml"
+                filename = (u"{name}/{name}.enml"
+                            .format(name=noteMetadata.title))
                 onituMetadata = plug.get_metadata(filename, self.folder)
                 # The flaw in checking the USN is that it increases even for
                 # non content-related changes (e.g. a tag added). But that's
