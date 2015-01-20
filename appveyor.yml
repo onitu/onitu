@@ -5,13 +5,6 @@ environment:
     - PYTHON: "C:/Python27"
     - PYTHON: "C:/Python34"
 
-  global:
-    BOOST_ROOT: "C:/Libraries/boost"
-    CMAKE_GENERATOR: "Visual Studio 12"
-    BOOST_DEFINITIONS: -DBOOST_ROOT="%BOOST_ROOT"% -DBOOST_LIBRARYDIR="%BOOST_ROOT%/lib32-msvc-12.0"
-    VS100COMNTOOLS: "%VS110COMNTOOLS%"
-    VS90COMNTOOLS: "%VS110COMNTOOLS%"
-
 install:
   - ps: (new-object net.webclient).DownloadFile('https://downloads.sourceforge.net/project/pywin32/pywin32/Build%20219/pywin32-219.win32-py2.7.exe', 'C:/pywin32-219.win32-py2.7.exe')
   - ps: (new-object net.webclient).DownloadFile('https://raw.github.com/pypa/pip/master/contrib/get-pip.py', 'C:/get-pip.py')
@@ -19,7 +12,8 @@ install:
   - "%PYTHON%/Scripts/easy_install.exe C:/pywin32-219.win32-py2.7.exe"
   - "git clone https://github.com/onitu/leveldb.git"
   - "cd leveldb/"
-  - cmake . -G "%CMAKE_GENERATOR%" "%BOOST_DEFINITIONS%"
+  - ps: "Get-ChildItem -path C:/Libraries/boost"
+  - cmake . -G "Visual Studio 2008" -DBOOST_ROOT="C:/Libraries/boost" -DBOOST_LIBRARYDIR="C:/Libraries/boost/lib32-msvc-12.0"
   - "msbuild leveldb.sln"
   - ps: "Get-ChildItem -path . -recurse"
   - "cp Debug/leveldbd.lib %PYTHON%/libs/leveldb.lib"
