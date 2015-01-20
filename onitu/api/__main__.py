@@ -188,7 +188,7 @@ def get_file_content(fid):
     if content[0] != ERROR:
         response.content_type = metadata['mimetype']
         response.headers['Content-Disposition'] = (
-            'attachment; filename="{}"'.format(metadata['filename'])
+            'attachment; filename="{}"'.format(b(metadata['filename']))
         )
         return content[1]
     return error()

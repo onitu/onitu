@@ -172,6 +172,21 @@ def test_list_files(module_launcher):
         assert files[i]['size'] == origin_file_size
 
 
+def test_file_content(module_launcher):
+    filename = u"onitu,is*a project ?!_-ùñï©œð€.txt"
+    folder = u'default'
+    module_launcher.create_file(folder, filename, 100)
+    fid = get_fid(folder, filename)
+    fid_path = u"/api/v1.0/files/{}/content".format(
+        quote(fid)
+    )
+    url = u"{}{}".format(api_addr, fid_path)
+
+    r = get(url)
+    assert r.status_code == 200
+    assert len(r.content) == 100
+
+
 def test_file_fail(module_launcher):
     module_launcher.create_file('default', "test_file.txt")
 
