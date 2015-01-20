@@ -6,22 +6,25 @@ environment:
     - PYTHON: "C:/Python34"
 
 install:
-  - ps: (new-object net.webclient).DownloadFile('https://downloads.sourceforge.net/project/pywin32/pywin32/Build%20219/pywin32-219.win32-py2.7.exe', 'C:/pywin32-219.win32-py2.7.exe')
-  - ps: (new-object net.webclient).DownloadFile('https://raw.github.com/pypa/pip/master/contrib/get-pip.py', 'C:/get-pip.py')
-  - "%PYTHON%/python.exe C:/get-pip.py"
-  - "%PYTHON%/Scripts/easy_install.exe C:/pywin32-219.win32-py2.7.exe"
-  - "git clone https://github.com/onitu/leveldb.git"
-  - "cd leveldb/"
-  - ps: "Get-ChildItem -path C:/Libraries/boost -recurse"
-  - cmake . -G "Visual Studio 9 2008" -DBOOST_ROOT="C:/Libraries/boost" -DBOOST_LIBRARYDIR="C:/Libraries/boost/lib32-msvc-12.0"
-  - "msbuild leveldb.sln"
-  - ps: "Get-ChildItem -path . -recurse"
-  - "cp Debug/leveldbd.lib %PYTHON%/libs/leveldb.lib"
-  - "cp port/win/stdint.h %PYTHON%/Include"
-  - ps: "Copy-Item include/leveldb $Env:PYTHON/Include -recurse"
-  - ps: "Copy-Item C:/Libraries/boost/stage/lib/*.lib $Env:PYTHON/libs/"
-  - "cd ../"
-  - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
+  - git clone git@github.com:zalanyib/leveldb-mingw.git
+  - cd leveldb-mingw
+  - mingw32-make
+  # - ps: (new-object net.webclient).DownloadFile('https://downloads.sourceforge.net/project/pywin32/pywin32/Build%20219/pywin32-219.win32-py2.7.exe', 'C:/pywin32-219.win32-py2.7.exe')
+  # - ps: (new-object net.webclient).DownloadFile('https://raw.github.com/pypa/pip/master/contrib/get-pip.py', 'C:/get-pip.py')
+  # - "%PYTHON%/python.exe C:/get-pip.py"
+  # - "%PYTHON%/Scripts/easy_install.exe C:/pywin32-219.win32-py2.7.exe"
+  # - "git clone https://github.com/onitu/leveldb.git"
+  # - "cd leveldb/"
+  # - ps: "Get-ChildItem -path C:/Libraries/boost -recurse"
+  # - cmake . -G "Visual Studio 9 2008" -DBOOST_ROOT="C:/Libraries/boost" -DBOOST_LIBRARYDIR="C:/Libraries/boost/lib32-msvc-12.0"
+  # - "msbuild leveldb.sln"
+  # - ps: "Get-ChildItem -path . -recurse"
+  # - "cp Debug/leveldbd.lib %PYTHON%/libs/leveldb.lib"
+  # - "cp port/win/stdint.h %PYTHON%/Include"
+  # - ps: "Copy-Item include/leveldb $Env:PYTHON/Include -recurse"
+  # - ps: "Copy-Item C:/Libraries/boost/stage/lib/*.lib $Env:PYTHON/libs/"
+  # - "cd ../"
+  # - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
 
 build: off
 deploy: off
