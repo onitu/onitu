@@ -131,31 +131,6 @@ def set_status(abs_path, status):
         )
 
 
-def set_status(abs_path, status):
-
-    tmp_dir = tempfile.gettempdir()
-    tmp_filename = tmp_dir + os.sep + 'onitu_synced_files'
-
-    try:
-        with open(tmp_filename, "r") as jsonFile:
-            data = json.load(jsonFile)
-    except IOError as e:
-        data = dict()
-
-    if status is None:
-        data.pop(abs_path, None)
-    else:
-        data[abs_path] = status
-
-    try:
-        with open(tmp_filename, "w") as jsonFile:
-            jsonFile.write(json.dumps(data, indent=4))
-    except IOError as e:
-        raise ServiceError(
-            u"Error to write in status file '{}': {}".format(tmp_filename, e)
-        )
-
-
 @plug.handler()
 def normalize_path(p):
     normalized = os.path.normpath(os.path.expanduser(p))
