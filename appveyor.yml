@@ -11,8 +11,8 @@ environment:
 install:
   - "hg clone https://bitbucket.org/robertvazan/leveldb-windows"
   - "cd leveldb-windows"
+  - "nuget restore LevelDB.sln"
   - ps: 'Get-ChildItem -path . -recurse'
-  - "nuget restore *.sln"
   # - set CMAKE_GENERATOR="Visual Studio 12"
   # - set BOOST_DEFINITIONS=-DBOOST_ROOT="%BOOST_ROOT%" -DBOOST_LIBRARYDIR="%BOOST_ROOT%/lib32-msvc-12.0"
   # - ps: (new-object net.webclient).DownloadFile('https://downloads.sourceforge.net/project/pywin32/pywin32/Build%20219/pywin32-219.win32-py2.7.exe', 'C:/pywin32-219.win32-py2.7.exe')
