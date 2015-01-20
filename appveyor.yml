@@ -9,8 +9,9 @@ environment:
     BOOST_ROOT: "C:/Libraries/boost"
 
 install:
-- nuget install LevelDB
-- ps: "Get-ChildItem -Path . –Recurse"
+  - "hg clone hg clone ssh://hg@bitbucket.org/robertvazan/leveldb-windows"
+  - "cd leveldb-windows"
+  - "nuget restore *.sln"
   # - set CMAKE_GENERATOR="Visual Studio 12"
   # - set BOOST_DEFINITIONS=-DBOOST_ROOT="%BOOST_ROOT%" -DBOOST_LIBRARYDIR="%BOOST_ROOT%/lib32-msvc-12.0"
   # - ps: (new-object net.webclient).DownloadFile('https://downloads.sourceforge.net/project/pywin32/pywin32/Build%20219/pywin32-219.win32-py2.7.exe', 'C:/pywin32-219.win32-py2.7.exe')
