@@ -131,9 +131,10 @@ def test_service():
     assert json['options'] == rep1.options
 
 
-def test_file_id():
+def test_file_id(module_launcher):
     filename = u"onitu,is*a project ?!_-ùñï©œð€.txt"
-    folder = u't€st'
+    folder = u'default'
+    module_launcher.create_file(folder, filename, 100)
     fid_path = u"/api/v1.0/files/id/{}/{}".format(
         quote(b(folder)), quote(b(filename))
     )

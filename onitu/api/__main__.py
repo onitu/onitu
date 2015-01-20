@@ -146,8 +146,8 @@ def api_doc():
 
 @app.route('/api/v1.0/files/id/<folder>/<name>', method='GET')
 def get_file_id(folder, name):
-    folder = unquote(folder)
-    name = unquote(name)
+    folder = u(unquote(folder))
+    name = u(unquote(name))
     fid = get_fid(folder, name)
     metadata = escalator.get('file:{}'.format(fid), default=None)
     if metadata is None:
