@@ -63,15 +63,11 @@ class Plug(object):
         self.publisher = self.context.socket(zmq.PUSH)
         self.publisher.connect(get_events_uri(session, 'referee'))
 
-        self.root = self.escalator.get(
-            u'service:{}:root'.format(name), default=''
-        )
-
         self.options = self.escalator.get(
             u'service:{}:options'.format(name), default={}
         )
 
-        self.folders = Folder.get_folders(self.escalator, self.name)
+        self.folders = Folder.get_folders(self)
 
         self.validate_options(manifest)
 
@@ -181,19 +177,9 @@ class Plug(object):
         return new_metadata
 
     def get_folder(self, filename):
-        folder = None
-
-        # We select the folder containing the file which is
-        # the closer to the root
-        for candidate in self.folders.values():
-            if candidate.contains(filename):
-                if folder:
-                    if folder.contains(candidate.path):
-                        folder = candidate
-                else:
-                    folder = candidate
-
-        return folder
+        for folder in self.folders.values():
+            if folder.contains(filename):
+                return folder
 
     def get_metadata(self, filename, folder=None):
         """
@@ -238,6 +224,12 @@ class Plug(object):
         prefix = u'path:{}:{}'.format(folder, path)
         return {filename.replace(prefix, '', 1): fid
                 for filename, fid in self.escalator.range(prefix)}
+
+    def exists(self, folder, path):
+        """
+        Return whether the given path exists in the folder or not.
+        """
+        return self.escalator.exists(u'path:{}:{}'.format(folder, path))
 
     def validate_options(self, manifest):
         """
@@ -363,3 +355,12 @@ class Plug(object):
             prefix = u'service:{}:db:'.format(self.name)
             self._service_db = self.escalator.clone(prefix=prefix)
         return self._service_db
+
+    @property
+    def folders_to_watch(self):
+        """
+        Return the list of the folders which should be watched by the driver
+        """
+        # As we don't handle read-only folders yet, this returns all the
+        # folders
+        return tuple(self.folders.values())

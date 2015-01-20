@@ -247,7 +247,7 @@ def test_rename(setup, launcher):
         launcher.close()
 
 
-def test_update_size(setup, launcher):
+def test_update_size_from_source(setup, launcher):
     A = TestDriver('A', folders={
         'dir': 'dir',
     })
@@ -270,23 +270,47 @@ def test_update_size(setup, launcher):
 
         loop = BooleanLoop()
 
-        # Update from the source
         launcher.on_event_ignored_size(
-            loop.stop, folder='dir', filename='test1', size=3
+            loop.stop, folder='dir', filename='test', size=3
         )
-        launcher.copy_file('dir', 'test1', 3, A)
+        launcher.copy_file('dir', 'test', 3, A)
         loop.run(timeout=1)
 
-        launcher.copy_file('dir', 'test1', 10, A, B)
+        launcher.copy_file('dir', 'test', 10, A, B)
+    finally:
+        launcher.close()
 
-        # Update from another service
+
+def test_update_size_from_other_service(setup, launcher):
+    A = TestDriver('A', folders={
+        'dir': 'dir',
+    })
+    B = TestDriver('B', folders={
+        'dir': 'dir',
+    })
+
+    setup.folders = {
+        'dir': {
+            'file_size': {
+                'min': 5,
+            }
+        }
+    }
+    setup.add(A)
+    setup.add(B)
+
+    try:
+        launcher()
+
+        loop = BooleanLoop()
+
         launcher.on_event_ignored_size(
-            loop.stop, folder='dir', filename='test2', size=3
+            loop.stop, folder='dir', filename='test', size=3
         )
-        launcher.copy_file('dir', 'test2', 3, A)
+        launcher.copy_file('dir', 'test', 3, A)
         loop.run(timeout=1)
 
-        launcher.copy_file('dir', 'test2', 10, B, A)
+        launcher.copy_file('dir', 'test', 10, B, A)
     finally:
         launcher.close()
 

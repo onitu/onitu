@@ -49,37 +49,37 @@ class Driver(driver.Driver):
             pass
 
     def mkdir(self, subdirs):
-        self.dropbox_client.file_create_folder(u(self.root + subdirs))
+        self.dropbox_client.file_create_folder(u(subdirs))
 
     def rmdir(self, path):
         self.unlink(path)
 
     def write(self, filename, content):
-        self.dropbox_client.put_file(u(self.root + filename), content)
+        self.dropbox_client.put_file(u(filename), content)
 
     def generate(self, filename, size):
         self.write(filename, os.urandom(size))
 
     def exists(self, filename):
         metadata = self.dropbox_client.metadata(
-            u(self.root + filename),
+            u(filename),
             include_deleted=True
         )
         return not metadata.get(u'is_deleted', False)
 
     def unlink(self, filename):
         # Dropbox needs bytes for file_delete, for god-knows-what reason
-        self.dropbox_client.file_delete(b(self.root + filename))
+        self.dropbox_client.file_delete(filename)
 
     def rename(self, source, target):
         # Same thing than for file_delete
         self.dropbox_client.file_move(
-            from_path=b(self.root + source),
-            to_path=b(self.root + target)
+            from_path=b(source),
+            to_path=b(target)
         )
 
     def checksum(self, filename):
-        data = self.dropbox_client.get_file(u(self.root + filename))
+        data = self.dropbox_client.get_file(u(filename))
         return hashlib.md5(data.read()).hexdigest()
 
 

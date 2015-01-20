@@ -1,13 +1,16 @@
 import zmq
 from logbook import Logger
 
-from onitu.utils import get_events_uri, log_traceback
+from onitu.utils import b, get_events_uri, log_traceback
 from onitu.escalator.client import EscalatorClosed
 
 from .metadata import Metadata
+from .exceptions import AbortOperation
 
 CHUNK = b'C'
 FILE = b'F'
+ERROR = b'E'
+OK = b'O'
 
 
 class Router(object):
@@ -43,6 +46,8 @@ class Router(object):
             self.listen()
         except EscalatorClosed:
             pass
+        except zmq.ZMQError:
+            pass
         except Exception:
             log_traceback(self.logger)
         finally:
@@ -51,23 +56,33 @@ class Router(object):
 
     def listen(self):
         while True:
+            msg = self.router.recv_multipart()
+
             try:
-                msg = self.router.recv_multipart()
-            except zmq.ZMQError as e:
-                if e.errno == zmq.ETERM:
-                    break
+                resp = [ERROR]
+                identity = msg[0]
+                resp = self.handle(*msg[1:]) or [OK]
+            except AbortOperation:
+                pass
+            except RuntimeError as e:
+                self.logger.error(e)
+            except Exception as e:
+                log_traceback(self.logger)
 
-            self.handle(*msg)
+            self.router.send_multipart([identity] + resp)
 
-    def handle(self, identity, cmd, fid, *args):
+    def handle(self, cmd, fid, *args):
         handler = self.handlers.get(cmd)
 
         if not handler:
-            return
+            raise RuntimeError("Received an unknown command")
 
         metadata = Metadata.get_by_id(self.plug, fid.decode())
-        resp = handler(metadata, *args)
-        self.router.send_multipart([identity] + resp)
+
+        if not metadata:
+            raise RuntimeError("Cannot get metadata for fid {}".format(fid))
+
+        return handler(metadata, *args)
 
     def _handle_get_chunk(self, metadata, offset, size):
         """Calls the `get_chunk` handler defined by the driver to get
@@ -93,4 +108,5 @@ class Router(object):
             )
             return [FILE, self.call('get_file', metadata)]
         elif 'get_chunk' in self.plug._handlers:
-            return self._handle_get_chunk(metadata, '0', str(metadata.size))
+            return self._handle_get_chunk(metadata, b'0',
+                                          b(str(metadata.size)))

@@ -1,4 +1,4 @@
-import os
+from .exceptions import DriverError
 
 
 class Folder(object):
@@ -12,26 +12,49 @@ class Folder(object):
         return self.name
 
     @classmethod
-    def get_folders(cls, escalator, service):
+    def get_folders(cls, plug):
         folders = {}
-        for name in escalator.get(u'service:{}:folders'.format(service),
-                                  default=[]):
-            folders[name] = cls.get(escalator, service, name)
+        names = plug.escalator.get(u'service:{}:folders'.format(plug.name),
+                                   default=())
+        for folder in names:
+            folders[folder] = cls.get(plug, folder)
+
+        # If after the normalization any folder is embedded in another, we
+        # throw an error.
+        for folder in folders.values():
+            for candidate in folders.values():
+                if candidate.contains(folder.path):
+                    raise DriverError(
+                        'Folder {} is embedded in folder {}. Please check '
+                        'your configuration.'.format(folder, candidate)
+                    )
+
         return folders
 
     @classmethod
-    def get(cls, escalator, service, name):
-        prefix = u'service:{}:folder:{}'.format(service, name)
-        path = escalator.get(u'{}:path'.format(prefix), default="")
-        options = escalator.get(u'{}:options'.format(prefix), default={})
+    def get(cls, plug, folder):
+        prefix = u'service:{}:folder:{}'.format(plug.name, folder)
+        path = plug.escalator.get(u'{}:path'.format(prefix), default="")
+        options = plug.escalator.get(u'{}:options'.format(prefix), default={})
 
-        return cls(name, path, options)
+        normalized_path = plug.call('normalize_path', path)
+
+        if normalized_path is not None:
+            path = normalized_path
+
+        return cls(folder, path, options)
 
     def relpath(self, filename):
-        return os.path.relpath(filename, self.path)
+        if not filename.startswith(self.path):
+            raise DriverError(
+                u"'{}' is not in the folder {}".format(filename, self.name)
+            )
+        return filename[len(self.path):].lstrip('/')
 
     def join(self, filename):
-        return os.path.join(self.path, filename)
+        if filename.startswith(self.path):
+            filename = filename[len(self.path):]
+        return self.path.rstrip('/') + '/' + filename.lstrip('/')
 
     def contains(self, filename):
-        return filename.startswith(self.path)
+        return filename != self.path and filename.startswith(self.path)

@@ -3,8 +3,6 @@ import shutil
 import hashlib
 import tempfile
 
-from path import path
-
 from tests.utils import driver
 from onitu.utils import b
 
@@ -12,7 +10,7 @@ class Driver(driver.Driver):
     SPEED_BUMP = 1
 
     def __init__(self, *args, **options):
-        self._root = path(tempfile.mkdtemp())
+        self._root = tempfile.mkdtemp()
         super(Driver, self).__init__('local_storage',
                                      *args,
                                      **options)
@@ -22,10 +20,13 @@ class Driver(driver.Driver):
         return self._root
 
     def close(self):
-        self.root.rmtree('.')
+        shutil.rmtree(self.root)
 
     def mkdir(self, subdirs):
-        (self.root / subdirs).makedirs_p()
+        try:
+            os.makedirs(os.path.join(self.root, subdirs))
+        except OSError:
+            pass
 
         # Give some time to inotify in order
         # to avoid a known bug where new files
@@ -36,7 +37,7 @@ class Driver(driver.Driver):
         time.sleep(0.1)
 
     def rmdir(self, path):
-        shutil.rmtree(self.root / path)
+        shutil.rmtree(os.path.join(self.root, path))
 
     def write(self, filename, content):
         with open(self.root / filename, 'wb+') as f:
@@ -46,13 +47,15 @@ class Driver(driver.Driver):
         self.write(filename, os.urandom(size))
 
     def exists(self, filename):
-        return os.path.exists(self.root / filename)
+        return os.path.exists(os.path.join(self.root, filename))
 
     def unlink(self, filename):
-        return os.unlink(self.root / filename)
+        return os.unlink(os.path.join(self.root, filename))
 
     def rename(self, source, target):
-        return os.rename(self.root / source, self.root / target)
+        return os.renames(
+            os.path.join(self.root, source), os.path.join(self.root, target)
+        )
 
     def checksum(self, filename):
         with open(self.root / filename, 'rb') as f:

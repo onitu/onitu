@@ -134,7 +134,8 @@ class Launcher(object):
                 self.on_driver_started(loop.check, driver=service.name)
 
         self.process = Popen(
-            ('onitu', '--setup', self.setup.filename, '--no-dispatcher'),
+            ('onitu', '--config-dir', self.setup.config_dir, '--setup',
+             self.setup.filename, '--no-dispatcher'),
             stdout=PIPE if stdout else None,
             stderr=PIPE if stderr else None,
         )

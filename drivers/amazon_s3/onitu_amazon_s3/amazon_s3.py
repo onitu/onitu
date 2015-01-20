@@ -54,23 +54,14 @@ def get_conn():
             err += u": Invalid credentials."
         err += u" Please check your Amazon S3 configuration - {}".format(httpe)
         raise DriverError(err)
+    plug.logger.debug("Connection with Amazon S3 account successful")
     return S3Conn
-
-
-def get_root():
-    """Returns Onitu's root for S3. Removes the leading slash if any."""
-    root = plug.root
-    if root.startswith(u'/'):  # S3 doesn't like leading slashes
-        root = root[1:]
-    return root
 
 
 def get_file_timestamp(filename):
     """Returns the float timestamp based on the
     date format timestamp stored by Amazon.
     Prefixes the given filename with Onitu's root."""
-    global S3Conn
-
     metadata = S3Conn.head_object(u(filename))
     timestamp = metadata.headers['last-modified']
     # convert timestamp to timestruct...
@@ -83,8 +74,6 @@ def get_file_timestamp(filename):
 def add_to_cache(multipart_upload):
     """Caches a multipart upload. Checks that the cache isn't growing
     past MAX_CACHE_SIZE and that it isn't in the cache yet."""
-    global cache
-
     if len(cache) < MAX_CACHE_SIZE:
         if multipart_upload.uploadId not in cache:
             cache[multipart_upload.uploadId] = multipart_upload
@@ -92,8 +81,6 @@ def add_to_cache(multipart_upload):
 
 def remove_from_cache(multipart_upload):
     """Removes the given MultipartUpload from the cache, if in it."""
-    global cache
-
     if multipart_upload.uploadId in cache:
         del cache[multipart_upload.uploadId]
 
@@ -102,9 +89,6 @@ def get_multipart_upload(metadata):
     """Returns the multipart upload we have the ID of in metadata.
     As Amazon allows several multipart uploads at the same time
     for the same file, the ID is the only unique, reliable descriptor."""
-    global S3Conn
-    global cache
-
     multipart_upload = None
     metadata_mp_id = None
     filename = metadata.path
@@ -142,12 +126,7 @@ def set_chunk_size(chunk_size):
 
 @plug.handler()
 def get_chunk(metadata, offset, size):
-    global S3Conn
-    global plug
-
     filename = metadata.path
-    plug.logger.debug(u"GET CHUNK {} {} {}".format(filename, offset,
-                                                   size))
     plug.logger.debug(u"Downloading {} bytes from the {} key"
                       u" on bucket {}".format(size, filename,
                                               plug.options['bucket']))
@@ -197,9 +176,6 @@ def upload_chunk(metadata, offset, chunk):
 
 @plug.handler()
 def start_upload(metadata):
-    global S3Conn
-    global plug
-
     filename = metadata.path
     plug.logger.debug(u"Starting upload of '{}' to '{}' on bucket {}"
                       .format(filename, filename,
@@ -222,8 +198,6 @@ def start_upload(metadata):
 
 @plug.handler()
 def upload_file(metadata, data):
-    global S3Conn
-    global plug
     filename = metadata.path
     plug.logger.debug(u"Starting one-shot upload of '{}' on bucket {}"
                       .format(filename, plug.options['bucket']))
@@ -239,8 +213,6 @@ def upload_file(metadata, data):
 
 @plug.handler()
 def end_upload(metadata):
-    global S3Conn
-
     multipart_upload = get_multipart_upload(metadata)
     filename = metadata.path
     # Finish the upload on remote server before getting rid of the
@@ -284,8 +256,6 @@ def abort_upload(metadata):
 
 @plug.handler()
 def move_file(old_metadata, new_metadata):
-    global plug
-    global S3Conn
     old_filename = old_metadata.path
     new_filename = new_metadata.path
     bucket = plug.options['bucket']
@@ -316,8 +286,6 @@ def move_file(old_metadata, new_metadata):
 
 @plug.handler()
 def delete_file(metadata):
-    global plug
-    global S3Conn
     try:
         filename = metadata.path
         plug.logger.debug(u"Deleting {} "
@@ -338,34 +306,26 @@ class CheckChanges(threading.Thread):
     we can do is periodically polling the bucket's contents and compare the
     timestamps."""
 
-    def __init__(self, timer):
+    def __init__(self, folder, timer):
         threading.Thread.__init__(self)
-        self.stop = threading.Event()
+        self.stopEvent = threading.Event()
         self.timer = timer
+        self.folder = folder
+        self.prefix = folder.path.lstrip(u"/")  # strip leading slashes
+        if not self.prefix.endswith(u"/"):
+            self.prefix += u"/"
 
     def check_bucket(self):
-        global S3Conn
-        global plug
-
-        plug.logger.debug(u"Checking bucket"
-                          u" {} for changes".format(plug.options['bucket']))
-        # We're only interested in keys and uploads under Onitu's root
-        root = get_root()
-        # We add a trailing slash to only list files under root and not the
-        # root itself
-        if not root.endswith(u'/'):
-            root += u'/'
+        prfx = self.prefix  # Folder name, e.g. "pando/music/"
+        plug.logger.debug(u"Checking folder"
+                          u" {} for changes".format(prfx))
         # We need to unroll the generator to be able to check for folders
-        keys = [key for key in S3Conn.list(prefix=root)]
-        plug.logger.debug(u"Processing files under '{}'".format(root))
-        # Getting multipart uploads once for all files under root
+        keys = [key for key in S3Conn.list(prefix=prfx)]
+        plug.logger.debug(u"Processing files under '{}'".format(prfx))
+        # Getting multipart uploads once for all files under this folder
         # is WAY faster than re-getting them for each file
-        multipart_uploads = S3Conn.get_all_multipart_uploads(prefix=root)
+        multipart_uploads = S3Conn.get_all_multipart_uploads(prefix=prfx)
         keys_being_uploaded = [mp.key for mp in multipart_uploads]
-        # We have to be extra careful because S3 will list filenames without
-        # leading slash.
-        if root.startswith('/'):
-            root = root[1:]
         for key in keys:
             plug.logger.debug(u"Processing file '{}'".format(key['key']))
             # During an upload, files can appear on the S3 file system
@@ -380,16 +340,16 @@ class CheckChanges(threading.Thread):
             # regular files. If a file is empty, check if other files begin
             # by its name (meaning it contains them)
             if key['size'] == 0:
-                prefix = key['key'] + '/'
+                folderPrefix = key['key'] + u"/"
                 children = [child for child in keys
-                            if child['key'].startswith(prefix)]
+                            if child['key'].startswith(folderPrefix)]
                 if children:
                     plug.logger.debug(u"File '{}' is a folder on S3"
                                       u" - skipped".format(key['key']))
                     continue
-            # Strip the S3 root of the S3 filename for root coherence.
-            rootless_key = key['key'][len(root):]
-            metadata = plug.get_metadata(rootless_key)
+            # Strip the folder name of the S3 filename for folder coherence.
+            filename = key['key'][len(self.prefix):]
+            metadata = plug.get_metadata(filename, self.folder)
             onitu_ts = metadata.extra.get('timestamp', 0.0)
             remote_ts = time.mktime(key['last_modified'].timetuple())
             if onitu_ts < remote_ts:  # Remote timestamp is more recent
@@ -402,15 +362,13 @@ class CheckChanges(threading.Thread):
                           .format(self.timer))
 
     def run(self):
-        global plug
-
-        while not self.stop.isSet():
+        while not self.stopEvent.isSet():
             try:
                 self.check_bucket()
             except requests.HTTPError as httpe:
-                err = u"Error while polling Onitu's S3 bucket"
+                err = u"Error while polling Onitu's S3 bucket:"
                 if httpe.response.status_code == 404:
-                    err += u": The given bucket {} doesn't exist".format(
+                    err += u" The given bucket {} doesn't exist".format(
                         plug.options['bucket'])
                 err += u" - {}".format(httpe)
                 plug.logger.error(err)
@@ -418,11 +376,10 @@ class CheckChanges(threading.Thread):
                 err = u"Failed to connect to Onitu's S3 bucket for polling"
                 err += u" - {}".format(conne)
                 plug.logger.error(err)
-            # if the bucket read operation times out
+            # if the bucket read operation times out, cannot do much about it
             except SSLError as ssle:
                 plug.logger.warning(u"Couldn't poll S3 bucket '{}': {}"
                                     .format(plug.options['bucket'], ssle))
-                pass  # cannot do much about it
             # Happens when connection is reset by peer
             except socket.error as serr:
                 plug.logger.warning(u"Network problem, trying to reconnect. "
@@ -431,44 +388,41 @@ class CheckChanges(threading.Thread):
             except EscalatorClosed:
                 # We are closing
                 return
-            self.stop.wait(self.timer)
+            self.stopEvent.wait(self.timer)
 
     def stop(self):
-        self.stop.set()
+        self.stopEvent.set()
 
 
 def start():
-    global S3Conn
-
     if plug.options['changes_timer'] < 0:
         raise DriverError(
             u"The change timer option must be a positive integer")
     get_conn()  # connection to S3
-    root = get_root()
-    if root != '':
-        # Check that the given root isn't a regular file
+    for folder in plug.folders_to_watch:
+        # Check that the given folder isn't a regular file
         try:
-            root_key = S3Conn.get(root)
+            folder_key = S3Conn.get(folder.path)
         except requests.HTTPError as httpe:
             if httpe.response.status_code == 404:
                 # it's alright, root doesn't exist, no problem
                 pass
             else:  # another error
-                raise DriverError(u"Cannot fetch Onitu's root ({}) on"
-                                  u" bucket "
-                                  u"{}: {}".format(plug.root,
-                                                   plug.options['bucket'],
-                                                   httpe))
+                raise DriverError(u"Error while fetching folder '{}' on"
+                                  u" bucket {}: {}"
+                                  .format(folder.path,
+                                          plug.options['bucket'],
+                                          httpe))
         else:  # no error - root already exists
             # Amazon S3 has no concept of directories, they're just 0-size
             # files. So if root hasn't a size of 0, it is a regular file.
-            if len(root_key.content) != 0:
-                raise DriverError(
-                    u"Onitu's root ({}) is a regular file on the '{}' bucket. "
-                    u"It has to be an empty file.".format(
-                        plug.root, plug.options['bucket'])
-                    )
-    check = CheckChanges(plug.options['changes_timer'])
-    check.daemon = True
-    check.start()
+            if len(folder_key.content) != 0:
+                raise DriverError(u"Folder {} is a regular file on the"
+                                  u"'{}' bucket. Please delete it"
+                                  .format(folder.path,
+                                          plug.options['bucket']))
+        check = CheckChanges(folder, plug.options['changes_timer'])
+        check.daemon = True
+        check.start()
+
     plug.listen()

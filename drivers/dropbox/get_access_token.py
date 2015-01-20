@@ -15,7 +15,7 @@ url = sess.build_authorize_url(request_token)
 # Make the user sign in and authorize this token
 print("url: {}".format(url))
 print("Please visit this website and press the 'Allow' button,"
-      "then hit 'Enter' here.")
+      " then hit 'Enter' here.")
 # Python 2/3 compatibility
 try:
     raw_input()
@@ -24,4 +24,5 @@ except NameError:
 # This will fail if the user didn't visit the above URL
 access_token = sess.obtain_access_token(request_token)
 # Print the token for future reference
+print("Use these keys to fill your setup.yml configuration file:")
 print('Access Key:', access_token.key, 'Access Secret:', access_token.secret)

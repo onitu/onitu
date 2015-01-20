@@ -8,6 +8,7 @@ from multiprocessing.pool import ThreadPool
 from logbook import Logger
 
 from onitu.utils import get_events_uri, b, log_traceback
+from onitu.escalator.client import EscalatorClosed
 
 from .workers import WORKERS, UP
 
@@ -54,6 +55,8 @@ class Dealer(object):
             self.logger.info("Started")
 
             self.listen(listener)
+        except EscalatorClosed:
+            pass
         except Exception:
             log_traceback(self.logger)
         finally:

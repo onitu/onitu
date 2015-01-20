@@ -2,35 +2,23 @@ name: example
 
 folders:
   music:
-    type:
-      - audio/
+    mimetypes:
+      - "audio/*"
   docs:
     blacklist:
       - "*.bak"
       - Private/
-  backup:
     file_size:
-      max: 2G
+      max: 15 Mb
 
 services:
   A:
     driver: local_storage
-    root: example/service_a
     folders:
-      music: Music
-      docs: Docs
-      backup:
-        mode: ro
+      music: ~/Music
+      docs: ~/Docs
   B:
     driver: local_storage
-    root: example/service_b
     folders:
-      backup:
-        mode: ro
-  C:
-    driver: local_storage
-    root: example/service_c
-    folders:
-      backup:
-        path: backup
-        mode: wo
+      music: ~/My Music
+      docs: ~/My Documents
