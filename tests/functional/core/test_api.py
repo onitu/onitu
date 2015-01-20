@@ -174,7 +174,7 @@ def test_list_files(module_launcher):
 
 
 def test_file_content(module_launcher):
-    filename = u"onitu,is*a project ?!_-ùñï©œð€.txt"
+    filename = u"onitu,is*a project ?!_-ùñï©œð€.png"
     folder = u'default'
     module_launcher.create_file(folder, filename, 100)
     fid = get_fid(folder, filename)
@@ -186,6 +186,7 @@ def test_file_content(module_launcher):
     r = get(url)
     assert r.status_code == 200
     assert len(r.content) == 100
+    assert r.headers['content-type'] == 'image/png'
     module_launcher.delete_file(folder, filename, rep1, rep2)
 
 

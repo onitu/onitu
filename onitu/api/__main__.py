@@ -11,7 +11,7 @@ from circus.client import CircusClient
 from onitu.escalator.client import Escalator
 from onitu.utils import get_fid, u, b, PY2, get_circusctl_endpoint
 from onitu.utils import get_events_uri, get_logs_uri
-from onitu.plug.router import GET_FILE, ERROR
+from onitu.plug.router import FILE, ERROR
 
 if PY2:
     from urllib import unquote as unquote_
@@ -184,7 +184,7 @@ def get_file_content(fid):
     if not metadata:
         return file_not_found(fid)
     service = metadata['uptodate'][0]
-    content = call_handler(service, GET_FILE, fid)
+    content = call_handler(service, FILE, fid)
     if content[0] != ERROR:
         response.content_type = metadata['mimetype']
         response.headers['Content-Disposition'] = (
