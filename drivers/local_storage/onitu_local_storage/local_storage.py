@@ -33,9 +33,14 @@ if IS_WINDOWS:
 
 
 def to_tmp(filename):
-    return os.path.join(
-        os.path.dirname(filename), '.' + os.path.basename(filename) + TMP_EXT
-    )
+    if IS_WINDOWS:
+        return os.path.join(
+            os.path.dirname(filename), os.path.basename(filename) + TMP_EXT
+        )
+    else:
+        return os.path.join(
+            os.path.dirname(filename), '.' + os.path.basename(filename) + TMP_EXT
+        )
 
 
 def walkfiles(root):
@@ -46,7 +51,6 @@ def walkfiles(root):
 
 
 def update(metadata, mtime=None):
-
     try:
         metadata.size = os.path.getsize(metadata.path)
 
@@ -67,9 +71,7 @@ def delete(metadata):
 
 
 def move(old_metadata, new_filename):
-    if IS_WINDOWS and old_metadata is None:
-        writingDict[new_filename] = Rtime
-        return
+  #  print(new_filename)
     new_metadata = plug.move_file(old_metadata, new_filename)
     new_metadata.extra['revision'] = os.path.getmtime(new_filename)
     # We update the size in case the file was moved very quickly after a change
@@ -81,15 +83,14 @@ def check_changes(folder):
     expected_files = set()
 
     expected_files.update(plug.list(folder).keys())
-
     for path in walkfiles(folder.path):
         if os.path.splitext(path)[1] == TMP_EXT:
             continue
-
         filename = folder.relpath(path)
-
+        if IS_WINDOWS:
+            filename = filename[1:].replace("\\", "/")
+			
         expected_files.discard(filename)
-
         metadata = plug.get_metadata(filename, folder)
         revision = metadata.extra.get('revision', 0.)
 
@@ -103,7 +104,6 @@ def check_changes(folder):
 
         if mtime > revision:
             update(metadata, mtime)
-
     for filename in expected_files:
         metadata = plug.get_metadata(filename, folder)
         # If we don't see this file and we're not uptodate, this could
@@ -248,60 +248,56 @@ if IS_WINDOWS:
     def verifDictModifFile(writingDict, Rtime, cleanOld=False):
         for i, j in list(writingDict.items()):
             if cleanOld is False:
-                if Rtime - j >= 1.0:
+                if Rtime - j[0] >= 1.0:
                         try:
                             fd = os.open(i, os.O_RDONLY)
                         except(IOError, OSError) as e:
                             continue
                         else:
                             os.close(fd)
-                            metadata = plug.get_metadata(i)
-                            update(metadata, i)
+                            metadata = plug.get_metadata(str(u(j[2])).replace("\\", "/"), j[1])
+                            update(metadata)
                             del writingDict[i]
             else:
                 if j > 1 and Rtime - j >= 2:
                         del writingDict[i]
         return writingDict
 
-    def fileAction(abs_path, action, ignoreNotif, writingDict,
+    def fileAction(dir, filename, action, ignoreNotif, writingDict,
                    transferSet, actions_names, Rtime):
-        abs_path = u(abs_path)
-        metadata = plug.get_metadata(abs_path)
-        if metadata == None:
+        metadata = plug.get_metadata(u(filename).replace("\\", "/"), dir)
+        if metadata is None:
             return
         if (actions_names.get(action) == 'write' or
             actions_names.get(action) == 'create') and \
            metadata.path not in ignoreNotif:
-            if os.access(abs_path, os.R_OK):
-                writingDict[abs_path] = Rtime
+            if os.access(metadata.path, os.R_OK):
+                writingDict[metadata.path] = (Rtime, dir, metadata.filename)
         elif actions_names.get(action) == 'delete' and \
                 metadata.path not in ignoreNotif:
             delete(metadata)
         elif actions_names.get(action) == 'moveFrom' and \
-                abs_path not in ignoreNotif:
-            old_path = abs_path
+                metadata.path not in ignoreNotif:
             fileAction.oldMetadata = metadata
-            if old_path.endswith(TMP_EXT):
-                ignoreNotif[root + old_path[1:len(TMP_EXT)]] = \
+            if metadata.path.endswith(TMP_EXT):
+                ignoreNotif[metadata.path[:len(TMP_EXT)]] = \
                     False
             elif fileAction.oldMetadata is not None:
-                ignoreNotif[fileAction.oldMetadata.path] = False
+                ignoreNotif[metadata.path] = False
                 fileAction.moving = True
-#            if fileAction.oldMetadata is None:
-                # may need to verify this in moveTo and do an update instead
-#                return
         elif actions_names.get(action) == 'moveTo' and fileAction.moving:
             ignoreNotif[metadata.path] = False
-            move(fileAction.oldMetadata, abs_path)
+            move(fileAction.oldMetadata, metadata.path)
             fileAction.moving = False
             if fileAction.oldMetadata.filename.endswith(TMP_EXT):
-                del ignoreNotif[fileAction.oldMetadata.filename[:len(TMP_EXT)]]
+                del ignoreNotif[metadata.path]
             else:
                 del ignoreNotif[fileAction.oldMetadata.path]
                 ignoreNotif[metadata.path] = Rtime
+            fileAction.oldMetadata = None
         if (actions_names.get(action) == 'create' or
             actions_names.get(action) == 'write') and \
-                abs_path not in transferSet and abs_path in ignoreNotif:
+                metadata.path and metadata.path in ignoreNotif:
             if ignoreNotif[metadata.path] is not False:
                 transferSet.add(metadata.path)
 
@@ -372,7 +368,7 @@ if IS_WINDOWS:
                     for file in abs_path.walkfiles():
                         try:
                             with file_lock:
-                                fileAction(file, action, ignoreNotif,
+                                fileAction(dir.folder, file_, action, ignoreNotif,
                                            writingDict, transferSet, actions_names,
                                            Rtime)
                         except EscalatorClosed:
@@ -386,7 +382,7 @@ if IS_WINDOWS:
                     continue
                 try:
                     with file_lock:
-                        fileAction(abs_path, action, ignoreNotif,
+                        fileAction(dir.folder, file_, action, ignoreNotif,
                                    writingDict, transferSet, actions_names,
                                    Rtime)
                 except EscalatorClosed:
