@@ -1,5 +1,23 @@
 name: example
 
+api:
+  host: localhost
+  port: 3862
+
+users:
+
+  # Generate passhash like this:
+  # python -c 'import passlib.hash; print(passlib.hash.sha256_crypt.encrypt("bar"))'
+  # python -c 'import passlib.hash; print(passlib.hash.sha256_crypt.encrypt("eggs"))'
+
+  foo:
+    passhash: '$5$rounds=110000$m9wWP.4MAF4my6i9$i1cDs9zfFrm7.0BHDslJDeJBDkhoCet4F/Fd6913pqD'
+    roles: user, admin
+
+  spam:
+    passhash: '$5$rounds=110000$fVxj3yfUG4v4JWUs$IOAg2L7Inzi1B9NAZPzZyBFEt8Q0HLXLeTIcnoUcH6A'
+    roles: user
+
 folders:
   music:
     mimetypes:

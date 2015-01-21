@@ -23,7 +23,9 @@ setup(
         "plyvel",
         "pyyaml",
         "msgpack-python",
-        "bottle"
+        "bottle",
+        "PyJWT",
+        "passlib"
     ],
     extras_require={
         'dev': ['flake8', 'tox'],

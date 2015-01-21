@@ -1,6 +1,7 @@
 import os
 import json
 import shutil
+from passlib.hash import sha256_crypt as passwordhash
 
 from onitu.utils import TMPDIR, b, get_random_string
 
@@ -8,11 +9,19 @@ from .launcher import Launcher
 
 
 class Setup(object):
-    def __init__(self, folders=None):
+    def __init__(self, folders=None, api=None, users=None):
         self.services = {}
         if folders is None:
             folders = {}
         self.folders = folders
+
+        if api is None:
+            api = {"host": "localhost", "port": 3862}
+        self.api = api
+
+        if users is None:
+            users = {}
+        self.users = users
 
         self._json = None
 
@@ -32,6 +41,10 @@ class Setup(object):
 
         return self
 
+    def add_user(self, user, pwd, roles):
+        self.users[user] = {"passhash": passwordhash.encrypt(pwd),
+                            "roles": roles}
+
     def clean(self, services=True):
         if services:
             for service in self.services.values():
@@ -46,6 +59,8 @@ class Setup(object):
             setup['name'] = self.name
         setup['services'] = {name: e.dump for name, e in self.services.items()}
         setup['folders'] = self.folders
+        setup['api'] = self.api
+        setup['users'] = self.users
         return setup
 
     @property

@@ -63,16 +63,33 @@ def start_setup(*args, **kwargs):
     try:
         escalator = Escalator(session, create_db=True)
 
+        def get_dict(parent, name):
+            """This gets a dict but is nice towards empty non-dicts."""
+            d = parent.get(name, {}) or {}
+            if isinstance(d, dict):
+                return d
+            logger.error("Configured {} should be a dict. (ignored)"
+                         .format(name))
+            return {}
+
+        api = get_dict(setup, 'api')
+
+        escalator.put('api:host', api.get('host'))
+        escalator.put('api:port', api.get('port'))
+
         with escalator.write_batch() as batch:
+
+            users = get_dict(setup, 'users')
+            for name, options in users.items():
+                batch.put(u'users:{}'.format(name), options or {})
+
             # TODO: handle folders from previous run
-            for name, options in setup.get('folders', {}).items():
-                if options is None:
-                    options = {}
+            folders = get_dict(setup, 'folders')
+            for name, options in folders.items():
+                batch.put(u'folder:{}'.format(name), options or {})
 
-                batch.put(u'folder:{}'.format(name), options)
-
-        services = setup.get('services', {})
-        escalator.put('services', list(services.keys()))
+            services = get_dict(setup, 'services')
+            escalator.put('services', list(services.keys()))
 
         yield start_watcher("Referee", 'onitu.referee')
 

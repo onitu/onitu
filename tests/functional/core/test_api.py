@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import time
+from requests.auth import HTTPBasicAuth
 
 import requests
 import pytest
@@ -19,12 +20,11 @@ else:
 
 rep1, rep2 = None, None
 
+adminname, adminpwd = "admin", "adminpwd"
+username, userpwd = "user", "userpwd"
 
-def get_services():
-    global rep1, rep2
-    rep1, rep2 = TestDriver(u'R€p1'), TestDriver(u'®èp2')
-    return rep1, rep2
-
+adminauth = HTTPBasicAuth(adminname, adminpwd)
+userauth = HTTPBasicAuth(username, userpwd)
 
 api_addr = "http://localhost:3862"
 monitoring_path = u"/api/v1.0/services/{}/{}"
@@ -34,25 +34,58 @@ services_path = "/api/v1.0/services"
 STOP = ("stopped", "stopping")
 
 
+def init_setup(setup):
+    global rep1, rep2
+    rep1, rep2 = TestDriver(u'R€p1'), TestDriver(u'®èp2')
+    setup.add(rep1)
+    setup.add(rep2)
+    setup.add_user(adminname, adminpwd, ("user", "admin"))
+    setup.add_user(username, userpwd, ("user"))
+
+
 @pytest.fixture(autouse=True)
 def _(module_launcher, module_launcher_launch):
     pass
 
 
 def get(*args, **kwargs):
+
+    auth = kwargs.pop('auth', None)
+
     while True:
         try:
-            return requests.get(*args, **kwargs)
+            response = requests.get(*args, **kwargs)
+            if response.status_code == 401:
+                assert auth is not None
+                kwargs['auth'] = auth
+                auth = None
+            else:
+                assert auth is None
+                break
         except requests.exceptions.ConnectionError:
             time.sleep(0.1)
+
+    return response
 
 
 def put(*args, **kwargs):
+
+    auth = kwargs.pop('auth', None)
+
     while True:
         try:
-            return requests.put(*args, **kwargs)
+            response = requests.put(*args, **kwargs)
+            if response.status_code == 401:
+                assert auth is not None
+                kwargs['auth'] = auth
+                auth = None
+            else:
+                assert auth is None
+                break
         except requests.exceptions.ConnectionError:
             time.sleep(0.1)
+
+    return response
 
 
 def extract_json(req):
@@ -100,7 +133,7 @@ def stop(circus_client, name):
 def test_services():
     url = "{}{}".format(api_addr, services_path)
 
-    r = get(url)
+    r = get(url, auth=userauth)
     json = extract_json(r)
     assert "services" in json
     j = json['services']
@@ -115,7 +148,7 @@ def test_services():
 def test_service_fail():
     url = "{}{}/{}".format(api_addr, services_path, "fail-repo")
 
-    r = get(url)
+    r = get(url, auth=userauth)
     json = extract_json(r)
     assert r.status_code == 404
     assert json['status'] == "error"
@@ -125,7 +158,7 @@ def test_service_fail():
 def test_service():
     url = u"{}{}/{}".format(api_addr, services_path, rep1.name)
 
-    r = get(url)
+    r = get(url, auth=userauth)
     json = extract_json(r)
     assert r.status_code == 200
     assert json['driver'] == rep1.type
@@ -142,7 +175,7 @@ def test_file_id(module_launcher):
     )
     url = u"{}{}".format(api_addr, fid_path)
 
-    r = get(url)
+    r = get(url, auth=userauth)
     json = extract_json(r)
     assert r.status_code == 200
     assert json[filename] == get_fid(folder, filename)
@@ -165,7 +198,7 @@ def test_list_files(module_launcher):
         file_name = files_names[i]
         file_size = origin_files[file_name]
         module_launcher.create_file('default', file_name, file_size)
-    r = get(url)
+    r = get(url, auth=userauth)
     json = extract_json(r)
     files = json['files']
     assert r.status_code == 200
@@ -185,7 +218,7 @@ def test_file_content(module_launcher):
     )
     url = u"{}{}".format(api_addr, fid_path)
 
-    r = get(url)
+    r = get(url, auth=userauth)
     assert r.status_code == 200
     assert len(r.content) == 100
     assert r.headers['content-type'] == 'image/png'
@@ -197,7 +230,7 @@ def test_file_fail(module_launcher):
 
     file_path = files_path.format("non-valid-id")
     url = "{}{}".format(api_addr, file_path)
-    r = get(url)
+    r = get(url, auth=userauth)
     json = extract_json(r)
 
     assert r.status_code == 404
@@ -211,7 +244,7 @@ def test_file(module_launcher):
 
     file_path = files_path.format(fid)
     url = "{}{}".format(api_addr, file_path)
-    r = get(url)
+    r = get(url, auth=userauth)
     json = extract_json(r)
 
     assert r.status_code == 200
@@ -226,7 +259,7 @@ def test_stop(circus_client):
     start(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "stop")
     url = u"{}{}".format(api_addr, monitoring)
-    r = put(url)
+    r = put(url, auth=adminauth)
     json = extract_json(r)
     assert r.status_code == 200
     assert json['status'] == "ok"
@@ -240,7 +273,7 @@ def test_start(circus_client):
     stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "start")
     url = u"{}{}".format(api_addr, monitoring)
-    r = put(url)
+    r = put(url, auth=adminauth)
     json = extract_json(r)
     assert r.status_code == 200
     assert json['status'] == "ok"
@@ -254,7 +287,7 @@ def test_restart(circus_client):
     start(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "restart")
     url = u"{}{}".format(api_addr, monitoring)
-    r = put(url)
+    r = put(url, auth=adminauth)
     json = extract_json(r)
     assert r.status_code == 200
     assert json['status'] == "ok"
@@ -267,7 +300,7 @@ def test_stop_already_stopped(circus_client):
     stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "stop")
     url = u"{}{}".format(api_addr, monitoring)
-    r = put(url)
+    r = put(url, auth=adminauth)
     json = extract_json(r)
     assert r.status_code == 409
     assert json['status'] == "error"
@@ -282,7 +315,7 @@ def test_start_already_started(circus_client):
     start(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "start")
     url = u"{}{}".format(api_addr, monitoring)
-    r = put(url)
+    r = put(url, auth=adminauth)
     json = extract_json(r)
     assert r.status_code == 409
     assert json['status'] == "error"
@@ -296,7 +329,7 @@ def test_restart_stopped(circus_client):
     stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "restart")
     url = u"{}{}".format(api_addr, monitoring)
-    r = put(url)
+    r = put(url, auth=adminauth)
     json = extract_json(r)
     assert r.status_code == 409
     assert json['status'] == "error"
@@ -313,7 +346,7 @@ def test_stats_running(circus_client):
              'mem_info2', 'started']
     monitoring = monitoring_path.format(rep1.name, "stats")
     url = u"{}{}".format(api_addr, monitoring)
-    r = get(url)
+    r = get(url, auth=adminauth)
     json = extract_json(r)
     assert r.status_code == 200
     assert json['status'] == "ok"
@@ -328,7 +361,7 @@ def test_stats_stopped(circus_client):
     stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "stats")
     url = u"{}{}".format(api_addr, monitoring)
-    r = get(url)
+    r = get(url, auth=adminauth)
     json = extract_json(r)
     assert r.status_code == 409
     assert json['status'] == "error"
@@ -342,7 +375,7 @@ def test_status_started(circus_client):
     start(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "status")
     url = u"{}{}".format(api_addr, monitoring)
-    r = get(url)
+    r = get(url, auth=adminauth)
     json = extract_json(r)
     assert r.status_code == 200
     assert json['name'] == rep1.name
@@ -353,7 +386,7 @@ def test_status_stopped(circus_client):
     stop(circus_client, rep1.name)
     monitoring = monitoring_path.format(rep1.name, "status")
     url = u"{}{}".format(api_addr, monitoring)
-    r = get(url)
+    r = get(url, auth=adminauth)
     json = extract_json(r)
     assert r.status_code == 200
     assert json['name'] == rep1.name
