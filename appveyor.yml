@@ -10,11 +10,12 @@ install:
   - cd leveldb-mingw
   - set PATH=%PATH%;C:\MinGW\msys\1.0\bin;C:\MinGW\bin
   - mingw32-make
+  - ps: "Get-ChildItem -path . -recurse"
   - ps: (new-object net.webclient).DownloadFile('https://downloads.sourceforge.net/project/pywin32/pywin32/Build%20219/pywin32-219.win32-py2.7.exe', 'C:/pywin32-219.win32-py2.7.exe')
   - ps: (new-object net.webclient).DownloadFile('https://raw.github.com/pypa/pip/master/contrib/get-pip.py', 'C:/get-pip.py')
   - "%PYTHON%/python.exe C:/get-pip.py"
   - "%PYTHON%/Scripts/easy_install.exe C:/pywin32-219.win32-py2.7.exe"
-  - "cp leveldb.lib leveldb.dll %PYTHON%/libs/"
+  - "cp leveldb.lib leveldb.dll libleveldb.* %PYTHON%/libs/"
   - "cp leveldb.lib leveldb.dll ../"
   - ps: "Copy-Item include/leveldb $Env:PYTHON/Include -recurse"
   - "cd ../"
