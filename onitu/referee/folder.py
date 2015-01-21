@@ -6,6 +6,7 @@ class Folder(object):
         self.name = name
         self.services = services
         self.logger = logger
+        self.options = options
 
     def __str__(self):
         return self.name
@@ -18,16 +19,19 @@ class Folder(object):
     @classmethod
     def get_folders(cls, escalator, services, logger):
 
-        services = {
-            s: escalator.get(u'service:{}:folders'.format(s), default={})
-            for s in services
-        }
+        sfopts = {}
+        for s in services:
+            folders = {}
+            for f in escalator.get(u'service:{}:folders'.format(s)):
+                folders[f] = escalator.get(
+                    u'service:{}:folder:{}:options'.format(s, f))
+            sfopts[s] = folders
 
         folders = {}
 
         for key, options in escalator.range('folder:'):
             name = key.split(':')[-1]
-            dest = {s: o[name] for s, o in services.items() if name in o}
+            dest = {s: o[name] for s, o in sfopts.items() if name in o}
             folders[name] = cls(name, dest, logger, options)
 
         return folders
@@ -59,7 +63,7 @@ class Folder(object):
 
         targets = set()
         for service, options in self.services.items():
-            if service is source:
+            if service == source:
                 continue
             if self.assert_options(options, metadata):
                 targets.add(service)
