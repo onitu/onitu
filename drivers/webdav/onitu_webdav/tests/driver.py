@@ -5,7 +5,7 @@ from io import BytesIO
 
 from tests.utils import driver
 from onitu_webdav.wd import get_WEBDAV_client, create_dirs
-from onitu.utils import get_random_string
+from onitu.utils import get_random_string, b
 
 
 class Driver(driver.Driver):
@@ -41,32 +41,32 @@ class Driver(driver.Driver):
         create_dirs(self.webd, subdirs)
 
     def rmdir(self, path):
-        self.webd.clean(path)
+        self.webd.clean(b(path))
 
     def write(self, filename, content):
         create_dirs(self.webd, os.path.dirname(filename))
         buff = BytesIO(content)
-        self.webd.upload_from(buff, filename)
+        self.webd.upload_from(buff, b(filename))
 
     def generate(self, filename, size):
         self.write(filename, os.urandom(size))
 
     def exists(self, filename):
         try:
-            self.webd.info(filename)
+            self.webd.info(b(filename))
         except:
             return False
         return True
 
     def unlink(self, filename):
-        self.webd.clean(filename)
+        self.webd.clean(b(filename))
 
     def rename(self, source, target):
-        self.webd.move(remote_path_from=source, remote_path_to=target)
+        self.webd.move(remote_path_from=b(source), remote_path_to=b(target))
 
     def checksum(self, filename):
         buff = BytesIO()
-        self.webd.download_to(buff, filename)
+        self.webd.download_to(buff, b(filename))
         data = buff.getvalue()
         md5 = hashlib.md5(data).hexdigest()
         return md5
