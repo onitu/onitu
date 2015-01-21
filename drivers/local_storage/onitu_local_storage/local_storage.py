@@ -263,6 +263,15 @@ if IS_WINDOWS:
                         del writingDict[i]
         return writingDict
 
+    def moveFrom(metadata):
+        fileAction.oldMetadata = metadata
+        if metadata.path.endswith(TMP_EXT):
+            ignoreNotif[metadata.path[:len(TMP_EXT)]] = \
+                False
+        elif fileAction.oldMetadata is not None:
+            ignoreNotif[metadata.path] = False
+            fileAction.moving = True
+
     def fileAction(dir, filename, action, ignoreNotif, writingDict,
                    transferSet, actions_names, Rtime):
         metadata = plug.get_metadata(u(filename).replace("\\", "/"), dir)
@@ -278,13 +287,7 @@ if IS_WINDOWS:
             delete(metadata)
         elif actions_names.get(action) == 'moveFrom' and \
                 metadata.path not in ignoreNotif:
-            fileAction.oldMetadata = metadata
-            if metadata.path.endswith(TMP_EXT):
-                ignoreNotif[metadata.path[:len(TMP_EXT)]] = \
-                    False
-            elif fileAction.oldMetadata is not None:
-                ignoreNotif[metadata.path] = False
-                fileAction.moving = True
+            moveFrom(metadata)
         elif actions_names.get(action) == 'moveTo' and fileAction.moving:
             ignoreNotif[metadata.path] = False
             move(fileAction.oldMetadata, metadata.path)
@@ -331,8 +334,7 @@ if IS_WINDOWS:
         }
         global ignoreNotif
         fileAction.moving = False
-        old_path = None
-        old_metadata = None
+        old_path = ""
         writingDict = dict()
         stop = CreateEvent(None, 0, 0, None)
         while True:
@@ -362,23 +364,41 @@ if IS_WINDOWS:
             transferSet = set()
             for action, file_ in events:
                 abs_path = path.path(dir.folder.path + "/" + file_)
-                if actions_names[action] != 'write' and abs_path.isdir() and \
-                   os.access(abs_path, os.R_OK) and \
+                if actions_names[action] == 'moveFrom':
+                    old_path = file_
+                if actions_names[action] != 'write' and \
+				   actions_names[action] != 'create' \
+				   and abs_path.isdir() and os.access(abs_path, os.R_OK) and \
                    len(os.listdir(abs_path)) != 0:
                     for file in abs_path.walkfiles():
                         try:
                             with file_lock:
-                                fileAction(dir.folder, file_, action, ignoreNotif,
+                                file = dir.folder.relpath(file)
+                                old_file = file
+                                for i in range(0, old_path.count("\\") + 1):
+                                    ret = old_file.partition("\\")
+                                    if ret[1] == "":
+                                        old_file = ret[0]
+                                        break
+                                    old_file = ret[2]
+                                if actions_names[action] == 'moveTo':
+                                    metadata = plug.get_metadata(u((old_path + "/" + old_file)).replace("\\", "/"), dir.folder)
+                                    if metadata == None:
+                                        continue
+                                    moveFrom(metadata)
+                                fileAction(dir.folder, file, action, ignoreNotif,
                                            writingDict, transferSet, actions_names,
                                            Rtime)
                         except EscalatorClosed:
                             return
-                if (abs_path.isdir() or abs_path.ext == TMP_EXT or
-                    os.path.exists(abs_path) and
+
+                if (abs_path.isdir() or abs_path.ext == TMP_EXT or \
+                    (os.path.exists(abs_path) and
                     (not (win32api.GetFileAttributes(abs_path)
                           & win32con.FILE_ATTRIBUTE_NORMAL) and
                     not (win32api.GetFileAttributes(abs_path)
-                         & win32con.FILE_ATTRIBUTE_ARCHIVE))):
+                         & win32con.FILE_ATTRIBUTE_ARCHIVE)))) and \
+						 not actions_names[action] == 'delete':
                     continue
                 try:
                     with file_lock:
