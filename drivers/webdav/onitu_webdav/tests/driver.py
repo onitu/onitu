@@ -59,7 +59,7 @@ class Driver(driver.Driver):
         return True
 
     def unlink(self, filename):
-        self.clean(filename)
+        self.webd.clean(filename)
 
     def rename(self, source, target):
         self.webd.move(remote_path_from=source, remote_path_to=target)
@@ -73,4 +73,4 @@ class Driver(driver.Driver):
 
 
 class DriverFeatures(driver.DriverFeatures):
-    pass
+    move_file_to_onitu = False

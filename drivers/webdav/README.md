@@ -33,3 +33,17 @@ services:
     folders:
       backup: /dav/backup
 ```
+
+To test the driver, you can define the following env var:
+
+- ONITU_WEBDAV_HOSTNAME
+- ONITU_WEBDAV_CHANGE_TIMER
+- ONITU_WEBDAV_USERNAME
+- ONITU_WEBDAV_PASSWORD
+- ONITU_WEBDAV_ROOT to define where the test will be stored during the tests.
+
+To launch the tests:
+
+```
+ONITU_TEST_TIME_UNIT=5 ONITU_TEST_DRIVER=webdav py.test tests/
+```
