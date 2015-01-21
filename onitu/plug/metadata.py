@@ -35,8 +35,6 @@ class Metadata(object):
     def __init__(self, plug=None, filename=None, folder=None, folder_name=None,
                  size=0, fid=None, uptodate=[], mimetype=None):
         super(Metadata, self).__init__()
-        if IS_WINDOWS:
-            filename = filename.replace("\\", "/")
         self.filename = filename
         self.size = size
         self.uptodate = uptodate
@@ -68,8 +66,6 @@ class Metadata(object):
         """Instantiate a new :class:`.Metadata` object for the file
         with the given name inside the given folder.
         """
-        if IS_WINDOWS:
-            filename = filename.replace("\\", "/")
         fid = get_fid(folder, filename)
         return cls.get_by_id(plug, fid)
 
