@@ -19,7 +19,7 @@ install:
   - "cp port/win/stdint.h %PYTHON%/Include"
   - ps: "Copy-Item include/leveldb $Env:PYTHON/Include -recurse"
   - "cd ../"
-  - ps: "New-Item -path $Env:PYTHON/Lib/ -Name distutils.cfg -Value '[build]\n\rcompiler=mingw32' -ItemType file -force"
+  - ps: "New-Item -path $Env:PYTHON/Lib/distutils/ -Name distutils.cfg -Value '[build]\n\rcompiler=mingw32' -ItemType file -force"
   - "%PYTHON%/Scripts/pip.exe install -r requirements.txt"
 
 build: off
