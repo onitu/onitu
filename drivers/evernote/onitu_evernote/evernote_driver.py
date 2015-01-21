@@ -40,11 +40,12 @@ def delete_resource(rscMetadata):
         note = notestore_onitu.getNote(token, noteGuid,
                                        False, False, False, False)
         note.resources = [rsc for rsc in note.resources if rsc.guid != rcGuid]
+        # TODO Parse the note's content and remove the references to this resource
         note = notestore_onitu.updateNote(token, note)
         noteMetadata = plug.get_metadata(u"{}/{}"
                                          .format(rscMetadata.folder.path,
                                                  note.title + u".enml"))
-        update_note_metadata(noteMetadata, note)
+        update_note_metadata(noteMetadata, note, updateSize=False)
     except KeyError as ke:
         raise DriverError(u"Resource {} lacks of extra data ! - {}"
                           .format(rscMetadata.path, ke))
@@ -71,6 +72,7 @@ def update_resource_metadata(onituMetadata, resource, updateFile=False):
     if resource.data is not None:
         onituMetadata.size = resource.data.size
     onituMetadata.extra[u'guid'] = resource.guid
+    onituMetadata.extra[u'hash'] = resource.data.bodyHash
     # noteGuid helps us to remember if a file is a file's resource or not
     onituMetadata.extra[u'note_guid'] = resource.noteGuid
     onituMetadata.extra[u'USN'] = resource.updateSequenceNum
@@ -78,11 +80,13 @@ def update_resource_metadata(onituMetadata, resource, updateFile=False):
         plug.update_file(onituMetadata)
 
 
-def update_note_metadata(onituMetadata, note, updateFile=False):
+def update_note_metadata(onituMetadata, note,
+                         updateSize=True, updateFile=False):
     """Updates the Onitu metadata of an Evernote note. If updateFile is True,
     call plug.update_file. If not, just call metadata.write"""
     plug.logger.debug(u"Updating metadata of {}", onituMetadata.path)
-    onituMetadata.size = note.contentLength
+    if updateSize:
+        onituMetadata.size = note.contentLength
     onituMetadata.extra[u'guid'] = note.guid
     onituMetadata.extra[u'hash'] = note.contentHash
     onituMetadata.extra[u'USN'] = note.updateSequenceNum
@@ -166,16 +170,28 @@ def update_note_content(metadata, content, note=None):
     """Updates the content of an Evernote note with the given content.
     Also provides content hash and length. An existing note can be passed, so
     that it won't be retrieved twice."""
-    if note is None:
-        # Ask only for note and its content, no resource info
-        note = notestore_onitu.getNote(token, metadata.extra[u'guid'],
-                                       True, False, False, False)
-    note.content = content
-    md5_hash = hashlib.md5()
-    md5_hash.update(content)
-    md5_hash = md5_hash.digest()
-    note.contentHash = md5_hash
-    note.contentLength = len(content)
+    try:
+        if note is None:
+            # Ask only for note and its content, no resource info
+            note = notestore_onitu.getNote(token, metadata.extra[u'guid'],
+                                           True, False, False, False)
+        note.content = content
+        md5_hash = hashlib.md5()
+        md5_hash.update(content)
+        md5_hash = md5_hash.digest()
+        # Sometimes we have problems with local storages sending several
+        # updates notifications even though the contents of the file haven't
+        # changed... So this is to prevent useless note updates !
+        if md5_hash == note.contentHash:
+            return None
+        note.contentHash = md5_hash
+        note.contentLength = len(content)
+        plug.logger.debug("Note content: {}", note.content)
+        notestore_onitu.updateNote(token, note)
+    except (EDAMUserException, EDAMSystemException,
+            EDAMNotFoundException) as exc:
+        raise ServiceError(u"Unable to update note {} - {}"
+                           .format(metadata.path, exc))
     return note
 
 
@@ -189,30 +205,6 @@ def create_note(metadata, content, notebook):
 
 
 # ############################# ONITU HANDLERS ###############################
-
-# Unexpected error calling 'move_file': 'str' object has no attribute 'write'
-# with updateresource we cannot update the content, only metadata
-# @plug.handler()
-# def move_file(old_metadata, new_metadata):
-#     global notestore_onitu
-#     global dev_token
-#
-#     note = notestore_onitu.getNote(token, old_metadata.extra['guid'],
-#                                    False, False, True, False)
-#
-#     res = note.resources[0]  # Types.Resource()
-#     attr = Types.ResourceAttributes()
-#     attr.fileName = new_metadata.filename
-#     print
-#     print "MOVE: New filename =" + attr.fileName
-#     print
-#
-# #    res.guid = note.resources[0].guid
-#     res.attributes = attr
-#     res.mime = new_metadata.mimetype
-#     # notestore_onitu.updateResource(dev_token, res)
-#
-
 
 @plug.handler()
 def get_file(metadata):
@@ -236,88 +228,52 @@ def get_file(metadata):
     return data
 
 
-# @plug.handler()
-# def upload_file(metadata, content):
-#     # A couple of helper nested functions to easily handle retries
-#     def upload_note(metadata, content):
-#         if metadata.extra.get('evernote_guid', None) is None:
-#             # Create the note via the Evernote API in case of new file
-#             plug.logger.debug(u"Creating note {}".format(metadata.filename))
-#             note = create_note(metadata, content)
-#         else:
-#             # If it is a file already registered to Evernote, just update it
-#             plug.logger.debug(u"Updating note {}".format(metadata.filename))
-#             note = update_note_content(metadata, content)
-#             note = notestore_onitu.updateNote(token, note)
-#         return note
-#
-#     def upload_resource(metadata, content):
-#         """The process of updating a resource is quite the same than to delete
-#         one."""
-#         guid = metadata.extra['evernote_guid']  # guid of the resource
-#         plug.logger.debug(u"Updating note resource {} (GUID {})"
-#                           .format(metadata.filename, guid))
-#         # Get the note and manually update the resource in the resource list
-#         # Yep, that's dirty, because there's no dedicated API
-#         # call, but it is the official best practice...
-#         # note = notestore_onitu.getNote(token, resourceNoteGuid,
-#         #                               False, False, False, False)
-#         resource = None
-#         # Reconstruct the list omitting the concerned resource.
-#         for rsc in note.resources:
-#             if rsc.guid == guid:
-#                 rsc.data = content
-#                 resource = rsc
-#                 break
-#         if resource is None:
-#             raise DriverError(u"No Evernote Resource GUID for file {} !"
-#                               .format(metadata.filename))
-#         plug.logger.debug("Successfully updated the resource")
-#         return resource
-#
-#     # TODO Correctly manage upload_file
-#     # If upload_file modifies the content of the note, we have to call
-#     # update_file in the end to notify the other drivers
-#     update = False
-#     try:
-#         # If it's a resource
-#         if metadata.extra.get('evernote_note_guid', None) is not None:
-#             resource = upload_resource(metadata, content)
-#         else:
-#             note = upload_note(metadata, content)
-#     except EDAMUserException as eue:
-#         # Evernote can raise content-related errors when the user updates the
-#         # note's contents. E.g. when creating a new note, the user may
-#         # forget to enclose the content evernote boilerplate markup. It's
-#         # likely to raise an error in case of empty note or premature content
-#         # start. We must detect those cases and try to add the markup
-#         knownErrors = ['Content is not allowed in prolog.',
-#                        'Premature end of file.']
-#         if (eue.errorCode == EDAMErrorCode.ENML_VALIDATION
-#            and eue.parameter in knownErrors):
-#             plug.logger.warning("Catched content exception, trying to"
-#                                 " fix by putting content in Evernote markup")
-#             content = enclose_content_with_markup(content)
-#             note = upload_note(metadata, content)  # Try again
-#             update = True
-#         else:  # A UserException we don't know
-#             raise ServiceError(u"Couldn't upload note {}: {}"
-#                                .format(metadata.filename, eue))
-#     except (EDAMSystemException, EDAMNotFoundException) as exc:
-#         raise ServiceError(u"Couldn't upload note {}: {}"
-#                            .format(metadata.filename, exc))
-#     except Exception as e:
-#         raise DriverError("Unexpected error {}".format(e))
-#     # If the evernote part was OK, update onitu metadata
-#     if metadata.extra.get('evernote_note_guid', None) is not None:
-#         update_resource_metadata(metadata, resource)
-#     else:
-#         # Call plug.update_file if we modified the content by
-#         # enclosing ENML markup
-#         update_note_metadata(metadata, note, updateFile=update)
-#     plug.logger.debug(u"Upload of file {} completed", metadata.filename)
-#
-#
+@plug.handler()
+def upload_file(metadata, content):
+    if metadata.filename in files_to_ignore:
+        return
+    files_to_ignore.add(metadata.filename)
+    firstSlashIdx = metadata.filename.find(u"/")
+    noteTitle = metadata.filename[:firstSlashIdx]
+    plug.logger.debug("noteTitle of {}: {}", metadata.filename, noteTitle)
+
+    if firstSlashIdx != -1:
+        guid = metadata.extra.get('guid', None)
+
+        if guid is None:
+            # TODO Get the note GUID by title
+            # if it exists:
+            #    add this as a resource
+            # else:
+            #     check the name:
+                    # if its mimetype begins by "text" or ends with 'xml':
+                        # if metadata.filename != "title.enml":
+                        #     plug.move_file
+                        # createNote + manage markup enclosing problems
+                    # else:
+                    #     fail (DriverError)
+            pass  # Create a new note
+        else:
+            rscNoteGuid = metadata.extra.get('note_guid', None)
+            if rscNoteGuid is None:  # it's the note
+                plug.logger.debug("Note new content: {}", content)
+                note = update_note_content(metadata, content)
+                if note is None:
+                    plug.logger.debug(u"Uploaded content for {} is the same "
+                                      u"than on Evernote, no update done",
+                                      metadata.path)
+                else:
+                    update_note_metadata(metadata, note, updateSize=False)
+            else:
+                # TODO Get the note, add a resource, and parse the contents to add a reference to the new resource
+                pass  # update_resource(metadata, content)
+    files_to_ignore.remove(metadata.filename)
+
+
+@plug.handler()
+def abort_upload(metadata):
+    if metadata.filename in files_to_ignore:
+        files_to_ignore.remove(metadata.filename)
 
 
 @plug.handler()
@@ -333,7 +289,7 @@ def delete_file(metadata):
             notestore_onitu.deleteNote(token, metadata.extra['guid'])
             plug.delete_file(metadata)
         else:
-            plug.logger.debug(u"DELETE RESOURCE {}", metadata.path)
+            plug.logger.debug(u"DELETE RESOURCE {}", metadata.path)  # TODO TMP
             delete_resource(metadata)
     except (EDAMUserException, EDAMSystemException,
             EDAMNotFoundException) as exc:
@@ -425,10 +381,16 @@ class CheckChanges(threading.Thread):
                 if onitu_USN == 0:  # new resource
                     register_note_resource(noteOnituMetadata, resource,
                                            resourceMetadata)
-                    plug.logger.debug(noteOnituMetadata.extra)  # TODO tmp
                     doWrite = True
+                bodyHash = resourceMetadata.extra.get(u'hash', "")
+                updateFile = True
+                if bodyHash == resource.data.bodyHash:
+                    plug.logger.debug(u"USN of {} changed but content is "
+                                      u"unchanged, so updating metadata USN "
+                                      u"only", resourceMetadata.path)
+                    updateFile = False
                 update_resource_metadata(resourceMetadata, resource,
-                                         updateFile=True)
+                                         updateFile=updateFile)
             if resourceMetadata.filename in self.filesToDelete:
                 del self.filesToDelete[resourceMetadata.filename]
         return doWrite
@@ -458,7 +420,7 @@ class CheckChanges(threading.Thread):
         updateMetadata = self.update_note_resources(note, onituMetadata)
         # We could want to call plug.update_file or just metadata.write
         if updateMetadata or updateFile:
-            update_note_metadata(onituMetadata, note, updateFile)
+            update_note_metadata(onituMetadata, note, updateFile=updateFile)
 
     def check_updated(self):
         """Checks for updated notes on the Onitu notebook.
