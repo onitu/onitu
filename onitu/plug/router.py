@@ -32,7 +32,7 @@ class Router(object):
 
         self.handlers = {
             CHUNK: self._handle_get_chunk,
-            FILE: self._handle_get_file
+            FILE: self._handle_get_file,
         }
 
     def run(self):

@@ -1,17 +1,24 @@
 import sys
 
+import zmq
+import json
+
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
 from bottle import Bottle, run, response, abort, redirect
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
-from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint, u, PY2
+from onitu.utils import get_fid, u, b, PY2, get_circusctl_endpoint
+from onitu.utils import get_events_uri, get_logs_uri
+from onitu.plug.router import FILE, ERROR
 
 if PY2:
     from urllib import unquote as unquote_
 else:
     from urllib.parse import unquote as unquote_
+
+ONITU_READTHEDOCS = "https://onitu.readthedocs.org/en/latest/api.html"
 
 host = 'localhost'
 port = 3862
@@ -82,6 +89,13 @@ def file_not_found(name):
     )
 
 
+def file_not_found_in_folder(name, folder):
+    return error(
+        error_code=404,
+        error_message="file {} not found in folder {}".format(name, folder)
+    )
+
+
 def service_not_found(name):
     return error(
         error_code=404,
@@ -106,17 +120,39 @@ def timeout():
     )
 
 
+def call_handler(service, cmd, *args):
+    context = zmq.Context.instance()
+    dealer = context.socket(zmq.DEALER)
+    dealer.connect(get_events_uri(session, service, 'router'))
+
+    try:
+        message = [cmd] + [b(arg) for arg in args]
+        dealer.send_multipart(message)
+        return dealer.recv_multipart()
+    finally:
+        dealer.close()
+
+
+@app.route('/', method='GET')
+def api_root():
+    redirect("https://onitu.github.io")
+
+
 @app.route('/api', method='GET')
 @app.route('/api/v1.0', method='GET')
 def api_doc():
-    redirect("https://onitu.readthedocs.org/en/latest/api.html")
+    redirect(ONITU_READTHEDOCS)
 
 
 @app.route('/api/v1.0/files/id/<folder>/<name>', method='GET')
 def get_file_id(folder, name):
-    folder = unquote(folder)
-    name = unquote(name)
-    return {name: get_fid(folder, name)}
+    folder = u(unquote(folder))
+    name = u(unquote(name))
+    fid = get_fid(folder, name)
+    metadata = escalator.get('file:{}'.format(fid), default=None)
+    if metadata is None:
+        return file_not_found_in_folder(name, folder)
+    return {name: fid}
 
 
 @app.route('/api/v1.0/files', method='GET')
@@ -139,6 +175,23 @@ def get_file(fid):
         abort(404)
     metadata['fid'] = fid
     return metadata
+
+
+@app.route('/api/v1.0/files/<fid>/content', method='GET')
+def get_file_content(fid):
+    fid = unquote(fid)
+    metadata = escalator.get('file:{}'.format(fid), default=None)
+    if not metadata:
+        return file_not_found(fid)
+    service = metadata['uptodate'][0]
+    content = call_handler(service, FILE, fid)
+    if content[0] != ERROR:
+        response.content_type = metadata['mimetype']
+        response.headers['Content-Disposition'] = (
+            'attachment; filename="{}"'.format(b(metadata['filename']))
+        )
+        return content[1]
+    return error()
 
 
 @app.route('/api/v1.0/services', method='GET')
@@ -295,6 +348,30 @@ def restart_service(name):
     except Exception as e:
         resp = error(error_message=str(e))
     return resp
+
+
+@app.error(404)
+def error404(error_data):
+    # we have to define the content type ourselves and to use the
+    # module json because bottle does not respect the content type on
+    # error routings
+    # https://github.com/bottlepy/bottle/issues/359
+    response.content_type = 'application/json; charset=UTF-8'
+    return json.dumps(
+        error(
+            error_code=404,
+            error_message="the route is not valid. The documentation is on {}"
+            .format(ONITU_READTHEDOCS)
+        )
+    )
+
+
+@app.error(500)
+def error500(error_data):
+    response.content_type = 'application/json; charset=UTF-8'
+    return json.dumps(
+        error()
+    )
 
 
 if __name__ == '__main__':
