@@ -247,18 +247,36 @@ def create_note(metadata, content, notebook, title=None):
         if metadata.filename != expected:
             new_metadata = plug.move_file(metadata, expected)
 
-    try:
-        note = Types.Note()
-        note.title = title
-        # Update note's contents without calling updateNote
-        note = update_note_content(metadata, content, note=note,
-                                   updateNote=False)
-        note.notebookGuid = notebook.guid
-        note = notestore_onitu.createNote(note)
-    except (EDAMUserException, EDAMSystemException,  # TODO manage markup enclosing problems
-            EDAMNotFoundException) as exc:
+    note = Types.Note()
+    note.title = title
+    note.notebookGuid = notebook.guid
+    # Update note's contents without calling updateNote
+    note = update_note_content(metadata, content, note=note,
+                               updateNote=False)
+
+    error = None
+    while True:
+        try:
+            note = notestore_onitu.createNote(note)
+            break
+        except (EDAMUserException, EDAMSystemException,
+                EDAMNotFoundException) as exc:
+            if (exc.errorCode == 11
+               and exc.parameter == u"Premature end of file."):
+                # Happens when files too short are uploaded.
+                # So try to enclose in the default Evernote markup.
+                plug.logger.debug(u"File {} is too short, putting content in "
+                                  u"Evernote markup", metadata.path)
+                newContent = enclose_content_with_markup(content)
+                note = update_note_content(metadata, newContent, note=note,
+                                           updateNote=False)
+                continue
+            else:
+                error = exc
+                break
+    if error is not None:
         raise ServiceError(u"Unable to create note {} - {}"
-                           .format(metadata.path, exc))
+                           .format(metadata.path, error))
 
     metadata_to_update = metadata
     if new_metadata is not None:
