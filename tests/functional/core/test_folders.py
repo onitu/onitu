@@ -63,7 +63,7 @@ def test_size(setup, launcher):
 
         loop = BooleanLoop()
 
-        launcher.on_event_ignored_size(
+        launcher.on_event_folder_ignored_size(
             loop.stop, folder='dir', filename='test1', size=1
         )
         launcher.copy_file('dir', 'test1', 1, A)
@@ -73,14 +73,14 @@ def test_size(setup, launcher):
         launcher.copy_file('dir', 'test4', 10, A, B)
 
         loop.restart()
-        launcher.on_event_ignored_size(
+        launcher.on_event_folder_ignored_size(
             loop.stop, folder='dir', filename='test5', size=11
         )
         launcher.copy_file('dir', 'test5', 11, A)
         loop.run(timeout=1)
 
         loop.restart()
-        launcher.on_event_ignored_size(
+        launcher.on_event_folder_ignored_size(
             loop.stop, folder='dir', filename='test6', size=12
         )
         launcher.copy_file('dir', 'test6', 12, A)
@@ -113,7 +113,7 @@ def test_blacklist(setup, launcher):
 
         loop = BooleanLoop()
 
-        launcher.on_event_ignored_blacklisted(
+        launcher.on_event_folder_ignored_blacklisted(
             loop.stop, folder='dir', filename='foo/test'
         )
         launcher.copy_file('dir', 'foo/test', 10, A)
@@ -151,13 +151,13 @@ def test_whitelist(setup, launcher):
 
         launcher.copy_file('dir', 'foo/test', 10, A, B)
 
-        launcher.on_event_ignored_not_whitelisted(
+        launcher.on_event_folder_ignored_not_whitelisted(
             loop.stop, folder='dir', filename='foo'
         )
         launcher.copy_file('dir', 'foo', 10, A)
         loop.run(timeout=1)
 
-        launcher.on_event_ignored_not_whitelisted(
+        launcher.on_event_folder_ignored_not_whitelisted(
             loop.stop, folder='dir', filename='toto'
         )
         launcher.copy_file('dir', 'toto', 10, A)
@@ -192,7 +192,7 @@ def test_mimetypes(setup, launcher):
 
         launcher.copy_file('dir', 'test.json', 10, A, B)
 
-        launcher.on_event_ignored_mimetype(
+        launcher.on_event_folder_ignored_mimetype(
             loop.stop, folder='dir', filename='test.js',
             mimetype='application/javascript'
         )
@@ -226,7 +226,7 @@ def test_rename(setup, launcher):
 
         loop = BooleanLoop()
 
-        launcher.on_event_ignored_blacklisted(
+        launcher.on_event_folder_ignored_blacklisted(
             loop.stop, folder='dir', filename='foo/test'
         )
         launcher.copy_file('dir', 'foo/test', 10, A)
@@ -270,7 +270,7 @@ def test_update_size_from_source(setup, launcher):
 
         loop = BooleanLoop()
 
-        launcher.on_event_ignored_size(
+        launcher.on_event_folder_ignored_size(
             loop.stop, folder='dir', filename='test', size=3
         )
         launcher.copy_file('dir', 'test', 3, A)
@@ -304,7 +304,7 @@ def test_update_size_from_other_service(setup, launcher):
 
         loop = BooleanLoop()
 
-        launcher.on_event_ignored_size(
+        launcher.on_event_folder_ignored_size(
             loop.stop, folder='dir', filename='test', size=3
         )
         launcher.copy_file('dir', 'test', 3, A)

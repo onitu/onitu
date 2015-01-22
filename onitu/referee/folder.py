@@ -86,6 +86,9 @@ class Folder(object):
 
         modeopts = options.get("mode", "rw")
         if any(c not in modeopts for c in mode):
+            self.logger.info(
+                "{} ignores event for '{}' because mode is '{}'",
+                authority, metadata['filename'], modeopts)
             return False
 
         # min/max size
