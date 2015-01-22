@@ -16,7 +16,7 @@ from evernote.edam.limits.constants import EDAM_USER_NOTES_MAX
 
 from onitu.plug import Plug, DriverError, ServiceError
 from onitu.escalator.client import EscalatorClosed
-from onitu.utils import b
+from onitu.utils import b, u
 
 token = None
 notestore_onitu = None
@@ -63,7 +63,7 @@ def delete_resource(rscMetadata):
         note = update_note_content(noteGuid, newContent, note=note)
         noteMetadata = plug.get_metadata(u"{}/{}"
                                          .format(rscMetadata.folder.path,
-                                                 note.title + u".enml"))
+                                                 u(note.title) + u".enml"))
         # Remove this resource from the note's resources
         noteResources = noteMetadata.extra.get('resources', {})
         if rcGuid in noteResources:
@@ -119,9 +119,9 @@ def delete_note_resources(noteMetadata):
     """Deletes all the resource files bound to the given note metadata."""
     resources = noteMetadata.extra.get(u'resources', {})
     for filename in resources.values():
-        rscMetadata = plug.get_metadata("{}/{}"
+        rscMetadata = plug.get_metadata(u"{}/{}"
                                         .format(noteMetadata.folder.path,
-                                                filename))
+                                                u(filename)))
         plug.delete_file(rscMetadata)
 
 
@@ -130,11 +130,11 @@ def add_resource_to_note(rscMetadata, rscContent, note):
     content, and modify it in order to show the new resource. Also alters the
     resource list."""
     plug.logger.debug(u"Adding resource {} to note {}",
-                      rscMetadata.path, note.title)
-    filename = rscMetadata.filename.lstrip(u"{}/".format(note.title))
+                      rscMetadata.path, u(note.title))
+    filename = rscMetadata.filename.lstrip(u"{}/".format(u(note.title)))
     newRsc = Types.Resource()
     newRsc.attributes = Types.ResourceAttributes()
-    newRsc.attributes.fileName = filename
+    newRsc.attributes.fileName = b(filename)
 
     newRsc.data = Types.Data()
     newRsc.data.body = rscContent
@@ -176,7 +176,7 @@ def add_resource_to_note(rscMetadata, rscContent, note):
     # body is None, so we won't be able to do a hex hash of it.
     newRsc.updateSequenceNum = lastUSN
     update_resource_metadata(rscMetadata, newRsc, updateSize=False)
-    noteMetadata = plug.get_metadata(u"{0}/{0}.enml".format(note.title),
+    noteMetadata = plug.get_metadata(u"{0}/{0}.enml".format(u(note.title)),
                                      rscMetadata.folder)
     register_note_resource(noteMetadata, newRsc, rscMetadata)
     noteMetadata.write()
@@ -282,29 +282,35 @@ def find_notebook_by_name(name, create=False):
 
 def find_note_by_title(noteTitle, notebookGuid):
     """Search a note in a notebook with its title."""
-    try:
-        # Filter to include only notes from our notebook
-        noteFilter = NoteFilter(order=NoteSortOrder.RELEVANCE,
-                                notebookGuid=notebookGuid)
-        # Note spec to filter even more the findNotesMetadata result
-        resultSpec = (
-            NotesMetadataResultSpec(includeTitle=True,
-                                    includeContentLength=True,
-                                    includeUpdateSequenceNum=True)
-        )
-        res = notestore_onitu.findNotesMetadata(noteFilter, 0,
-                                                EDAM_USER_NOTES_MAX,
-                                                resultSpec)
-        for noteMetadata in res.notes:
-            if noteMetadata.title == noteTitle:
-                plug.logger.debug(u"Found note {}", noteTitle)
-                note = notestore_onitu.getNote(token, noteMetadata.guid,
-                                               True, False, False, False)
-                return note
-    except (EDAMUserException, EDAMSystemException,
-            EDAMNotFoundException) as exc:
-        raise ServiceError(u"Unable to find note {} by its name - {}"
-                           .format(noteTitle, exc))
+    while True:
+        try:
+            plug.logger.debug(u"Searching for {}", u(noteTitle))
+            # Filter to include only notes from our notebook
+            noteFilter = NoteFilter(order=NoteSortOrder.RELEVANCE,
+                                    notebookGuid=notebookGuid)
+            # Note spec to filter even more the findNotesMetadata result
+            resultSpec = (
+                NotesMetadataResultSpec(includeTitle=True,
+                                        includeContentLength=True,
+                                        includeUpdateSequenceNum=True)
+            )
+            res = notestore_onitu.findNotesMetadata(noteFilter, 0,
+                                                    EDAM_USER_NOTES_MAX,
+                                                    resultSpec)
+            noteTitle = b(noteTitle)
+            for noteMetadata in res.notes:
+                if noteMetadata.title == noteTitle:
+                    plug.logger.debug(u"Found note {}", noteTitle)
+                    note = notestore_onitu.getNote(token, noteMetadata.guid,
+                                                   True, False, False, False)
+                    return note
+            break
+        except (EDAMUserException, EDAMSystemException,
+                EDAMNotFoundException) as exc:
+            raise ServiceError(u"Unable to find note {} by its name - {}"
+                               .format(noteTitle, exc))
+        except AttributeError:  # Thrift error
+            continue
     plug.logger.debug(u"Note {} doesn't exist in notebook guid {}",
                       noteTitle, notebookGuid)
     return None
@@ -349,7 +355,7 @@ def update_note_content(noteGuid, content, note=None, updateNote=True):
     except (EDAMUserException, EDAMSystemException,
             EDAMNotFoundException) as exc:
         raise ServiceError(u"Unable to update note {} - {}"
-                           .format(note.title, exc))
+                           .format(u(note.title), exc))
     return note
 
 
@@ -370,12 +376,12 @@ def create_note(metadata, content, notebook, title=None):
         # filename. Otherwise it will just ruin the logic based on the
         # assumption we upload note "title.enml" in a subfolder named "title".
         # If we're here we already know we're in the folder. So we can strip
-        expected = u"{0}/{0}.enml".format(title)
+        expected = u"{0}/{0}.enml".format(u(title))
         if metadata.filename != expected:
             new_metadata = plug.move_file(metadata, expected)
 
     note = Types.Note()
-    note.title = title
+    note.title = b(title)
     note.notebookGuid = notebook.guid
     # Update note's contents without calling updateNote
     note = update_note_content(None, content, note=note,
@@ -562,15 +568,15 @@ class CheckChanges(threading.Thread):
         should call metadata.write on the note's metadata or not (depending
         on if we found new resources or not)."""
         if note.resources is None:
-            plug.logger.debug(u"No resource for {}", note.title)
+            plug.logger.debug(u"No resource for {}", u(note.title))
             return False
         doWrite = False
         for resource in note.resources:
             # resourceName = resource.attributes.fileName
-            plug.logger.debug(u"Processing note {}'s resource {}", note.title,
-                              resource.attributes.fileName)
-            rscPath = u"{}/{}".format(note.title,
-                                      resource.attributes.fileName)
+            plug.logger.debug(u"Processing note {}'s resource {}",
+                              u(note.title), u(resource.attributes.fileName))
+            rscPath = u"{}/{}".format(u(note.title),
+                                      u(resource.attributes.fileName))
             resourceMetadata = plug.get_metadata(rscPath,
                                                  self.folder)
             onitu_USN = resourceMetadata.extra.get(u'USN', 0)
@@ -611,16 +617,16 @@ class CheckChanges(threading.Thread):
             onituHash = onituMetadata.extra.get(u'hash', "")
             if not note.active:
                 plug.logger.debug(u"{} is in the trashbin "
-                                  u"(probably from Onitu)", note.title)
+                                  u"(probably from Onitu)", u(note.title))
                 return
             # The content hash changed: notify an update
             if note.contentHash != onituHash:
                 updateFile = True
-                plug.logger.debug(u"Note {} updated".format(note.title))
+                plug.logger.debug(u"Note {} updated".format(u(note.title)))
             if not updateFile:
                 plug.logger.debug(u"Non content-related update on note {}, "
                                   u"updating metadata but won't call "
-                                  u"plug.update_file", note.title)
+                                  u"plug.update_file", u(note.title))
         else:
             plug.logger.debug(u"Note {} is up-to-date",
                               noteMetadata.title)
@@ -645,7 +651,7 @@ class CheckChanges(threading.Thread):
                                                     self.resultSpec)
             plug.logger.debug("Processing {} notes", res.totalNotes)
             for noteMetadata in res.notes:
-                filename = u"{0}/{0}.enml".format(noteMetadata.title)
+                filename = u"{0}/{0}.enml".format(u(noteMetadata.title))
                 onituMetadata = plug.get_metadata(filename, self.folder)
                 self.update_note(noteMetadata, onituMetadata)
                 # Cross this file out from the deleted files list
