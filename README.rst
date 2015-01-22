@@ -28,6 +28,6 @@ Tests and Benchmarks |Build Status| |Landscape|
 .. |Onitu| image:: logo.png
 .. |Build Status| image:: https://travis-ci.org/onitu/onitu.png?branch=develop
    :target: https://travis-ci.org/onitu/onitu
-.. |Landscape| .. image:: https://landscape.io/github/onitu/onitu/develop/landscape.svg
+.. |Landscape| image:: https://landscape.io/github/onitu/onitu/develop/landscape.svg
    :target: https://landscape.io/github/onitu/onitu/develop
    :alt: Code Health
