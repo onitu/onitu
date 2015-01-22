@@ -29,6 +29,10 @@ class Worker(object):
     def __call__(self):
         try:
             self.metadata = Metadata.get_by_id(self.dealer.plug, self.fid)
+
+            if not self.metadata:
+                return
+
             self.filename = self.metadata.filename
 
             self.do()
