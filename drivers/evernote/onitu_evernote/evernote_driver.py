@@ -156,6 +156,36 @@ def find_notebook_by_name(name, create=False):
         return create_notebook(name)
 
 
+def find_note_by_title(noteTitle, notebookGuid):
+    """Search a note in a notebook with its title."""
+    try:
+        # Filter to include only notes from our notebook
+        noteFilter = NoteFilter(order=NoteSortOrder.RELEVANCE,
+                                notebookGuid=notebookGuid)
+        # Note spec to filter even more the findNotesMetadata result
+        resultSpec = (
+            NotesMetadataResultSpec(includeTitle=True,
+                                    includeContentLength=True,
+                                    includeUpdateSequenceNum=True)
+        )
+        res = notestore_onitu.findNotesMetadata(noteFilter, 0,
+                                                EDAM_USER_NOTES_MAX,
+                                                resultSpec)
+        for noteMetadata in res.notes:
+            if noteMetadata.title == noteTitle:
+                plug.logger.debug(u"Found note {}", noteTitle)
+                note = notestore_onitu.getNote(token, noteMetadata.guid,
+                                               True, False, False, False)  # TODO Include content here ? Do not include resource data ? Decide !
+                return note
+    except (EDAMUserException, EDAMSystemException,
+            EDAMNotFoundException) as exc:
+        raise ServiceError(u"Unable to find note {} by its name - {}"
+                           .format(noteTitle, exc))
+    plug.logger.debug(u"Note {} doesn't exist in notebook guid {}",
+                      noteTitle, notebookGuid)
+    return None
+
+
 def enclose_content_with_markup(content):
     """Enclose some given content with the Evernote boilerplate markup.
     It is useful when creating new notes without this markup, since Evernote
@@ -166,13 +196,13 @@ def enclose_content_with_markup(content):
     return content
 
 
-def update_note_content(metadata, content, note=None):
+def update_note_content(metadata, content, note=None, updateNote=True):
     """Updates the content of an Evernote note with the given content.
     Also provides content hash and length. An existing note can be passed, so
     that it won't be retrieved twice."""
     try:
         if note is None:
-            # Ask only for note and its content, no resource info
+            # Ask only for note and its content, no resource
             note = notestore_onitu.getNote(token, metadata.extra[u'guid'],
                                            True, False, False, False)
         note.content = content
@@ -186,8 +216,8 @@ def update_note_content(metadata, content, note=None):
             return None
         note.contentHash = md5_hash
         note.contentLength = len(content)
-        plug.logger.debug("Note content: {}", note.content)
-        notestore_onitu.updateNote(token, note)
+        if updateNote:
+            note = notestore_onitu.updateNote(token, note)
     except (EDAMUserException, EDAMSystemException,
             EDAMNotFoundException) as exc:
         raise ServiceError(u"Unable to update note {} - {}"
@@ -195,13 +225,45 @@ def update_note_content(metadata, content, note=None):
     return note
 
 
-def create_note(metadata, content, notebook):
+def create_note(metadata, content, notebook, title=None):
     """Creates an Evernote note out of a new file, prior to uploading it."""
-    note = Types.Note()
-    note.title = metadata.filename
-    note = update_note_content(metadata, content, note)
-    note.notebookGuid = notebook.guid
-    return notestore_onitu.createNote(note)
+    new_metadata = None  # in case of a move_file
+    # TODO Metadata.mimetype isn't reliable yet...
+    # mime = metadata.mimetype
+    # plug.logger.debug(mime)
+    # if not mime.startswith(u"text") and not mime.endswith(u"xml"):
+    #    raise DriverError(u"Trying to create note {}, but it isn't text!"
+    #                      .format(metadata.path))
+
+    if title is None:
+        title = metadata.filename
+    else:
+        # Do some checks on metadata.filename to send the note with correct
+        # filename. Otherwise it will just ruin the logic based on the
+        # assumption we upload note "title.enml" in a subfolder named "title".
+        # If we're here we already know we're in the folder. So we can strip
+        expected = u"{0}/{0}.enml".format(title)
+        if metadata.filename != expected:
+            new_metadata = plug.move_file(metadata, expected)
+
+    try:
+        note = Types.Note()
+        note.title = title
+        # Update note's contents without calling updateNote
+        note = update_note_content(metadata, content, note=note,
+                                   updateNote=False)
+        note.notebookGuid = notebook.guid
+        note = notestore_onitu.createNote(note)
+    except (EDAMUserException, EDAMSystemException,  # TODO manage markup enclosing problems
+            EDAMNotFoundException) as exc:
+        raise ServiceError(u"Unable to create note {} - {}"
+                           .format(metadata.path, exc))
+
+    metadata_to_update = metadata
+    if new_metadata is not None:
+        metadata_to_update = new_metadata
+    update_note_metadata(metadata_to_update, note)
+    return note
 
 
 # ############################# ONITU HANDLERS ###############################
@@ -237,33 +299,36 @@ def upload_file(metadata, content):
     noteTitle = metadata.filename[:firstSlashIdx]
     plug.logger.debug("noteTitle of {}: {}", metadata.filename, noteTitle)
 
-    if firstSlashIdx != -1:
+    # The file isn't in a directory called "title"
+    if firstSlashIdx == -1:
+        pass  # TODO Move the file in the directory
+    else:
         guid = metadata.extra.get('guid', None)
-
+        # No GUID: new file
         if guid is None:
-            # TODO Get the note GUID by title
-            # if it exists:
-            #    add this as a resource
-            # else:
-            #     check the name:
-                    # if its mimetype begins by "text" or ends with 'xml':
-                        # if metadata.filename != "title.enml":
-                        #     plug.move_file
-                        # createNote + manage markup enclosing problems
-                    # else:
-                    #     fail (DriverError)
-            pass  # Create a new note
+            notebook = find_notebook_by_name(metadata.folder.path,
+                                             create=True)
+            note = find_note_by_title(noteTitle, notebook.guid)
+            # The note exists: add this as a resource
+            if note is not None:
+                pass  # TODO
+            # The note doesn't exist: try to create the note with this file
+            else:
+                create_note(metadata, content, notebook, title=noteTitle)
+        # This is a file already known by Evernote, note or resource
         else:
             rscNoteGuid = metadata.extra.get('note_guid', None)
-            if rscNoteGuid is None:  # it's the note
+            # it's the note
+            if rscNoteGuid is None:
                 plug.logger.debug("Note new content: {}", content)
-                note = update_note_content(metadata, content)
+                note = update_note_content(metadata, content, note=None)
                 if note is None:
                     plug.logger.debug(u"Uploaded content for {} is the same "
                                       u"than on Evernote, no update done",
                                       metadata.path)
                 else:
                     update_note_metadata(metadata, note, updateSize=False)
+            # it's an updated resource
             else:
                 # TODO Get the note, add a resource, and parse the contents to add a reference to the new resource
                 pass  # update_resource(metadata, content)
