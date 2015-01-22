@@ -17,7 +17,7 @@ MIN_CHUNK_SIZE = 25000000
 SEGMENTS_FOLDER = 'segmented_files/'
 
 
-class Hubic:
+class Hubic(object):
     def __init__(self, client_id, client_secret, hubic_refresh_token):
         self.client_id = client_id
         self.client_secret = client_secret
@@ -78,7 +78,8 @@ class Hubic:
 
         self.hubic_token = response.json()['access_token']
 
-    def _hubic_call(self, method, uri, data=None, headers={}, limit=3):
+    def _hubic_call(self, method, uri, data=None, headers=None, limit=3):
+        headers = headers or {}
         for _ in range(limit):
             req = getattr(requests, method.lower())
             headers['Authorization'] = 'Bearer ' + self.hubic_token

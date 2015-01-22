@@ -27,8 +27,8 @@ class WriteBatch(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, traceback):
-        if not self.transaction or not type:
+    def __exit__(self, type_, value, traceback):
+        if not self.transaction or not type_:
             self.write()
 
     def _request(self, cmd, *args):

@@ -260,7 +260,6 @@ class Plug(object):
         for name, value in self.options.items():
             if name not in options:
                 raise RuntimeError("Unknown option '{}'".format(name))
-                return False
 
             excepted_type = options[name].get('type', None).lower()
 
@@ -277,7 +276,6 @@ class Plug(object):
                         name, excepted_type, type(value).__name__
                     )
                 )
-                return False
 
         for name, props in options.items():
             if name not in self.options:
@@ -317,6 +315,12 @@ class Plug(object):
         except Exception:
             log_traceback(self.logger)
             raise AbortOperation()
+
+    def has_handler(self, handler_name):
+        """
+        Return whether the current driver has defined the given handler.
+        """
+        return handler_name in self._handlers
 
     def notify_referee(self, fid, *args):
         self.escalator.put(

@@ -92,7 +92,6 @@ def check_changes(folder):
             raise ServiceError(
                 u"Error updating file '{}': {}".format(metadata.path, e)
             )
-            mtime = 0.
 
         if mtime > revision:
             update(metadata, mtime)
@@ -287,7 +286,7 @@ if IS_WINDOWS:
 else:
     class Watcher(pyinotify.ProcessEvent):
         def __init__(self, folder, *args, **kwargs):
-            super(Watcher, self).__init__(*args, **kwargs)
+            pyinotify.ProcessEvent.__init__(self, *args, **kwargs)
 
             self.folder = folder
 
@@ -353,7 +352,7 @@ def start():
 
         if not os.path.exists(folder.path):
             raise DriverError(
-                u"Cannot create the folder '{}': {}".format(folder.path)
+                u"Could not create the folder '{}'.".format(folder.path)
             )
 
         watch_changes(folder)

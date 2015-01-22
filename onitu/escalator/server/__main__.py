@@ -27,7 +27,7 @@ def main(logger):
     nb_workers = 8
     workers = []
 
-    for i in range(nb_workers):
+    for _ in range(nb_workers):
         worker = Worker(databases, back_uri, logger)
         worker.daemon = True
         worker.start()

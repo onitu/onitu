@@ -5,7 +5,7 @@ import json
 
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
-from bottle import Bottle, run, response, abort, redirect
+from bottle import Bottle, run, response, redirect
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
@@ -172,7 +172,6 @@ def get_file(fid):
     metadata = escalator.get('file:{}'.format(fid), default=None)
     if not metadata:
         return file_not_found(fid)
-        abort(404)
     metadata['fid'] = fid
     return metadata
 
