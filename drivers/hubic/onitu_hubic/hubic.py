@@ -339,18 +339,10 @@ def set_oauth_token(query_param):
     code = query_param["code"]
     redirect_uri = query_param["redirect_uri"]
 
-    print "SET TOKEN"
-    print code
-    print redirect_uri
-
     application_token = base64.b64encode(
         "{}:{}".format(hubic.client_id, hubic.client_secret)
     )
     url = "https://api.hubic.com/oauth/token/"
-
-    print application_token
-    print "{}:{}".format(hubic.client_id, hubic.client_secret)
-    print url
 
     response = requests.post(
         url,
@@ -396,8 +388,6 @@ def start():
         access_token,
         root
     )
-
-    print hubic
 
     # Launch the changes detection
     check = CheckChanges(root, plug.options[u'changes_timer'])

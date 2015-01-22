@@ -124,7 +124,6 @@ def get_csrf(*args, **kwargs):
             'http://localhost:{}'.format(port), app.get_url(*args, **kwargs)
         )
     )
-    print(csrf)
     return csrf
 
 
@@ -351,6 +350,7 @@ def oauth2_validation(name):
         return error(error_message=str(e))
     # TODO: redirect to facet
     return "Your token has been accepted, you can close this window."
+
 
 @app.route('/api/v1.0/services/<name>/oauth2url', method='GET',
            name='oauth2url')

@@ -1,35 +1,18 @@
 name: example
 
 folders:
-  music:
-    type:
-      - audio/
-  docs:
-    blacklist:
-      - "*.bak"
-      - Private/
-  backup:
-    file_size:
-      max: 2G
+  test: {}
 
 services:
-  A:
-    driver: local_storage
-    root: example/service_a
+  dropbox:
+    driver: dropbox
+    root: 'test/'
     folders:
-      music: Music
-      docs: Docs
-      backup:
-        mode: ro
-  B:
+      test: ''
+    options:
+      access_key: '1n8rl2za664hf6q6'
+  localstorage:
     driver: local_storage
     root: example/service_b
-    backup:
-      mode: ro
-  C:
-    driver: local_storage
-    root: example/service_c
     folders:
-      backup:
-        path: backup
-        mode: wo
+      test: ''
