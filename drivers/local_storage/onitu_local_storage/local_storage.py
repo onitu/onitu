@@ -71,7 +71,7 @@ def delete(metadata):
 
 
 def move(old_metadata, new_filename):
-  #  print(new_filename)
+    print(old_metadata.path, new_filename)
     new_metadata = plug.move_file(old_metadata, new_filename)
     new_metadata.extra['revision'] = os.path.getmtime(new_filename)
     # We update the size in case the file was moved very quickly after a change
@@ -166,7 +166,7 @@ def upload_chunk(metadata, offset, chunk):
             f.write(chunk)
     except (IOError, OSError) as e:
         raise ServiceError(
-            u"Error writting file '{}': {}".format(tmp_file, e)
+            u"Error writing file '{}': {}".format(tmp_file, e)
         )
 
 
@@ -241,8 +241,9 @@ def move_file(old_metadata, new_metadata):
             u"Error moving file '{}': {}".format(old_metadata.path, e)
         )
     if IS_WINDOWS:
-        del ignoreNotif[new_metadata.path]
-        del ignoreNotif[old_metadata.path]
+        Rtime = time()
+        ignoreNotif[new_metadata.path] = Rtime
+        ignoreNotif[old_metadata.path] = Rtime
 
 if IS_WINDOWS:
     def verifDictModifFile(writingDict, Rtime, cleanOld=False):
@@ -287,6 +288,7 @@ if IS_WINDOWS:
             delete(metadata)
         elif actions_names.get(action) == 'moveFrom' and \
                 metadata.path not in ignoreNotif:
+            plug.logger.warning('{} {}', metadata.path, ignoreNotif)
             moveFrom(metadata)
         elif actions_names.get(action) == 'moveTo' and fileAction.moving:
             ignoreNotif[metadata.path] = False
@@ -300,7 +302,7 @@ if IS_WINDOWS:
             fileAction.oldMetadata = None
         if (actions_names.get(action) == 'create' or
             actions_names.get(action) == 'write') and \
-                metadata.path and metadata.path in ignoreNotif:
+                metadata.path not in transferSet and metadata.path in ignoreNotif:
             if ignoreNotif[metadata.path] is not False:
                 transferSet.add(metadata.path)
 

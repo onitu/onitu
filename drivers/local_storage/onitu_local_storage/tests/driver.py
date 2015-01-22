@@ -8,7 +8,7 @@ from onitu.utils import b
 
 class Driver(driver.Driver):
     SPEED_BUMP = 1
-
+    ignore_errors=True
     def __init__(self, *args, **options):
         self._root = tempfile.mkdtemp()
         super(Driver, self).__init__('local_storage',
