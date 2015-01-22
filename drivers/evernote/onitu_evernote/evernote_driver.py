@@ -1,6 +1,7 @@
 import threading
 import hashlib
 from httplib import ResponseNotReady
+from ssl import SSLError
 
 import evernote.edam.type.ttypes as Types
 from evernote.edam.error.ttypes import EDAMUserException, EDAMSystemException
@@ -297,8 +298,6 @@ def upload_file(metadata, content):
     files_to_ignore.add(metadata.filename)
     firstSlashIdx = metadata.filename.find(u"/")
     noteTitle = metadata.filename[:firstSlashIdx]
-    plug.logger.debug("noteTitle of {}: {}", metadata.filename, noteTitle)
-
     # The file isn't in a directory called "title"
     if firstSlashIdx == -1:
         pass  # TODO Move the file in the directory
@@ -360,6 +359,7 @@ def delete_file(metadata):
             EDAMNotFoundException) as exc:
         raise ServiceError(u"Unable to delete file {}: {}"
                            .format(metadata.filename, exc))
+
 
 #     resourceNoteGuid = metadata.extra.get('evernote_note_guid', None)
 #     try:
@@ -430,7 +430,7 @@ class CheckChanges(threading.Thread):
         should call metadata.write on the note's metadata or not (depending
         on if we found new resources or not)."""
         if note.resources is None:
-            plug.logger.debug("No resource")
+            plug.logger.debug(u"No resource for {}", note.title)
             return False
         doWrite = False
         for resource in note.resources:
@@ -463,25 +463,37 @@ class CheckChanges(threading.Thread):
     def update_note(self, noteMetadata, onituMetadata):
         """Updates a note. Checks that the content has changed by doing
         a hash comparison. Also updates the note's resources."""
-        plug.logger.debug(u"Updating file {}", onituMetadata.path)
-        # Check the hash first (get the resource data as well)
         note = notestore_onitu.getNote(noteMetadata.guid,
                                        False, False, False, False)
-        onituHash = onituMetadata.extra.get(u'hash', "")
         updateMetadata = False
         updateFile = False
-        if not note.active:
-            plug.logger.debug(u"Note in the trashbin (probably from Onitu)")
-            return
-        # The content hash changed: notify an update
-        if note.contentHash != onituHash:
-            updateFile = True
-            plug.logger.debug(u"Note {} updated".format(note.title))
-        if not updateFile:
-            plug.logger.debug(u"Non content-related update on note {}, "
-                              u"updating metadata but won't call "
-                              u"plug.update_file", note.title)
-        # Now check the resources of the note
+        # The flaw in checking the USN is that it increases even for
+        # non content-related changes (e.g. a tag added). But that's
+        # the best way to do it.
+        evernote_usn = noteMetadata.updateSequenceNum
+        onitu_usn = onituMetadata.extra.get(u'USN', 0)
+        if onitu_usn < evernote_usn:
+            plug.logger.debug(u"Updating file {}", onituMetadata.path)
+            # Check the content hash first
+            onituHash = onituMetadata.extra.get(u'hash', "")
+            if not note.active:
+                plug.logger.debug(u"{} is in the trashbin "
+                                  u"(probably from Onitu)", note.title)
+                return
+            # The content hash changed: notify an update
+            if note.contentHash != onituHash:
+                updateFile = True
+                plug.logger.debug(u"Note {} updated".format(note.title))
+            if not updateFile:
+                plug.logger.debug(u"Non content-related update on note {}, "
+                                  u"updating metadata but won't call "
+                                  u"plug.update_file", note.title)
+        else:
+            plug.logger.debug(u"Note {} is up-to-date",
+                              noteMetadata.title)
+        # Check the resources of the note in every case, because otherwise if
+        # the note is up-to-date, resources aren't getting processed and are
+        # deleted on Onitu side !
         updateMetadata = self.update_note_resources(note, onituMetadata)
         # We could want to call plug.update_file or just metadata.write
         if updateMetadata or updateFile:
@@ -498,19 +510,9 @@ class CheckChanges(threading.Thread):
                                                     self.resultSpec)
             plug.logger.debug("Processing {} notes", res.totalNotes)
             for noteMetadata in res.notes:
-                filename = (u"{name}/{name}.enml"
-                            .format(name=noteMetadata.title))
+                filename = u"{0}/{0}.enml".format(noteMetadata.title)
                 onituMetadata = plug.get_metadata(filename, self.folder)
-                # The flaw in checking the USN is that it increases even for
-                # non content-related changes (e.g. a tag added). But that's
-                # the best way to do it.
-                evernote_usn = noteMetadata.updateSequenceNum
-                onitu_usn = onituMetadata.extra.get(u'USN', 0)
-                if onitu_usn < evernote_usn:
-                    self.update_note(noteMetadata, onituMetadata)
-                else:
-                    plug.logger.debug(u"Note {} is up-to-date",
-                                      noteMetadata.title)
+                self.update_note(noteMetadata, onituMetadata)
                 # Cross this file out from the deleted files list
                 if filename in self.filesToDelete:
                     del self.filesToDelete[filename]
@@ -569,11 +571,11 @@ class CheckChanges(threading.Thread):
             except EscalatorClosed:
                 # We are closing
                 return
-            except AttributeError as ae:
+            except (SSLError, AttributeError) as err:
                 # Sometimes these are warning thrown by the Thrift library
                 # used by evernote, for no real reason. Can't do much for it
                 plug.logger.warning(u"Unexpected error in check changes of"
-                                    u" {}: {}".format(self.folder.path, ae))
+                                    u" {}: {}".format(self.folder.path, err))
             plug.logger.debug(u"Next check on {} in {} seconds",
                               self.folder.path, self.timer)
             self.stopEvent.wait(self.timer)
