@@ -37,6 +37,10 @@ class Metadata(object):
                  size=0, fid=None, uptodate=None, mimetype=None):
         super(Metadata, self).__init__()
 
+        self._filename = None
+        self._folder_name = None
+        self._size = None
+
         self.filename = filename
         self.size = size
         self.uptodate = uptodate or ()
@@ -89,6 +93,39 @@ class Metadata(object):
         )
 
         return metadata
+
+    @property
+    def filename(self):
+        return self._filename
+
+    @filename.setter
+    def filename(self, value):
+        if value is None:
+            self._filename = None
+        else:
+            self._filename = u(value)
+
+    @property
+    def folder_name(self):
+        return self._folder_name
+
+    @folder_name.setter
+    def folder_name(self, value):
+        if value is None:
+            self._folder_name = None
+        else:
+            self._folder_name = u(value)
+
+    @property
+    def size(self):
+        return self._size
+
+    @size.setter
+    def size(self, value):
+        if value is None:
+            self._size = None
+        else:
+            self._size = int(value)
 
     @property
     def path(self):
