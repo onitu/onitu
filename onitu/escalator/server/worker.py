@@ -55,7 +55,7 @@ class Worker(Thread):
                         db = None
                     else:
                         db = self.databases.get(uid)
-                except:
+                except Exception:
                     resp = protocol.msg.format_response(
                         uid, status=protocol.status.NO_DB)
                 else:
@@ -92,7 +92,7 @@ class Worker(Thread):
         return resp
 
     def create(self, name):
-        return self.connect(name, True)
+        return self.connect(name, None, True)
 
     def connect(self, name, prefix, create):
         name = u(name)

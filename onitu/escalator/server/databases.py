@@ -49,9 +49,9 @@ class Databases(object):
                         self._databases[name] = db.prefixed_db(prefix)
                         self._names.append(name)
                 return self._names.index(name)
-            except plyvel._plyvel.IOError as e:
+            except plyvel.IOError as e:
                 raise Databases.OpenError(*e.args)
-            except plyvel._plyvel.Error as e:
+            except plyvel.Error as e:
                 raise Databases.NotExistError(*e.args)
 
     def list_dbs(self):

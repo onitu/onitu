@@ -34,12 +34,12 @@ class Metadata(object):
     PROPERTIES = ('filename', 'folder_name', 'size', 'uptodate', 'mimetype')
 
     def __init__(self, plug=None, filename=None, folder=None, folder_name=None,
-                 size=0, fid=None, uptodate=[], mimetype=None):
+                 size=0, fid=None, uptodate=None, mimetype=None):
         super(Metadata, self).__init__()
 
         self.filename = filename
         self.size = size
-        self.uptodate = uptodate
+        self.uptodate = uptodate or ()
         self.mimetype = mimetype
 
         if folder_name and not folder:
