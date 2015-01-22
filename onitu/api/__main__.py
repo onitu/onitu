@@ -2,10 +2,11 @@ import sys
 
 import zmq
 import json
+import pkg_resources
 
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
-from bottle import Bottle, run, response, redirect
+from bottle import Bottle, run, response, redirect, static_file
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
@@ -19,6 +20,8 @@ else:
     from urllib.parse import unquote as unquote_
 
 ONITU_READTHEDOCS = "https://onitu.readthedocs.org/en/latest/api.html"
+
+FACET_STATIC_ROOT = pkg_resources.resource_filename('onitu', 'facet/static/')
 
 host = 'localhost'
 port = 3862
@@ -133,9 +136,14 @@ def call_handler(service, cmd, *args):
         dealer.close()
 
 
-@app.route('/', method='GET')
-def api_root():
-    redirect("https://onitu.github.io")
+@app.route('/')
+def app_root():
+    redirect('facet/index.html')
+
+
+@app.route('/facet/<filename:path>')
+def send_static(filename):
+    return static_file(filename, root=FACET_STATIC_ROOT)
 
 
 @app.route('/api', method='GET')
@@ -375,5 +383,5 @@ def error500(error_data):
 
 if __name__ == '__main__':
     with ZeroMQHandler(get_logs_uri(session), multi=True).applicationbound():
-        logger.info("Starting on {}:{}".format(host, port))
+        logger.info("Starting on http://{}:{}".format(host, port))
         run(app, host=host, port=port, quiet=True)
