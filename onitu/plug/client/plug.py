@@ -31,10 +31,8 @@ class PlugProxy(object):
         self.service_db = Escalator(self)
         self.serv_identity = None
 
-    def initialize(self, setup):
+    def initialize(self, setup, auth=True):
         identity = b(uuid.uuid4().hex)
-        pub_key, priv_key = zmq.auth.load_certificate('keys/client.key_secret')
-        server_key, _ = zmq.auth.load_certificate('keys/server.key')
 
         self.name = setup['name']
         self.logger = Logger(self.name)
@@ -43,16 +41,21 @@ class PlugProxy(object):
 
         self.requests_socket = self.context.socket(zmq.REQ)
         self.requests_socket.identity = identity
-        self.requests_socket.curve_publickey = pub_key
-        self.requests_socket.curve_secretkey = priv_key
-        self.requests_socket.curve_serverkey = server_key
-        self.requests_socket.connect(setup['requests_addr'])
-
         self.handlers_socket = self.context.socket(zmq.REQ)
         self.handlers_socket.identity = identity
-        self.handlers_socket.curve_publickey = pub_key
-        self.handlers_socket.curve_secretkey = priv_key
-        self.handlers_socket.curve_serverkey = server_key
+
+        if auth:
+            pub_key, priv_key = zmq.auth.load_certificate(
+                'keys/client.key_secret')
+            server_key, _ = zmq.auth.load_certificate('keys/server.key')
+            self.requests_socket.curve_publickey = pub_key
+            self.requests_socket.curve_secretkey = priv_key
+            self.requests_socket.curve_serverkey = server_key
+            self.handlers_socket.curve_publickey = pub_key
+            self.handlers_socket.curve_secretkey = priv_key
+            self.handlers_socket.curve_serverkey = server_key
+
+        self.requests_socket.connect(setup['requests_addr'])
         self.handlers_socket.connect(setup['handlers_addr'])
 
         conf = setup['service']

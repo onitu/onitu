@@ -18,15 +18,19 @@ GRACEFUL_TIMEOUT = 1.
 class Majordomo(Broker):
     handlers = {}
 
-    def __init__(self, session, keys_directory, server_key):
+    def __init__(self, session, auth, keys_directory, server_key):
         super(Majordomo, self).__init__()
         self.session = session
         self.logger = Logger('Majordomo')
         self.escalator = Escalator(session)
 
-        self.keys_directory = keys_directory
-        self.server_key = server_key
-        self.auth = ThreadAuthenticator(zmq.Context.instance())
+        if auth:
+            self.keys_directory = keys_directory
+            self.server_key = server_key
+            self.auth = ThreadAuthenticator(zmq.Context.instance())
+        else:
+            self.auth = None
+
         self.circus_client = CircusClient(endpoint=get_circusctl_endpoint(
             self.session))
         self.nb_remotes = 0
@@ -35,16 +39,17 @@ class Majordomo(Broker):
         self.logger.info('Started')
 
     def bind(self, frontend_req_uri, frontend_rep_uri):
-        self.auth.start()
-        self.auth.configure_curve(domain='*', location=self.keys_directory)
+        if self.auth:
+            self.auth.start()
+            self.auth.configure_curve(domain='*', location=self.keys_directory)
 
-        self.frontend.req.curve_server = True
-        self.frontend.rep.curve_server = True
-        pub_key, priv_key = zmq.auth.load_certificate(self.server_key)
-        self.frontend.req.curve_publickey = pub_key
-        self.frontend.req.curve_secretkey = priv_key
-        self.frontend.rep.curve_publickey = pub_key
-        self.frontend.rep.curve_secretkey = priv_key
+            self.frontend.req.curve_server = True
+            self.frontend.rep.curve_server = True
+            pub_key, priv_key = zmq.auth.load_certificate(self.server_key)
+            self.frontend.req.curve_publickey = pub_key
+            self.frontend.req.curve_secretkey = priv_key
+            self.frontend.rep.curve_publickey = pub_key
+            self.frontend.rep.curve_secretkey = priv_key
 
         super(Majordomo, self).bind(frontend_req_uri, frontend_rep_uri,
                                     'tcp://127.0.0.1', 'tcp://127.0.0.1')
@@ -118,7 +123,8 @@ class Majordomo(Broker):
             self.circus_client.call(query)
 
     def stop(self):
-        self.auth.stop()
+        if self.auth:
+            self.auth.stop()
 
 
 @Majordomo.handle('f-req')

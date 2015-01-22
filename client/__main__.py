@@ -76,6 +76,12 @@ def main():
         '--log-uri', help="A ZMQ socket where all the logs will be sent"
     )
     parser.add_argument(
+        '--no-auth',
+        help="Disable authentication",
+        dest='auth',
+        action='store_false'
+    )
+    parser.add_argument(
         '--debug', action='store_true', help="Enable debugging logging"
     )
     args = parser.parse_args()
@@ -100,7 +106,7 @@ def main():
 
             entry_point = drivers[driver_name]
             driver = entry_point.load()
-            driver.plug.initialize(setup)
+            driver.plug.initialize(setup, args.auth)
             driver.start()
         except ImportError as e:
             logger.error("Error importing driver {}: {}", driver_name, e)
