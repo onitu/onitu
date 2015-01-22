@@ -10,12 +10,12 @@ from logbook import Logger
 from onitu.escalator.client import Escalator
 from onitu.utils import get_circusctl_endpoint, unpack_msg
 from .broker import Broker
+from .heartbeat import HeartBeatBroker
 
 GRACEFUL_TIMEOUT = 1.
 
 
-# class Majordomo(HeartBeatBroker):
-class Majordomo(Broker):
+class Majordomo(HeartBeatBroker):
     handlers = {}
 
     def __init__(self, session, auth, keys_directory, server_key):

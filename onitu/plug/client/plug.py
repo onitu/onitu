@@ -11,7 +11,7 @@ from .escalator import Escalator
 from .exceptions import _HandlerException
 from .metadata import MetadataWrapper, metadata_serializer
 from .folder import FolderWrapper, folder_serializer
-# from .heartbeat import HeartBeat
+from .heartbeat import HeartBeat
 
 
 class PlugProxy(object):
@@ -25,11 +25,13 @@ class PlugProxy(object):
         self.logger = None
         self.requests_socket = None
         self.handlers_socket = None
-        # self.heartbeat_socket = None
+        self.heartbeat_socket = None
         self.requests_lock = None
         self.options = {}
         self.service_db = Escalator(self)
         self.serv_identity = None
+        self.heartbeat = None
+        self._stop = threading.Event()
 
     def initialize(self, setup, auth=True):
         identity = b(uuid.uuid4().hex)
@@ -71,18 +73,22 @@ class PlugProxy(object):
 
         self.folders = FolderWrapper.get_folders(self)
 
-        # self.heartbeat = HeartBeat(identity)
-        # self.heartbeat.start()
+        self.heartbeat = HeartBeat(identity + b'client', self.close)
+        self.heartbeat.start()
 
     def close(self):
         self.logger.info('Disconnecting')
-        # self.heartbeat.stop()
+        self._stop.set()
+        if self.heartbeat:
+            self.heartbeat.stop()
         if self.serv_identity is not None:
-            with self.requests_lock:
-                self.requests_socket.send_multipart((b'', b'stop'))
+            try:
+                with self.requests_lock:
+                    self.requests_socket.send_multipart((b'', b'stop'))
+            except zmq.ZMQError:
+                pass
             self.requests_socket.close()
             self.handlers_socket.close()
-            self.context.term()
 
     def metadata_unserialize(self, m):
         return MetadataWrapper(self, *m)
@@ -91,7 +97,15 @@ class PlugProxy(object):
         return FolderWrapper(*f)
 
     def listen(self):
-        while True:
+        poller = zmq.Poller()
+        poller.register(self.handlers_socket, zmq.POLLIN)
+        while not self._stop.is_set():
+            try:
+                p = dict(poller.poll(1000))
+            except zmq.ZMQError:
+                return
+            if p.get(self.handlers_socket) != zmq.POLLIN:
+                continue
             _, msg = self.handlers_socket.recv_multipart()
             msg = unpack_msg(msg)
             self.logger.debug('handler {}', msg)
