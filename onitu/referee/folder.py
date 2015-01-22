@@ -44,13 +44,13 @@ class Folder(object):
 
         # Step 1: Do we (the folder) want the file?
 
-        if not self.assert_options(self.options, metadata):
+        if not self.assert_options(self.options, metadata, 'rw'):
             return set()
 
         # Step 2: Does the source want to share it?
 
         options = self.services[source]
-        if not self.assert_options(options, metadata,
+        if not self.assert_options(options, metadata, 'r',
                                    authority=u"{} (source)".format(source)):
             return set()
 
@@ -60,7 +60,7 @@ class Folder(object):
         for service, options in self.services.items():
             if service == source:
                 continue
-            if self.assert_options(options, metadata, authority=service):
+            if self.assert_options(options, metadata, 'w', authority=service):
                 targets.add(service)
 
         return targets

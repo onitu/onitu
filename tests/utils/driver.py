@@ -55,7 +55,12 @@ class Driver(object):
         return (self.type, self.name)
 
     def path(self, folder, filename):
-        return self.folders[folder].rstrip('/') + '/' + filename
+        folderopts = self.folders[folder]
+        if isinstance(folderopts, dict):
+            root = folderopts.get('path')
+        else:
+            root = folderopts
+        return root.rstrip('/') + '/' + filename
 
     def connect(self, session):
         pass

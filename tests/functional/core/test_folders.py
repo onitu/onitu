@@ -39,6 +39,45 @@ def test_folders(setup, launcher):
         launcher.close()
 
 
+def test_mode(setup, launcher):
+    R = TestDriver('R', folders={'dir': {'path': 'dir', 'mode': 'r'}})
+    W = TestDriver('W', folders={'dir': {'path': 'dir', 'mode': 'w'}})
+    RW = TestDriver('RW', folders={'dir': {'path': 'dir', 'mode': 'rw'}})
+
+    setup.folders = {'dir': {}}
+
+    setup.add(R)
+    setup.add(W)
+    setup.add(RW)
+
+    try:
+        launcher()
+
+        loop = BooleanLoop()
+
+        launcher.copy_file('dir', 'test1', 10, R, W, RW)
+        launcher.copy_file('dir', 'test2', 10, RW, W)
+
+        loop.restart()
+
+        launcher.on_event_source_ignored_mode(
+            loop.stop, service='W', folder='dir', filename='test3', mode='w'
+        )
+        launcher.copy_file('dir', 'test3', 10, W)
+
+        loop.run(timeout=1)
+        loop.restart()
+
+        launcher.on_event_service_ignored_mode(
+            loop.stop, service='R', folder='dir', filename='test4', mode='r'
+        )
+        launcher.copy_file('dir', 'test4', 10, RW, W)
+
+        loop.run(timeout=1)
+    finally:
+        launcher.close()
+
+
 def test_size(setup, launcher):
     A = TestDriver('A', folders={
         'dir': 'dir',
