@@ -15,7 +15,6 @@ if IS_WINDOWS:
     from win32event import (
         CreateEvent,
         WaitForMultipleObjects,
-        INFINITE,
         WAIT_TIMEOUT,
         WAIT_ABANDONED_0,
         WAIT_FAILED,
@@ -39,7 +38,8 @@ def to_tmp(filename):
         )
     else:
         return os.path.join(
-            os.path.dirname(filename), '.' + os.path.basename(filename) + TMP_EXT
+            os.path.dirname(filename), '.' + os.path.basename(filename) +
+            TMP_EXT
         )
 
 
@@ -79,23 +79,24 @@ def move(old_metadata, new_filename):
     new_metadata.size = os.path.getsize(new_metadata.path)
     new_metadata.write()
 
+
 def check_changes(folder):
     expected_files = set()
 
     expected_files.update(plug.list(folder).keys())
-    for path in walkfiles(folder.path):
-        if os.path.splitext(path)[1] == TMP_EXT:
+    for folderPath in walkfiles(folder.path):
+        if os.path.splitext(folderPath)[1] == TMP_EXT:
             continue
-        filename = folder.relpath(path)
+        filename = folder.relpath(folderPath)
         if IS_WINDOWS:
             filename = filename[1:].replace("\\", "/")
-			
+
         expected_files.discard(filename)
         metadata = plug.get_metadata(filename, folder)
         revision = metadata.extra.get('revision', 0.)
 
         try:
-            mtime = os.path.getmtime(path)
+            mtime = os.path.getmtime(folderPath)
         except (IOError, OSError) as e:
             raise ServiceError(
                 u"Error updating file '{}': {}".format(metadata.path, e)
@@ -138,7 +139,7 @@ def get_chunk(metadata, offset, size):
 @plug.handler()
 def start_upload(metadata):
     tmp_file = to_tmp(metadata.path)
-    plug.logger.info("start_upload {} {}".format(u(tmp_file), u(metadata.path)))
+    plug.logger.info("start_upload {} {}".format(tmp_file, metadata.path))
     if IS_WINDOWS:
         ignoreNotif[metadata.path] = False
         sleep(1)
@@ -252,11 +253,13 @@ if IS_WINDOWS:
                 if Rtime - j[0] >= 1.0:
                         try:
                             fd = os.open(i, os.O_RDONLY)
-                        except(IOError, OSError) as e:
+                        except(IOError, OSError):
                             continue
                         else:
                             os.close(fd)
-                            metadata = plug.get_metadata(str(u(j[2])).replace("\\", "/"), j[1])
+                            metadata = plug.get_metadata(str(u(j[2]))
+                                                         .replace("\\", "/"),
+                                                         j[1])
                             update(metadata)
                             del writingDict[i]
             else:
@@ -302,7 +305,8 @@ if IS_WINDOWS:
             fileAction.oldMetadata = None
         if (actions_names.get(action) == 'create' or
             actions_names.get(action) == 'write') and \
-                metadata.path not in transferSet and metadata.path in ignoreNotif:
+                metadata.path not in transferSet and \
+                metadata.path in ignoreNotif:
             if ignoreNotif[metadata.path] is not False:
                 transferSet.add(metadata.path)
 
@@ -326,7 +330,8 @@ if IS_WINDOWS:
     def win32watcherThread(root, file_lock):
         dirList = []
         for folder in plug.folders_to_watch:
-            dirList.append(folderToWatch(folder, OVERLAPPED(), win32file.AllocateReadBuffer(10000)))
+            dirList.append(folderToWatch(folder, OVERLAPPED(),
+                           win32file.AllocateReadBuffer(10000)))
         actions_names = {
             1: 'create',
             2: 'delete',
@@ -338,10 +343,10 @@ if IS_WINDOWS:
         fileAction.moving = False
         old_path = ""
         writingDict = dict()
-        stop = CreateEvent(None, 0, 0, None)
+
         while True:
             for folder in dirList:
-                results = win32file.ReadDirectoryChangesW(
+                win32file.ReadDirectoryChangesW(
                     folder.handler,
                     folder.buffer,
                     True,
@@ -354,13 +359,17 @@ if IS_WINDOWS:
                     folder.overlapped
                 )
             rc = WAIT_TIMEOUT
-            while rc == WAIT_TIMEOUT or rc == WAIT_FAILED or rc == WAIT_ABANDONED_0 :
-                rc = WaitForMultipleObjects([folder.overlapped.hEvent for folder in dirList], 0, 200)
+            while rc == WAIT_TIMEOUT or rc == WAIT_FAILED or \
+                    rc == WAIT_ABANDONED_0:
+                rc = WaitForMultipleObjects([folder.overlapped.hEvent
+                                             for folder in dirList],
+                                            0, 200)
                 if rc == WAIT_TIMEOUT:
                     writingDict = verifDictModifFile(writingDict, time())
                     ignoreNotif = verifDictModifFile(ignoreNotif, time(), True)
             dir = dirList[rc - WAIT_OBJECT_0]
-            data = win32file.GetOverlappedResult(dir.handler, dir.overlapped, True)
+            data = win32file.GetOverlappedResult(dir.handler, dir.overlapped,
+                                                 True)
             events = win32file.FILE_NOTIFY_INFORMATION(dir.buffer, data)
             Rtime = time()
             transferSet = set()
@@ -368,10 +377,10 @@ if IS_WINDOWS:
                 abs_path = path.path(dir.folder.path + "/" + file_)
                 if actions_names[action] == 'moveFrom':
                     old_path = file_
-                if actions_names[action] != 'write' and \
-				   actions_names[action] != 'create' \
-				   and abs_path.isdir() and os.access(abs_path, os.R_OK) and \
-                   len(os.listdir(abs_path)) != 0:
+                if actions_names[action] != 'write'\
+                        and actions_names[action] != 'create'\
+                        and abs_path.isdir() and os.access(abs_path, os.R_OK)\
+                        and len(os.listdir(abs_path)) != 0:
                     for file in abs_path.walkfiles():
                         try:
                             with file_lock:
@@ -384,23 +393,26 @@ if IS_WINDOWS:
                                         break
                                     old_file = ret[2]
                                 if actions_names[action] == 'moveTo':
-                                    metadata = plug.get_metadata(u((old_path + "/" + old_file)).replace("\\", "/"), dir.folder)
-                                    if metadata == None:
+                                    fileParam = u(old_path + "/" + old_file)\
+                                                .replace("\\", "/")
+                                    metadata = plug.get_metadata(fileParam,
+                                                                 dir.folder)
+                                    if metadata is None:
                                         continue
                                     moveFrom(metadata)
-                                fileAction(dir.folder, file, action, ignoreNotif,
-                                           writingDict, transferSet, actions_names,
-                                           Rtime)
+                                fileAction(dir.folder, file, action,
+                                           ignoreNotif, writingDict,
+                                           transferSet, actions_names, Rtime)
                         except EscalatorClosed:
                             return
 
-                if (abs_path.isdir() or abs_path.ext == TMP_EXT or \
+                if (abs_path.isdir() or abs_path.ext == TMP_EXT or
                     (os.path.exists(abs_path) and
                     (not (win32api.GetFileAttributes(abs_path)
                           & win32con.FILE_ATTRIBUTE_NORMAL) and
-                    not (win32api.GetFileAttributes(abs_path)
-                         & win32con.FILE_ATTRIBUTE_ARCHIVE)))) and \
-						 not actions_names[action] == 'delete':
+                     not (win32api.GetFileAttributes(abs_path)
+                          & win32con.FILE_ATTRIBUTE_ARCHIVE)))) and \
+                        not actions_names[action] == 'delete':
                     continue
                 try:
                     with file_lock:
