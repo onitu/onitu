@@ -90,8 +90,13 @@ def update_resource(rscMetadata, content):
     m = md5.new()
     m.update(content)
     bodyHash = m.digest()
-    note = notestore_onitu.getNote(token, noteGuid,
-                                   True, False, False, False)
+    try:
+        note = notestore_onitu.getNote(token, noteGuid,
+                                       True, False, False, False)
+    except (EDAMUserException, EDAMSystemException,
+            EDAMNotFoundException) as exc:
+        raise ServiceError(u"Fail to get note to update resource {} - {}"
+                           .format(rscMetadata.path, exc))
     rsc = None
     for resource in note.resources:
         if resource.guid == rscMetadata.extra[u'guid']:
@@ -111,8 +116,9 @@ def update_resource(rscMetadata, content):
             break
     newContent = ElementTree.tostring(root)
     newContent = enclose_content_with_markup(newContent, declOnly=True)
-    note = update_note_content(None, newContent, note=note)
+    update_note_content(None, newContent, note=note)
     update_resource_metadata(rscMetadata, rsc)
+    plug.logger.debug(u"Updating resource {} - Done", rscMetadata.path)
 
 
 def delete_note_resources(noteMetadata):
@@ -238,8 +244,9 @@ def connect_client():
 
 
 def create_notebook(name):
-    plug.logger.debug(u"Creating notebook {}", name)
+    plug.logger.debug(u"Creating notebook {}", u(name))
     try:
+        name = b(name)
         notebook = notestore_onitu.createNotebook(token,
                                                   Types.Notebook(name=name))
     except EDAMUserException as eue:
@@ -270,6 +277,7 @@ def find_notebook_by_name(name, create=False):
     if it doesn't exist yet"""
     plug.logger.debug(u"Searching notebook {}", name)
     try:
+        name = b(name)
         for notebook in notestore_onitu.listNotebooks():
             if notebook.name == name:
                 plug.logger.debug(u"Found {} notebook", name)
