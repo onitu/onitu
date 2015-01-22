@@ -114,8 +114,25 @@ def set_status(abs_path, status):
     try:
         with open(tmp_filename, "r") as jsonFile:
             data = json.load(jsonFile)
-    except IOError as e:
+    except (IOError, ValueError) as e:
         data = dict()
+
+    if abs_path in data:
+        old_status = data[abs_path]
+    else:
+        old_status = None
+
+    if "onitu_nb_of_pending_files" in data:
+        old_nb_of_pending = data["onitu_nb_of_pending_files"]
+    else:
+        old_nb_of_pending = 0
+
+    if old_status == "pending" and status != "pending":
+        data["onitu_nb_of_pending_files"] = old_nb_of_pending - 1
+    elif status == "pending" and old_status != "pending":
+        data["onitu_nb_of_pending_files"] = old_nb_of_pending + 1
+    else:
+        data["onitu_nb_of_pending_files"] = old_nb_of_pending
 
     if status is None:
         data.pop(abs_path, None)

@@ -14,3 +14,6 @@ python gui.py
 
 You have now a systray icon which represent the status of Onitu.
 You can right click on it to stop/start onitu and to show log and informations.
+
+You can also install nautilus/windows extensions xhixh display overlay icons on your synced files.
+See README.md in both nautilus-extension and windows-extension directories to have installation details.

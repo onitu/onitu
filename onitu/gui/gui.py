@@ -1,8 +1,11 @@
+import tempfile
+import json
 import sys
 import os
 
 from PySide.QtCore import Qt
 from PySide.QtCore import QProcess
+from PySide.QtCore import QFileSystemWatcher
 
 from PySide.QtGui import QWidget
 from PySide.QtGui import QApplication
@@ -55,6 +58,7 @@ class OnituGui(QWidget):
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
         self.onituIcon = QIcon("onitu.png")
         self.onituStoppedIcon = QIcon("onitu_stopped.png")
+        self.onituPendingIcon = QIcon("onitu_pending.png")
 
         self.setWindowIcon(self.onituIcon)
 
@@ -77,6 +81,19 @@ class OnituGui(QWidget):
             )
         self.onituProcess.finished.connect(self.onituTerminated)
 
+        self.watcher = QFileSystemWatcher()
+
+        tmp_dir = tempfile.gettempdir()
+        tmp_filename = tmp_dir + os.sep + 'onitu_synced_files'
+
+        try:
+            open(tmp_filename, "a").close()
+        except IOError as e:
+            print "Failed to open/create '{}' file: {}".format(tmp_filename, e)
+
+        self.watcher.addPath(tmp_filename)
+        self.watcher.fileChanged.connect(self.tmpFileChanged)
+
         self.guiSetup()
         self.startOnitu()
 
@@ -92,6 +109,32 @@ class OnituGui(QWidget):
         self.setLayout(vLayout)
         self.resize(500, 600)
 
+    def tmpFileChanged(self, s):
+        tmp_dir = tempfile.gettempdir()
+        tmp_filename = tmp_dir + os.sep + 'onitu_synced_files'
+
+        try:
+            with open(tmp_filename, "r") as jsonFile:
+                fileStr = jsonFile.read()
+                data = json.loads(fileStr)
+        except (IOError, ValueError):
+            data = dict()
+
+        nb_of_pending_files = 0
+        if "onitu_nb_of_pending_files" in data:
+            nb_of_pending_files = int(data["onitu_nb_of_pending_files"])
+
+        if nb_of_pending_files > 0:
+            self.tray.setIcon(self.onituPendingIcon)
+        else:
+            self.setSystrayIcon()
+
+    def setSystrayIcon(self):
+        if (self.onituProcess.state() == QProcess.NotRunning):
+            self.tray.setIcon(self.onituStoppedIcon)
+        else:
+            self.tray.setIcon(self.onituIcon)
+
     def exitOnitu(self):
         self.closing = True
         self.stopOnitu()
@@ -105,7 +148,7 @@ class OnituGui(QWidget):
 
             self.output = ""
             self.onituProcess.start("onitu")
-            self.tray.setIcon(self.onituIcon)
+            self.setSystrayIcon()
 
     def stopOnitu(self):
         if (self.onituProcess.state() != QProcess.NotRunning):
@@ -117,7 +160,7 @@ class OnituGui(QWidget):
             self.onituProcess.waitForFinished()
 
     def onituTerminated(self, exitCode):
-        self.tray.setIcon(self.onituStoppedIcon)
+        self.setSystrayIcon()
         self.updateTextEdit("Onitu was stopped ----------" + os.linesep)
 
     def openConfig(self):
