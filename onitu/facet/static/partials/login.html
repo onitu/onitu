@@ -1,0 +1,35 @@
+<div class="col-md-11">
+
+    <div class="row-fluid">
+        <form target="" name="loginForm" class="form-horizontal" role="form" novalidate ng-submit="login.submit()">
+            <div class="form-group">
+                <div class="col-md-offset-2 col-md-10">
+                    <h3>Login</h3>
+                </div>
+            </div>
+
+            <div class="form-group" ng-class="{'has-error': loginForm.name.$invalid && loginForm.name.$dirty}">
+                <label for="user" class="col-md-2 control-label">Username</label>
+                <div class="col-md-10">
+                    <input type="text" name="user" class="form-control" id="user" placeholder="Username" ng-model="login.name" required>
+                </div>
+            </div>
+
+
+            <div class="form-group" ng-class="{'has-error': loginForm.password.$invalid && loginForm.password.$dirty}">
+                <label for="password" class="col-md-2 control-label">Password</label>
+                <div class="col-md-10">
+                   <input type="password" name="password" class="form-control" id="password" placeholder="Password" ng-model="login.password" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="col-md-offset-2 col-md-10">
+                    <input type="submit" class="btn btn-primary" ng-disabled="loginForm.$invalid" value="Login"/>
+                </div>
+            </div>
+
+        </form>
+    </div>
+
+</div>
