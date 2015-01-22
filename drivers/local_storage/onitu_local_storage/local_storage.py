@@ -17,6 +17,9 @@ TMP_EXT = '.onitu-tmp'
 
 plug = Plug()
 
+ignore_delete = set()
+ignore_move = set()
+
 
 def to_tmp(filename):
     return os.path.join(
@@ -47,10 +50,18 @@ def update(metadata, mtime=None):
 
 
 def delete(metadata):
+    if metadata.path in ignore_delete:
+        ignore_delete.discard(metadata.path)
+        return
+
     plug.delete_file(metadata)
 
 
 def move(old_metadata, new_filename):
+    if old_metadata.path in ignore_move:
+        ignore_move.discard(old_metadata.path)
+        return
+
     new_metadata = plug.move_file(old_metadata, new_filename)
     new_metadata.extra['revision'] = os.path.getmtime(new_filename)
     # We update the size in case the file was moved very quickly after a change
@@ -192,8 +203,10 @@ def abort_upload(metadata):
 @plug.handler()
 def delete_file(metadata):
     try:
+        ignore_delete.add(metadata.path)
         os.unlink(metadata.path)
     except (IOError, OSError) as e:
+        ignore_delete.discard(metadata.path)
         raise ServiceError(
             u"Error deleting file '{}': {}".format(metadata.path, e)
         )
@@ -202,8 +215,10 @@ def delete_file(metadata):
 @plug.handler()
 def move_file(old_metadata, new_metadata):
     try:
+        ignore_move.add(old_metadata.path)
         os.renames(old_metadata.path, new_metadata.path)
     except (IOError, OSError) as e:
+        ignore_move.discard(old_metadata.path)
         raise ServiceError(
             u"Error moving file '{}': {}".format(old_metadata.path, e)
         )
