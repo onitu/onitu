@@ -2,6 +2,7 @@ import sys
 
 import zmq
 import json
+import base64
 
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
@@ -9,13 +10,16 @@ from bottle import Bottle, run, response, abort, redirect, request
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
-from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint, u, PY2
+from onitu.utils import get_fid, u, b, PY2, get_circusctl_endpoint
+from onitu.utils import get_events_uri, get_logs_uri
 from onitu.plug.router import GET_OAUTH_URL, SET_OAUTH_TOKEN
 
 if PY2:
     from urllib import unquote as unquote_
+    from urlparse import urljoin
 else:
     from urllib.parse import unquote as unquote_
+    from urllib.parse import urljoin
 
 host = 'localhost'
 port = 3862
@@ -47,7 +51,7 @@ def service(name):
     driver = escalator.get(u'service:{}:driver'.format(name), default=None)
     if not driver:
         return None
-    options = escalator.get(u'service:{}:options'.format(name))
+    options = escalator.get(u'service:{}:options'.format(name), default=None)
     return {'name': name, 'driver': driver, 'options': options}
 
 
@@ -110,22 +114,27 @@ def timeout():
     )
 
 
-def call_handler(entry, cmd, *args):
+def get_callback(*args, **kwargs):
+    return 'http://localhost/test/index.html'
+
+
+def get_csrf(*args, **kwargs):
+    csrf = base64.b64encode(
+        urljoin(
+            'http://localhost:{}'.format(port), app.get_url(*args, **kwargs)
+        )
+    )
+    print(csrf)
+    return csrf
+
+
+def call_handler(service, cmd, *args):
     context = zmq.Context.instance()
-
     dealer = context.socket(zmq.DEALER)
-    port = escalator.get('port:{}'.format(entry))
-
-    if not port:
-        return
-
-    dealer.connect('tcp://127.0.0.1:{}'.format(port))
+    dealer.connect(get_events_uri(session, service, 'router'))
 
     try:
-        message = [cmd]
-        for arg in args:
-            message = message + [arg.encode("utf-8")]
-
+        message = [cmd] + [b(arg) for arg in args]
         dealer.send_multipart(message)
         return dealer.recv_multipart()
     finally:
@@ -322,13 +331,16 @@ def restart_service(name):
         resp = error(error_message=str(e))
     return resp
 
-@app.route('/api/v1.0/entries/<name>/oauth2callback', method='GET')
+
+@app.route('/api/v1.0/services/<name>/oauth2validation', method='GET',
+           name='oauth2validation')
 def oauth2_validation(name):
     name = unquote(name)
     keys = request.query.keys()
 
     d = {}
-    d["redirect_uri"] = "http://localhost:3862/api/v1.0/entries/{}/oauth2callback".format(name)
+    d["redirect_uri"] = get_callback()
+    d["csrf_token"] = get_csrf('oauth2validation', name=name)
 
     for key in keys:
         d[key] = request.query.get(key)
@@ -337,16 +349,21 @@ def oauth2_validation(name):
         call_handler(name, SET_OAUTH_TOKEN, json.dumps(d))
     except Exception as e:
         return error(error_message=str(e))
-    redirect("http://localhost/facet/#/drivers/info/{}".format(name))
+    # TODO: redirect to facet
+    return "Your token has been accepted, you can close this window."
 
-@app.route('/api/v1.0/entries/<name>/oauth2url', method='GET')
+@app.route('/api/v1.0/services/<name>/oauth2url', method='GET',
+           name='oauth2url')
 def get_oauth2_url(name):
     name = unquote(name)
     try:
-        url = call_handler(name, GET_OAUTH_URL, "http://localhost:3862/api/v1.0/entries/{}/oauth2callback".format(name))
+        url = call_handler(
+            name, GET_OAUTH_URL, get_callback(), get_csrf('oauth2validation', name=name)
+        )
         return url[0]
     except Exception as e:
         return error(error_message=str(e))
+
 
 if __name__ == '__main__':
     with ZeroMQHandler(get_logs_uri(session), multi=True).applicationbound():

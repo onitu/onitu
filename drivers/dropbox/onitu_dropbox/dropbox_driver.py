@@ -4,7 +4,6 @@ import threading
 import json
 
 import dropbox
-from dropbox.session import DropboxSession
 from dropbox.client import DropboxOAuth2Flow, DropboxClient
 
 from onitu.plug import Plug
@@ -21,34 +20,33 @@ TIMESTAMP_FMT = "%a, %d %b %Y %H:%M:%S +0000"
 plug = Plug()
 app_session = {}
 dropbox_client = None
+can_connect = threading.Event()
 
 
-def connect_client():
-    """Helper function to connect to Dropbox via the API, using access token
-    keys to authenticate Onitu."""
-    global dropbox_client
-    plug.logger.debug("Attempting Dropbox connection using Onitu credentials")
+def get_client():
+    """
+    Helper function to connect to Dropbox via the API, using access token
+    keys to authenticate Onitu.
+    """
+    plug.logger.debug("Trying to connect to Dropbox...")
 
-    # sess = DropboxSession(ONITU_APP_KEY,
-    #                       ONITU_APP_SECRET,
-    #                       ONITU_ACCESS_TYPE)
-    # Use the OAuth access token previously retrieved by the user and typed
-    # into Onitu configuration.
-    # sess.set_token(plug.options['access_key'], plug.options['access_secret'])
     try:
         db = plug.entry_db
-        token = db.get('oauthToken')
-        dropbox_client = DropboxClient(token)
-        plug.logger.debug("Dropbox connection with Onitu credentials successful")
-        return dropbox_client
+        token = db.get('oauth_token')
+        client = DropboxClient(token)
+        plug.logger.debug(
+            "Connection to Dropbox successful"
+        )
+        can_connect.set()
+        return client
     except:
-        plug.logger.warning("Dropbox connection with Onitu credentials failed")
-        return None
+        can_connect.clear()
+        plug.logger.debug("Connection to Dropbox failed (bad credentials ?)")
 
 
-def get_dropbox_auth_flow(redirect_uri=""):
+def get_dropbox_auth_flow(redirect_uri="", csrf_token="dropbox-csrf-token"):
     return DropboxOAuth2Flow(ONITU_APP_KEY, ONITU_APP_SECRET, redirect_uri,
-                             app_session, "dropbox-csrf-token")
+                             app_session, csrf_token)
 
 
 def remove_upload_id(metadata):
@@ -276,29 +274,42 @@ def delete_file(metadata):
     remove_conflict(filename)
     plug.logger.debug(u"Deleting '{}' - Done".format(filename))
 
+
 @plug.handler()
-def get_oauth_url(redirect_uri):
-    url = get_dropbox_auth_flow(redirect_uri).start()
-    return url
+def get_oauth_url(redirect_uri, csrf_token):
+    flow = get_dropbox_auth_flow(redirect_uri, csrf_token)
+    
+    flow.session[flow.csrf_token_session_key] = csrf_token
+
+    return flow._get_authorize_url(flow.redirect_uri, flow.csrf_token_session_key)
+
 
 @plug.handler()
 def set_oauth_token(query_param):
     query_param = json.loads(query_param)
+    redirect_uri = query_param['redirect_uri']
+    csrf_token = query_param['state']
     try:
-        access_token, user_id, url_state = get_dropbox_auth_flow(query_param['redirect_uri']).finish(query_param)
+        flow = get_dropbox_auth_flow(redirect_uri, csrf_token)
+        access_token, _, _ = flow.finish(query_param)
 
-        db = plug.entry_db
-        db.put("oauthToken", access_token)
-    except DropboxOAuth2Flow.BadRequestException, e:
-        plug.logger.warning "Bad request when authenticating dropbox"
-    except DropboxOAuth2Flow.BadStateException, e:
-        plug.logger.warning "Bad state when authenticating dropbox"
-    except DropboxOAuth2Flow.CsrfException, e:
-        plug.logger.warning "Csrf exception when authenticating dropbox"
+        db = plug.service_db
+        db.put("oauth_token", access_token)
+    except DropboxOAuth2Flow.BadRequestException as e:
+        plug.logger.warning("Bad request when authenticating dropbox: {}", e)
+    except DropboxOAuth2Flow.BadStateException as e:
+        plug.logger.warning("Bad state when authenticating dropbox: {}", e)
+    except DropboxOAuth2Flow.CsrfException as e:
+        plug.logger.warning(
+            "Csrf exception when authenticating dropbox: {}", e
+        )
     except DropboxOAuth2Flow.NotApprovedException, e:
-        plug.logger.warning "Not approved when authenticating dropbox"
+        plug.logger.warning("Not approved when authenticating dropbox: {}", e)
     except DropboxOAuth2Flow.ProviderException, e:
-        plug.logger.warning "Provider exception when authenticating dropbox"
+        plug.logger.warning(
+            "Provider exception when authenticating dropbox: {}", e
+        )
+
 
 class CheckChanges(threading.Thread):
     """A class spawned in a thread to poll for changes on the Dropbox account.
@@ -481,12 +492,25 @@ class CheckChanges(threading.Thread):
 
 
 def start(*args, **kwargs):
+    global dropbox_client
+
     if plug.options['changes_timer'] < 0:
         raise DriverError(
-            "The change timer option must be a positive integer")
-    connect_client()
+            "The change timer option must be a positive integer"
+        )
+
+    dropbox_client = get_client()
+
+    while not dropbox_client:
+        can_connect.wait()
+        dropbox_client = get_client()
+
+    if not dropbox_client:
+        can_connect.wait()
+
     # Start the watching-for-new-files thread
     check = CheckChanges(plug.options['changes_timer'])
     check.daemon = True
     check.start()
+
     plug.listen()
