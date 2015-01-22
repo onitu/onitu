@@ -26,208 +26,6 @@ plug = Plug()
 
 # ############################## EVERNOTE ####################################
 
-def register_note_resource(noteMetadata, resourceData, resourceMetadata):
-    """Register a resource GUID and filename in the metadata of its note."""
-    rscFilename = resourceMetadata.filename
-    plug.logger.debug(u"Registering resource {} in note {} metadata",
-                      rscFilename, noteMetadata.path)
-    if noteMetadata.extra.get(u'resources', None) is None:
-        noteMetadata.extra[u'resources'] = {}
-    noteMetadata.extra[u'resources'][resourceData.guid] = rscFilename
-
-
-def remove_resource_from_content(noteContent, resourceMetadata):
-    """Removes the references to a resource in a note's XML content based on
-    the resource's MD5 hash and mimetype."""
-    root = ElementTree.fromstring(noteContent)
-    for media in root.findall('en-media'):
-        if (media.attrib['hash'] == resourceMetadata.extra['hex_hash']
-           and media.attrib['type'] == resourceMetadata.mimetype):
-            root.remove(media)
-            break
-    newContent = ElementTree.tostring(root)
-    newContent = enclose_content_with_markup(newContent, declOnly=True)
-    return newContent
-
-
-def delete_resource(rscMetadata):
-    plug.logger.debug(u"Deleting resource {}", rscMetadata.path)
-    try:
-        noteGuid = rscMetadata.extra[u'note_guid']
-        rcGuid = rscMetadata.extra[u'guid']
-        # True = ask for note contents to edit it
-        note = notestore_onitu.getNote(token, noteGuid,
-                                       True, True, False, False)
-        note.resources = [rsc for rsc in note.resources if rsc.guid != rcGuid]
-        newContent = remove_resource_from_content(note.content, rscMetadata)
-        note = update_note_content(noteGuid, newContent, note=note)
-        noteMetadata = plug.get_metadata(u"{}/{}"
-                                         .format(rscMetadata.folder.path,
-                                                 u(note.title) + u".enml"))
-        # Remove this resource from the note's resources
-        noteResources = noteMetadata.extra.get('resources', {})
-        if rcGuid in noteResources:
-            del noteResources[rcGuid]
-        update_note_metadata(noteMetadata, note.contentLength, note.guid,
-                             note.contentHash, note.updateSequenceNum,
-                             updateSize=False)
-    except KeyError as ke:
-        raise DriverError(u"Resource {} lacks of extra data ! - {}"
-                          .format(rscMetadata.path, ke))
-    except (EDAMUserException, EDAMSystemException,
-            EDAMNotFoundException) as exc:
-        raise ServiceError(u"Unable to delete resource {}: {}"
-                           .format(rscMetadata.path, exc))
-
-
-def update_resource(rscMetadata, content):
-    """Updates the content of the note. There's no simple way to do it
-    (e.g. an Evernote API call), so the only way to do it is to remove the
-    old resource instance from the note's resource list, and replace the
-    hash in the note's content."""
-    plug.logger.debug(u"Updating resource {}", rscMetadata.path)
-    noteGuid = rscMetadata.extra['note_guid']
-    m = md5.new()
-    m.update(content)
-    bodyHash = m.digest()
-    try:
-        note = notestore_onitu.getNote(token, noteGuid,
-                                       True, False, False, False)
-    except (EDAMUserException, EDAMSystemException,
-            EDAMNotFoundException) as exc:
-        raise ServiceError(u"Fail to get note to update resource {} - {}"
-                           .format(rscMetadata.path, exc))
-    rsc = None
-    for resource in note.resources:
-        if resource.guid == rscMetadata.extra[u'guid']:
-            resource.data.size = len(content)
-            resource.data.body = content
-            resource.data.bodyHash = bodyHash
-            rsc = resource
-            break
-    md5_hash = hashlib.md5()
-    md5_hash.update(content)
-    md5_hash = md5_hash.hexdigest()
-    root = ElementTree.fromstring(note.content)
-    for media in root.findall('en-media'):
-        if (media.attrib['hash'] == rscMetadata.extra['hex_hash']
-           and media.attrib['type'] == rscMetadata.mimetype):
-            media.attrib['hash'] = md5_hash
-            break
-    newContent = ElementTree.tostring(root)
-    newContent = enclose_content_with_markup(newContent, declOnly=True)
-    update_note_content(None, newContent, note=note)
-    update_resource_metadata(rscMetadata, rsc)
-    plug.logger.debug(u"Updating resource {} - Done", rscMetadata.path)
-
-
-def delete_note_resources(noteMetadata):
-    """Deletes all the resource files bound to the given note metadata."""
-    resources = noteMetadata.extra.get(u'resources', {})
-    for filename in resources.values():
-        rscMetadata = plug.get_metadata(u"{}/{}"
-                                        .format(noteMetadata.folder.path,
-                                                u(filename)))
-        plug.delete_file(rscMetadata)
-
-
-def add_resource_to_note(rscMetadata, rscContent, note):
-    """Adds a resource to a note. In order to do it, retrieves the note's
-    content, and modify it in order to show the new resource. Also alters the
-    resource list."""
-    plug.logger.debug(u"Adding resource {} to note {}",
-                      rscMetadata.path, u(note.title))
-    filename = rscMetadata.filename.lstrip(u"{}/".format(u(note.title)))
-    newRsc = Types.Resource()
-    newRsc.attributes = Types.ResourceAttributes()
-    newRsc.attributes.fileName = b(filename)
-
-    newRsc.data = Types.Data()
-    newRsc.data.body = rscContent
-    newRsc.data.size = len(rscContent)
-    m = md5.new()
-    m.update(rscContent)
-    newRsc.data.bodyHash = m.digest()
-    if note.resources is None:
-        note.resources = []
-    note.resources.append(newRsc)
-
-    md5_hash = hashlib.md5()
-    md5_hash.update(rscContent)
-    md5_hash = md5_hash.hexdigest()
-    root = ElementTree.fromstring(note.content)
-    mediaAttribs = {'hash': md5_hash,
-                    'type': b(rscMetadata.mimetype)}
-    root.append(ElementTree.Element('en-media', attrib=mediaAttribs))
-    newContent = ElementTree.tostring(root)
-    # ElementTree.tostring strips the Evernote XML declaration, so
-    # we have to put it back
-    newContent = enclose_content_with_markup(newContent, declOnly=True)
-    try:
-        note = update_note_content(None, newContent, note=note)
-    except (AttributeError, ResponseNotReady) as err:
-        # The Thrift library often throws these. However, it works
-        # nonetheless, so we should ignore those errors.
-        plug.logger.warning(u"Error: {} - continuing", err)
-    lastUSN = 0
-    # Re-find our resource. To do it check the filename, the hash and in case
-    # of resources identical in name AND body (unlikely), take the most recent
-    for resource in note.resources:
-        if (resource.attributes.fileName == newRsc.attributes.fileName
-           and resource.data.bodyHash == newRsc.data.bodyHash
-           and resource.updateSequenceNum > lastUSN):
-            lastUSN = resource.updateSequenceNum
-    # Don't update the size since it comes from Onitu
-    # Use newRsc because since note has been returned from an updateNote, its
-    # body is None, so we won't be able to do a hex hash of it.
-    newRsc.updateSequenceNum = lastUSN
-    update_resource_metadata(rscMetadata, newRsc, updateSize=False)
-    noteMetadata = plug.get_metadata(u"{0}/{0}.enml".format(u(note.title)),
-                                     rscMetadata.folder)
-    register_note_resource(noteMetadata, newRsc, rscMetadata)
-    noteMetadata.write()
-
-
-def update_resource_metadata(onituMetadata, resource, updateFile=False,
-                             updateSize=True):
-    """Updates the Onitu metadata of a resource file. Quite not the same thing
-    as updating a note."""
-    # Data may not be set so be careful
-    if updateSize and resource.data is not None:
-        onituMetadata.size = resource.data.size
-    onituMetadata.extra[u'guid'] = resource.guid
-    onituMetadata.extra[u'hash'] = resource.data.bodyHash
-    md5_hash = hashlib.md5()
-    md5_hash.update(resource.data.body)
-    md5_hash = md5_hash.hexdigest()
-    onituMetadata.extra[u'hex_hash'] = md5_hash
-    # noteGuid helps us to remember if a file is a file's resource or not
-    onituMetadata.extra[u'note_guid'] = resource.noteGuid
-    onituMetadata.extra[u'USN'] = resource.updateSequenceNum
-    if updateFile:
-        plug.update_file(onituMetadata)
-    else:
-        onituMetadata.write()
-
-
-def update_note_metadata(onituMetadata, size, guid, contentHash, usn,
-                         updateSize=True, updateFile=False):
-    """Updates the Onitu metadata of an Evernote note. If updateFile is True,
-    call plug.update_file. If not, just call metadata.write"""
-    plug.logger.debug(u"Updating metadata of {}", onituMetadata.path)
-    if updateSize:
-        onituMetadata.size = size
-    onituMetadata.extra[u'guid'] = guid
-    onituMetadata.extra[u'hash'] = contentHash
-    onituMetadata.extra[u'USN'] = usn
-    # Usually this function gets called if an update has been detected, but
-    # we must call plug.update_file only if it's a content-related change.
-    if updateFile:
-        plug.update_file(onituMetadata)
-    else:
-        onituMetadata.write()
-
-
 def connect_client():
     global notestore_onitu
     global token
@@ -286,6 +84,24 @@ def find_notebook_by_name(name, create=False):
         raise ServiceError(u"Cannot list notebooks - {}".format(exc))
     if create:
         return create_notebook(name)
+
+
+def update_note_metadata(onituMetadata, size, guid, contentHash, usn,
+                         updateSize=True, updateFile=False):
+    """Updates the Onitu metadata of an Evernote note. If updateFile is True,
+    call plug.update_file. If not, just call metadata.write"""
+    plug.logger.debug(u"Updating metadata of {}", onituMetadata.path)
+    if updateSize:
+        onituMetadata.size = size
+    onituMetadata.extra[u'guid'] = guid
+    onituMetadata.extra[u'hash'] = contentHash
+    onituMetadata.extra[u'USN'] = usn
+    # Usually this function gets called if an update has been detected, but
+    # we must call plug.update_file only if it's a content-related change.
+    if updateFile:
+        plug.update_file(onituMetadata)
+    else:
+        onituMetadata.write()
 
 
 def find_note_by_title(noteTitle, notebookGuid):
@@ -433,6 +249,190 @@ def create_note(metadata, content, notebook, title=None):
     update_note_metadata(metadata_to_update, note.contentLength, note.guid,
                          note.contentHash, updateUSN)
     return note
+
+
+def register_note_resource(noteMetadata, resourceData, resourceMetadata):
+    """Register a resource GUID and filename in the metadata of its note."""
+    rscFilename = resourceMetadata.filename
+    plug.logger.debug(u"Registering resource {} in note {} metadata",
+                      rscFilename, noteMetadata.path)
+    if noteMetadata.extra.get(u'resources', None) is None:
+        noteMetadata.extra[u'resources'] = {}
+    noteMetadata.extra[u'resources'][resourceData.guid] = rscFilename
+
+
+def remove_resource_from_content(noteContent, resourceMetadata):
+    """Removes the references to a resource in a note's XML content based on
+    the resource's MD5 hash and mimetype."""
+    root = ElementTree.fromstring(noteContent)
+    for media in root.findall('en-media'):
+        if (media.attrib['hash'] == resourceMetadata.extra['hex_hash']
+           and media.attrib['type'] == resourceMetadata.mimetype):
+            root.remove(media)
+            break
+    newContent = ElementTree.tostring(root)
+    newContent = enclose_content_with_markup(newContent, declOnly=True)
+    return newContent
+
+
+def update_resource(rscMetadata, content):
+    """Updates the content of the note. There's no simple way to do it
+    (e.g. an Evernote API call), so the only way to do it is to remove the
+    old resource instance from the note's resource list, and replace the
+    hash in the note's content."""
+    plug.logger.debug(u"Updating resource {}", rscMetadata.path)
+    noteGuid = rscMetadata.extra['note_guid']
+    m = md5.new()
+    m.update(content)
+    bodyHash = m.digest()
+    try:
+        note = notestore_onitu.getNote(token, noteGuid,
+                                       True, False, False, False)
+    except (EDAMUserException, EDAMSystemException,
+            EDAMNotFoundException) as exc:
+        raise ServiceError(u"Fail to get note to update resource {} - {}"
+                           .format(rscMetadata.path, exc))
+    rsc = None
+    for resource in note.resources:
+        if resource.guid == rscMetadata.extra[u'guid']:
+            resource.data.size = len(content)
+            resource.data.body = content
+            resource.data.bodyHash = bodyHash
+            rsc = resource
+            break
+    md5_hash = hashlib.md5()
+    md5_hash.update(content)
+    md5_hash = md5_hash.hexdigest()
+    root = ElementTree.fromstring(note.content)
+    for media in root.findall('en-media'):
+        if (media.attrib['hash'] == rscMetadata.extra['hex_hash']
+           and media.attrib['type'] == rscMetadata.mimetype):
+            media.attrib['hash'] = md5_hash
+            break
+    newContent = ElementTree.tostring(root)
+    newContent = enclose_content_with_markup(newContent, declOnly=True)
+    update_note_content(None, newContent, note=note)
+    update_resource_metadata(rscMetadata, rsc)
+    plug.logger.debug(u"Updating resource {} - Done", rscMetadata.path)
+
+
+def delete_resource(rscMetadata):
+    plug.logger.debug(u"Deleting resource {}", rscMetadata.path)
+    try:
+        noteGuid = rscMetadata.extra[u'note_guid']
+        rcGuid = rscMetadata.extra[u'guid']
+        # True = ask for note contents to edit it
+        note = notestore_onitu.getNote(token, noteGuid,
+                                       True, True, False, False)
+        note.resources = [rsc for rsc in note.resources if rsc.guid != rcGuid]
+        newContent = remove_resource_from_content(note.content, rscMetadata)
+        note = update_note_content(noteGuid, newContent, note=note)
+        noteMetadata = plug.get_metadata(u"{}/{}"
+                                         .format(rscMetadata.folder.path,
+                                                 u(note.title) + u".enml"))
+        # Remove this resource from the note's resources
+        noteResources = noteMetadata.extra.get('resources', {})
+        if rcGuid in noteResources:
+            del noteResources[rcGuid]
+        update_note_metadata(noteMetadata, note.contentLength, note.guid,
+                             note.contentHash, note.updateSequenceNum,
+                             updateSize=False)
+    except KeyError as ke:
+        raise DriverError(u"Resource {} lacks of extra data ! - {}"
+                          .format(rscMetadata.path, ke))
+    except (EDAMUserException, EDAMSystemException,
+            EDAMNotFoundException) as exc:
+        raise ServiceError(u"Unable to delete resource {}: {}"
+                           .format(rscMetadata.path, exc))
+
+
+def delete_note_resources(noteMetadata):
+    """Deletes all the resource files bound to the given note metadata."""
+    resources = noteMetadata.extra.get(u'resources', {})
+    for filename in resources.values():
+        rscMetadata = plug.get_metadata(u"{}/{}"
+                                        .format(noteMetadata.folder.path,
+                                                u(filename)))
+        plug.delete_file(rscMetadata)
+
+
+def add_resource_to_note(rscMetadata, rscContent, note):
+    """Adds a resource to a note. In order to do it, retrieves the note's
+    content, and modify it in order to show the new resource. Also alters the
+    resource list."""
+    plug.logger.debug(u"Adding resource {} to note {}",
+                      rscMetadata.path, u(note.title))
+    filename = rscMetadata.filename.lstrip(u"{}/".format(u(note.title)))
+    newRsc = Types.Resource()
+    newRsc.attributes = Types.ResourceAttributes()
+    newRsc.attributes.fileName = b(filename)
+
+    newRsc.data = Types.Data()
+    newRsc.data.body = rscContent
+    newRsc.data.size = len(rscContent)
+    m = md5.new()
+    m.update(rscContent)
+    newRsc.data.bodyHash = m.digest()
+    if note.resources is None:
+        note.resources = []
+    note.resources.append(newRsc)
+
+    md5_hash = hashlib.md5()
+    md5_hash.update(rscContent)
+    md5_hash = md5_hash.hexdigest()
+    root = ElementTree.fromstring(note.content)
+    mediaAttribs = {'hash': md5_hash,
+                    'type': b(rscMetadata.mimetype)}
+    root.append(ElementTree.Element('en-media', attrib=mediaAttribs))
+    newContent = ElementTree.tostring(root)
+    # ElementTree.tostring strips the Evernote XML declaration, so
+    # we have to put it back
+    newContent = enclose_content_with_markup(newContent, declOnly=True)
+    try:
+        note = update_note_content(None, newContent, note=note)
+    except (AttributeError, ResponseNotReady) as err:
+        # The Thrift library often throws these. However, it works
+        # nonetheless, so we should ignore those errors.
+        plug.logger.warning(u"Error: {} - continuing", err)
+    lastUSN = 0
+    # Re-find our resource. To do it check the filename, the hash and in case
+    # of resources identical in name AND body (unlikely), take the most recent
+    for resource in note.resources:
+        if (resource.attributes.fileName == newRsc.attributes.fileName
+           and resource.data.bodyHash == newRsc.data.bodyHash
+           and resource.updateSequenceNum > lastUSN):
+            lastUSN = resource.updateSequenceNum
+    # Don't update the size since it comes from Onitu
+    # Use newRsc because since note has been returned from an updateNote, its
+    # body is None, so we won't be able to do a hex hash of it.
+    newRsc.updateSequenceNum = lastUSN
+    update_resource_metadata(rscMetadata, newRsc, updateSize=False)
+    noteMetadata = plug.get_metadata(u"{0}/{0}.enml".format(u(note.title)),
+                                     rscMetadata.folder)
+    register_note_resource(noteMetadata, newRsc, rscMetadata)
+    noteMetadata.write()
+
+
+def update_resource_metadata(onituMetadata, resource, updateFile=False,
+                             updateSize=True):
+    """Updates the Onitu metadata of a resource file. Quite not the same thing
+    as updating a note."""
+    # Data may not be set so be careful
+    if updateSize and resource.data is not None:
+        onituMetadata.size = resource.data.size
+    onituMetadata.extra[u'guid'] = resource.guid
+    onituMetadata.extra[u'hash'] = resource.data.bodyHash
+    md5_hash = hashlib.md5()
+    md5_hash.update(resource.data.body)
+    md5_hash = md5_hash.hexdigest()
+    onituMetadata.extra[u'hex_hash'] = md5_hash
+    # noteGuid helps us to remember if a file is a file's resource or not
+    onituMetadata.extra[u'note_guid'] = resource.noteGuid
+    onituMetadata.extra[u'USN'] = resource.updateSequenceNum
+    if updateFile:
+        plug.update_file(onituMetadata)
+    else:
+        onituMetadata.write()
 
 
 # ############################# ONITU HANDLERS ###############################
