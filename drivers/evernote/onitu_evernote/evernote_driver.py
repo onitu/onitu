@@ -46,7 +46,9 @@ def delete_resource(rscMetadata):
         noteMetadata = plug.get_metadata(u"{}/{}"
                                          .format(rscMetadata.folder.path,
                                                  note.title + u".enml"))
-        update_note_metadata(noteMetadata, note, updateSize=False)
+        update_note_metadata(noteMetadata, note.contentLength, note.guid,
+                             note.contentHash, note.updateSequenceNum,
+                             updateSize=False)
     except KeyError as ke:
         raise DriverError(u"Resource {} lacks of extra data ! - {}"
                           .format(rscMetadata.path, ke))
@@ -81,16 +83,16 @@ def update_resource_metadata(onituMetadata, resource, updateFile=False):
         plug.update_file(onituMetadata)
 
 
-def update_note_metadata(onituMetadata, note,
+def update_note_metadata(onituMetadata, size, guid, contentHash, usn,
                          updateSize=True, updateFile=False):
     """Updates the Onitu metadata of an Evernote note. If updateFile is True,
     call plug.update_file. If not, just call metadata.write"""
     plug.logger.debug(u"Updating metadata of {}", onituMetadata.path)
     if updateSize:
-        onituMetadata.size = note.contentLength
-    onituMetadata.extra[u'guid'] = note.guid
-    onituMetadata.extra[u'hash'] = note.contentHash
-    onituMetadata.extra[u'USN'] = note.updateSequenceNum
+        onituMetadata.size = size
+    onituMetadata.extra[u'guid'] = guid
+    onituMetadata.extra[u'hash'] = contentHash
+    onituMetadata.extra[u'USN'] = usn
     # Usually this function gets called if an update has been detected, but
     # we must call plug.update_file only if it's a content-related change.
     if updateFile:
@@ -255,6 +257,7 @@ def create_note(metadata, content, notebook, title=None):
                                updateNote=False)
 
     error = None
+    changedContent = False
     while True:
         try:
             note = notestore_onitu.createNote(note)
@@ -270,6 +273,7 @@ def create_note(metadata, content, notebook, title=None):
                 newContent = enclose_content_with_markup(content)
                 note = update_note_content(metadata, newContent, note=note,
                                            updateNote=False)
+                changedContent = True
                 continue
             else:
                 error = exc
@@ -281,7 +285,14 @@ def create_note(metadata, content, notebook, title=None):
     metadata_to_update = metadata
     if new_metadata is not None:
         metadata_to_update = new_metadata
-    update_note_metadata(metadata_to_update, note)
+    # If we changed the content (by enclosing it in ENML markup), find a way
+    # to (somewhat artificially) say that the file needs updating.
+    # Calling plug.update_file inside a handler usually doesn't work.
+    updateUSN = note.updateSequenceNum
+    if changedContent:
+        updateUSN = 0
+    update_note_metadata(metadata_to_update, note.contentLength, note.guid,
+                         note.contentHash, updateUSN)
     return note
 
 
@@ -344,7 +355,10 @@ def upload_file(metadata, content):
                                       u"than on Evernote, no update done",
                                       metadata.path)
                 else:
-                    update_note_metadata(metadata, note, updateSize=False)
+                    update_note_metadata(metadata, note.contentLength,
+                                         note.guid, note.contentHash,
+                                         note.updateSequenceNum,
+                                         updateSize=False)
             # it's an updated resource
             else:
                 # TODO Get the note, add a resource, and parse the contents to add a reference to the new resource
@@ -515,7 +529,9 @@ class CheckChanges(threading.Thread):
         updateMetadata = self.update_note_resources(note, onituMetadata)
         # We could want to call plug.update_file or just metadata.write
         if updateMetadata or updateFile:
-            update_note_metadata(onituMetadata, note, updateFile=updateFile)
+            update_note_metadata(onituMetadata, note.contentLength, note.guid,
+                                 note.contentHash, note.updateSequenceNum,
+                                 updateFile=updateFile)
 
     def check_updated(self):
         """Checks for updated notes on the Onitu notebook.
