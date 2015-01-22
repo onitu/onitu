@@ -1,0 +1,28 @@
+{
+    "name": "Flickr",
+    "description": "A Driver to synchronize your photos and videos with a Flickr account. In order to use it, you need to retrieve Oauth tokens with the provided get_tokens.py script.",
+    "options": {
+	"oauth_token": {
+	    "name": "Oauth token",
+	    "description": "Your Oauth token retrieved with get_tokens.py",
+	    "type": "string"
+	},
+	"oauth_token_secret": {
+	    "name": "Oauth token secret",
+	    "description": "Your Oauth token secret retrieved with get_tokens.py",
+	    "type": "string"
+	},
+	"changes_timer": {
+	    "name": "Changes timer",
+	    "description": "The amount of time you want Onitu to wait between each check for new files on your Flickr account, in seconds. Defaults to 30.",
+	    "type": "integer",
+	    "default": 300
+	},
+	"png_header": {
+	    "name": "PNG header prepending",
+	    "description": "If active, Onitu prepends a PNG header before any data sent to Flickr. Used by tests to fool Flickr's MIME type detection.",
+	    "type": "boolean",
+	    "default": "false"
+	}
+    }
+}
