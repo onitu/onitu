@@ -1,14 +1,10 @@
+from logbook import Logger
 from onitu.referee.folder import Folder
-
-
-class FakeLogger(object):
-    def info(self, *args, **kwargs):
-        pass
 
 
 def test_init_size():
 
-    f = Folder('folder', {}, FakeLogger(), {})
+    f = Folder('folder', {}, Logger(), {})
 
     assert f._to_bytes(10) == 10
     assert f._to_bytes(15.3) == 15
@@ -63,7 +59,7 @@ def test_init_size():
 
 
 def test_no_size():
-    f = Folder('folder', {}, FakeLogger(), {})
+    f = Folder('folder', {}, Logger(), {})
 
     def do_test(val):
         return f.assert_options(
@@ -76,7 +72,7 @@ def test_no_size():
 
 
 def test_min_size():
-    f = Folder('folder', {}, FakeLogger(), {})
+    f = Folder('folder', {}, Logger(), {})
 
     def do_test(val):
         return f.assert_options(
@@ -92,7 +88,7 @@ def test_min_size():
 
 
 def test_max_size():
-    f = Folder('folder', {}, FakeLogger(), {})
+    f = Folder('folder', {}, Logger(), {})
 
     def do_test(val):
         return f.assert_options(
@@ -108,7 +104,7 @@ def test_max_size():
 
 
 def test_min_and_max_size():
-    f = Folder('folder', {}, FakeLogger(), {})
+    f = Folder('folder', {}, Logger(), {})
 
     def do_test(val):
         return f.assert_options(
@@ -123,7 +119,7 @@ def test_min_and_max_size():
 
 
 def test_no_mimetype():
-    f = Folder('folder', {}, FakeLogger(), {})
+    f = Folder('folder', {}, Logger(), {})
 
     def do_test(val):
         return f.assert_options(
@@ -136,7 +132,7 @@ def test_no_mimetype():
 
 
 def test_mimetypes():
-    f = Folder('folder', {}, FakeLogger(), {})
+    f = Folder('folder', {}, Logger(), {})
 
     def do_test(val):
         return f.assert_options(
@@ -176,7 +172,7 @@ def test_mimetypes():
 
 
 def test_no_blacklist():
-    f = Folder('folder', {}, FakeLogger(), {})
+    f = Folder('folder', {}, Logger(), {})
 
     def do_test(val):
         return f.assert_options(
@@ -188,7 +184,7 @@ def test_no_blacklist():
 
 
 def test_blacklist():
-    f = Folder('folder', {}, FakeLogger(), {})
+    f = Folder('folder', {}, Logger(), {})
 
     def do_test(val):
         return f.assert_options(
@@ -215,7 +211,7 @@ def test_blacklist():
 
 
 def test_no_whitelist():
-    f = Folder('folder', {}, FakeLogger(), {})
+    f = Folder('folder', {}, Logger(), {})
 
     def do_test(val):
         return f.assert_options(
@@ -227,7 +223,7 @@ def test_no_whitelist():
 
 
 def test_whitelist():
-    f = Folder('folder', {}, FakeLogger(), {})
+    f = Folder('folder', {}, Logger(), {})
 
     def do_test(val):
         return f.assert_options(

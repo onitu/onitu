@@ -42,12 +42,6 @@ class Folder(object):
         # should take into account. folder options and service/folder
         # options.
 
-        # TODO: We might want to consider doing different checks for the
-        # source than what we do for the targets because in some cases
-        # we might want to cheat. Eg: what happens if the size grows to
-        # large for the source's service, we'dd still like for it to be
-        # copied. Or not? Maybe not. I don't know. Not doing it now.
-
         # Step 1: Do we (the folder) want the file?
 
         if not self.assert_options(self.options, metadata):
@@ -56,7 +50,8 @@ class Folder(object):
         # Step 2: Does the source want to share it?
 
         options = self.services[source]
-        if not self.assert_options(options, metadata):
+        if not self.assert_options(options, metadata,
+                                   authority="{} (source)".format(source)):
             return set()
 
         # Step 3: Check who else is interested.
@@ -65,21 +60,27 @@ class Folder(object):
         for service, options in self.services.items():
             if service == source:
                 continue
-            if self.assert_options(options, metadata):
+            if self.assert_options(options, metadata, authority=service):
                 targets.add(service)
 
         return targets
 
-    def assert_options(self, options, metadata, mode=""):
-
-        # Those options are either our own or those of a service.
-        # This is because there is no difference between
-        # service/folder and folder options.
+    def assert_options(self, options, metadata, mode="", authority=None):
 
         def check_list(l, c):
             if l is None:
                 return None
             return any(fnmatchcase(c, rule) for rule in l)
+
+        # Those options are either our own or those of a service.
+        # This is because there is no difference between
+        # service/folder and folder options.
+
+        if authority is None:
+            authority = "Folder <{}>".format(self.name)
+        else:
+            authority = "Service <{}> in Folder <{}>".format(
+                authority, self.name)
 
         # mode
 
@@ -94,36 +95,36 @@ class Folder(object):
 
         if minsz is not None and metadata['size'] < self._to_bytes(minsz):
             self.logger.info(
-                "Ignoring event for '{}' in folder {} due to its size: "
-                "{} bytes", metadata['filename'], self.name, metadata['size'])
+                "{} ignores event for '{}' due to its size: {} bytes",
+                authority, metadata['filename'], metadata['size'])
             return False
 
         if maxsz is not None and metadata['size'] > self._to_bytes(maxsz):
             self.logger.info(
-                "Ignoring event for '{}' in folder {} due to its size: "
-                "{} bytes", metadata['filename'], self.name, metadata['size'])
+                "{} ignores event for '{}' due to its size: {} bytes",
+                authority, metadata['filename'], metadata['size'])
             return False
 
         # mimetypes
 
         if check_list(options.get("mimetypes"), metadata['mimetype']) is False:
             self.logger.info(
-                "Ignoring event for '{}' in folder {} due to its mimetype: {}",
-                metadata['filename'], self.name, metadata['mimetype'])
+                "{} ignores event for '{}' due to its mimetype: {}",
+                authority, metadata['filename'], metadata['mimetype'])
             return False
 
         # black/white list
 
         if check_list(options.get("blacklist"), metadata['filename']) is True:
             self.logger.info(
-                "Ignoring event for '{}' in folder {} because its filename "
-                "is blacklisted", metadata['filename'], self.name)
+                "{} ignores event for '{}' because it is blacklisted",
+                authority, metadata['filename'])
             return False
 
         if check_list(options.get("whitelist"), metadata['filename']) is False:
             self.logger.info(
-                "Ignoring event for '{}' in folder {} because its filename "
-                "is not whitelisted", metadata['filename'], self.name)
+                "{} ignores event for '{}' because it is not whitelisted",
+                authority, metadata['filename'])
             return False
 
         return True
