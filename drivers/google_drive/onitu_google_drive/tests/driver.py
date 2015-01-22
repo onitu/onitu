@@ -4,19 +4,19 @@ import tempfile
 
 from path import path
 
-from tests.utils.testdriver import TestDriver
+from tests.utils import driver
+from onitu.utils import u, b, get_random_string
 from onitu_google_drive import libdrive
-
 
 refresh_token = "1/ezUs-qa0qMRXYDj4x0rcq0ODO_1nG-qiG-3POqzjs8w"
 
 
-class Driver(TestDriver):
+class Driver(driver.Driver):
     def __init__(self, *args, **options):
         tmp = tempfile.NamedTemporaryFile()
         _, fileName = os.path.split(tmp.name)
         if 'root' not in options:
-            options['root'] = fileName
+            options['root'] = "/{}/".format(get_random_string(10))
         if 'refresh_token' not in options:
             options['refresh_token'] = refresh_token
         if 'client_id' not in options:
@@ -55,6 +55,7 @@ class Driver(TestDriver):
         self.access_token = data["access_token"]
         self.token_expi = time.time() + data["expires_in"]
 
+    @property
     def root(self):
         return path(self.options['root'])
 
@@ -208,3 +209,6 @@ class Driver(TestDriver):
                                       None,
                                       old_data["items"][0]["id"],
                                       old_data["items"][0]["fileSize"], params)
+
+class DriverFeatures(driver.DriverFeatures):
+    pass

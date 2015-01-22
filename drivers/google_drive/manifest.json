@@ -2,12 +2,6 @@
   "name": "Google Drive",
   "description": "Store files on your Google Drive.",
   "options": {
-    "root": {
-      "name": "Root",
-      "description": "The root of the directories under Onitu's watch",
-      "type": "string",
-      "default": "onitu"
-    },
     "refresh_token": {
       "name": "Refresh token",
       "description": "Token use to have authentification by Google Drive API",
