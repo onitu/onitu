@@ -51,7 +51,7 @@ class Folder(object):
 
         options = self.services[source]
         if not self.assert_options(options, metadata,
-                                   authority="{} (source)".format(source)):
+                                   authority=u"{} (source)".format(source)):
             return set()
 
         # Step 3: Check who else is interested.
@@ -77,9 +77,9 @@ class Folder(object):
         # service/folder and folder options.
 
         if authority is None:
-            authority = "Folder <{}>".format(self.name)
+            authority = u"Folder <{}>".format(self.name)
         else:
-            authority = "Service <{}> in Folder <{}>".format(
+            authority = u"Service <{}> in Folder <{}>".format(
                 authority, self.name)
 
         # mode
