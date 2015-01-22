@@ -1,7 +1,10 @@
 import threading
+from socket import gaierror
 import hashlib
+import md5
 from httplib import ResponseNotReady
 from ssl import SSLError
+from xml.etree import ElementTree
 
 import evernote.edam.type.ttypes as Types
 from evernote.edam.error.ttypes import EDAMUserException, EDAMSystemException
@@ -68,11 +71,57 @@ def delete_note_resources(noteMetadata):
         plug.delete_file(rscMetadata)
 
 
-def update_resource_metadata(onituMetadata, resource, updateFile=False):
+def add_resource_to_note(rscMetadata, rscContent, note):
+    """Adds a resource to a note. In order to do it, retrieves the note's
+    content, and modify it in order to show the new resource. Also alters the
+    resource list."""
+    plug.logger.debug(u"Adding resource {} to note {}",
+                      rscMetadata.path, note.title)
+    filename = rscMetadata.filename.lstrip(u"{}/".format(note.title))
+    newRsc = Types.Resource()
+    newRsc.attributes = Types.ResourceAttributes()
+    newRsc.attributes.fileName = filename
+
+    newRsc.data = Types.Data()
+    newRsc.data.body = rscContent
+    newRsc.data.size = len(rscContent)
+    m = md5.new()
+    m.update(rscContent)
+    newRsc.data.bodyHash = m.digest()
+    note.resources.append(newRsc)
+
+    md5_hash = hashlib.md5()
+    md5_hash.update(rscContent)
+    md5_hash = md5_hash.hexdigest()
+    root = ElementTree.fromstring(note.content)
+    mediaAttribs = {'hash': md5_hash,
+                    'type': b(rscMetadata.mimetype)}
+    root.append(ElementTree.Element('en-media', attrib=mediaAttribs))
+    newContent = ElementTree.tostring(root)
+    # ElementTree.tostring strips the Evernote XML declaration, so
+    # we have to put it back
+    newContent = enclose_content_with_markup(newContent, declOnly=True)
+    note = update_note_content(rscMetadata, newContent, note=note)
+    rsc = None
+    lastUSN = 0
+    # Re-find our resource. To do it check the filename, the hash and in case
+    # of resources identical in name AND body (unlikely), take the most recent
+    for resource in note.resources:
+        if (resource.data.filename == newRsc.attributes.fileName
+           and resource.data.bodyHash == newRsc.data.bodyHash
+           and resource.updateSequenceNum > lastUSN):
+            rsc = resource
+            lastUSN = rsc.updateSequenceNum
+    # Don't update the size since it comes from Onitu
+    update_resource_metadata(rscMetadata, rsc, updateSize=False)
+
+
+def update_resource_metadata(onituMetadata, resource, updateFile=False,
+                             updateSize=True):
     """Updates the Onitu metadata of a resource file. Quite not the same thing
     as updating a note."""
     # Data may not be set so be careful
-    if resource.data is not None:
+    if updateSize and resource.data is not None:
         onituMetadata.size = resource.data.size
     onituMetadata.extra[u'guid'] = resource.guid
     onituMetadata.extra[u'hash'] = resource.data.bodyHash
@@ -81,6 +130,8 @@ def update_resource_metadata(onituMetadata, resource, updateFile=False):
     onituMetadata.extra[u'USN'] = resource.updateSequenceNum
     if updateFile:
         plug.update_file(onituMetadata)
+    else:
+        onituMetadata.write()
 
 
 def update_note_metadata(onituMetadata, size, guid, contentHash, usn,
@@ -189,13 +240,17 @@ def find_note_by_title(noteTitle, notebookGuid):
     return None
 
 
-def enclose_content_with_markup(content):
+def enclose_content_with_markup(content, declOnly=False):
     """Enclose some given content with the Evernote boilerplate markup.
     It is useful when creating new notes without this markup, since Evernote
-    raises errors in those cases."""
-    content = """<?xml version="1.0" encoding="UTF-8"?>
-    <!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">
-    <en-note>{}</en-note>""".format(content)
+    raises errors in those cases. declOnly specifies if we should just include
+    the XML declaration or if we enclose the content in <en-note> tags too."""
+    decl = """<?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">"""
+    if declOnly:
+        content = decl + content
+    else:
+        content = "{}<en-note>{}</en-note>".format(decl, content)
     return content
 
 
@@ -224,14 +279,14 @@ def update_note_content(metadata, content, note=None, updateNote=True):
     except (EDAMUserException, EDAMSystemException,
             EDAMNotFoundException) as exc:
         raise ServiceError(u"Unable to update note {} - {}"
-                           .format(metadata.path, exc))
+                           .format(note.title, exc))
     return note
 
 
 def create_note(metadata, content, notebook, title=None):
     """Creates an Evernote note out of a new file, prior to uploading it."""
     new_metadata = None  # in case of a move_file
-    # TODO Metadata.mimetype isn't reliable yet...
+    # TODO Metadata.mimetype isn't really reliable
     # mime = metadata.mimetype
     # plug.logger.debug(mime)
     # if not mime.startswith(u"text") and not mime.endswith(u"xml"):
@@ -339,7 +394,7 @@ def upload_file(metadata, content):
             note = find_note_by_title(noteTitle, notebook.guid)
             # The note exists: add this as a resource
             if note is not None:
-                pass  # TODO
+                add_resource_to_note(metadata, content, note)
             # The note doesn't exist: try to create the note with this file
             else:
                 create_note(metadata, content, notebook, title=noteTitle)
@@ -605,8 +660,8 @@ class CheckChanges(threading.Thread):
             except EscalatorClosed:
                 # We are closing
                 return
-            except (SSLError, AttributeError) as err:
-                # Sometimes these are warning thrown by the Thrift library
+            except (SSLError, AttributeError, gaierror) as err:
+                # Sometimes these are errors thrown by the Thrift library
                 # used by evernote, for no real reason. Can't do much for it
                 plug.logger.warning(u"Unexpected error in check changes of"
                                     u" {}: {}".format(self.folder.path, err))
