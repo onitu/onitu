@@ -36,19 +36,38 @@ def register_note_resource(noteMetadata, resourceData, resourceMetadata):
     noteMetadata.extra[u'resources'][resourceData.guid] = rscFilename
 
 
+def remove_resource_from_content(noteContent, resourceMetadata):
+    """Removes the references to a resource in a note's XML content based on
+    the resource's MD5 hash and mimetype."""
+    root = ElementTree.fromstring(noteContent)
+    for media in root.findall('en-media'):
+        if (media.attrib['hash'] == resourceMetadata.extra['hex_hash']
+           and media.attrib['type'] == resourceMetadata.mimetype):
+            root.remove(media)
+            break
+    newContent = ElementTree.tostring(root)
+    newContent = enclose_content_with_markup(newContent, declOnly=True)
+    return newContent
+
+
 def delete_resource(rscMetadata):
     plug.logger.debug(u"Deleting resource {}", rscMetadata.path)
     try:
         noteGuid = rscMetadata.extra[u'note_guid']
         rcGuid = rscMetadata.extra[u'guid']
+        # True = ask for note contents to edit it
         note = notestore_onitu.getNote(token, noteGuid,
-                                       False, False, False, False)
+                                       True, True, False, False)
         note.resources = [rsc for rsc in note.resources if rsc.guid != rcGuid]
-        # TODO Parse the note's content and remove the references to this resource
-        note = notestore_onitu.updateNote(token, note)
+        newContent = remove_resource_from_content(note.content, rscMetadata)
+        note = update_note_content(noteGuid, newContent, note=note)
         noteMetadata = plug.get_metadata(u"{}/{}"
                                          .format(rscMetadata.folder.path,
                                                  note.title + u".enml"))
+        # Remove this resource from the note's resources
+        noteResources = noteMetadata.extra.get('resources', {})
+        if rcGuid in noteResources:
+            del noteResources[rcGuid]
         update_note_metadata(noteMetadata, note.contentLength, note.guid,
                              note.contentHash, note.updateSequenceNum,
                              updateSize=False)
@@ -88,6 +107,8 @@ def add_resource_to_note(rscMetadata, rscContent, note):
     m = md5.new()
     m.update(rscContent)
     newRsc.data.bodyHash = m.digest()
+    if note.resources is None:
+        note.resources = []
     note.resources.append(newRsc)
 
     md5_hash = hashlib.md5()
@@ -102,12 +123,11 @@ def add_resource_to_note(rscMetadata, rscContent, note):
     # we have to put it back
     newContent = enclose_content_with_markup(newContent, declOnly=True)
     try:
-        note = update_note_content(rscMetadata, newContent, note=note)
+        note = update_note_content(None, newContent, note=note)
     except (AttributeError, ResponseNotReady) as err:
         # The Thrift library often throws these. However, it works
         # nonetheless, so we should ignore those errors.
         plug.logger.warning(u"Error: {} - continuing", err)
-    rsc = None
     lastUSN = 0
     # Re-find our resource. To do it check the filename, the hash and in case
     # of resources identical in name AND body (unlikely), take the most recent
@@ -115,13 +135,15 @@ def add_resource_to_note(rscMetadata, rscContent, note):
         if (resource.attributes.fileName == newRsc.attributes.fileName
            and resource.data.bodyHash == newRsc.data.bodyHash
            and resource.updateSequenceNum > lastUSN):
-            rsc = resource
-            lastUSN = rsc.updateSequenceNum
+            lastUSN = resource.updateSequenceNum
     # Don't update the size since it comes from Onitu
-    update_resource_metadata(rscMetadata, rsc, updateSize=False)
+    # Use newRsc because since note has been returned from an updateNote, its
+    # body is None, so we won't be able to do a hex hash of it.
+    newRsc.updateSequenceNum = lastUSN
+    update_resource_metadata(rscMetadata, newRsc, updateSize=False)
     noteMetadata = plug.get_metadata(u"{0}/{0}.enml".format(note.title),
                                      rscMetadata.folder)
-    register_note_resource(noteMetadata, rsc, rscMetadata)
+    register_note_resource(noteMetadata, newRsc, rscMetadata)
     noteMetadata.write()
 
 
@@ -134,6 +156,10 @@ def update_resource_metadata(onituMetadata, resource, updateFile=False,
         onituMetadata.size = resource.data.size
     onituMetadata.extra[u'guid'] = resource.guid
     onituMetadata.extra[u'hash'] = resource.data.bodyHash
+    md5_hash = hashlib.md5()
+    md5_hash.update(resource.data.body)
+    md5_hash = md5_hash.hexdigest()
+    onituMetadata.extra[u'hex_hash'] = md5_hash
     # noteGuid helps us to remember if a file is a file's resource or not
     onituMetadata.extra[u'note_guid'] = resource.noteGuid
     onituMetadata.extra[u'USN'] = resource.updateSequenceNum
@@ -263,14 +289,14 @@ def enclose_content_with_markup(content, declOnly=False):
     return content
 
 
-def update_note_content(metadata, content, note=None, updateNote=True):
+def update_note_content(noteGuid, content, note=None, updateNote=True):
     """Updates the content of an Evernote note with the given content.
     Also provides content hash and length. An existing note can be passed, so
     that it won't be retrieved twice."""
     try:
         if note is None:
             # Ask only for note and its content, no resource
-            note = notestore_onitu.getNote(token, metadata.extra[u'guid'],
+            note = notestore_onitu.getNote(token, noteGuid,
                                            True, False, False, False)
         note.content = content
         md5_hash = hashlib.md5()
@@ -317,7 +343,7 @@ def create_note(metadata, content, notebook, title=None):
     note.title = title
     note.notebookGuid = notebook.guid
     # Update note's contents without calling updateNote
-    note = update_note_content(metadata, content, note=note,
+    note = update_note_content(None, content, note=note,
                                updateNote=False)
 
     error = None
@@ -335,7 +361,7 @@ def create_note(metadata, content, notebook, title=None):
                 plug.logger.debug(u"File {} is too short, putting content in "
                                   u"Evernote markup", metadata.path)
                 newContent = enclose_content_with_markup(content)
-                note = update_note_content(metadata, newContent, note=note,
+                note = update_note_content(None, newContent, note=note,
                                            updateNote=False)
                 changedContent = True
                 continue
@@ -381,6 +407,8 @@ def get_file(metadata):
             EDAMNotFoundException) as exc:
         raise ServiceError(u"Could not get file {}: {}"
                            .format(metadata.path, exc))
+    except AttributeError:  # Thrift error
+        pass
     return data
 
 
@@ -413,7 +441,8 @@ def upload_file(metadata, content):
             # it's the note
             if rscNoteGuid is None:
                 plug.logger.debug("Note new content: {}", content)
-                note = update_note_content(metadata, content, note=None)
+                note = update_note_content(metadata.extra[u'guid'], content,
+                                           note=None)
                 if note is None:
                     plug.logger.debug(u"Uploaded content for {} is the same "
                                       u"than on Evernote, no update done",
@@ -455,34 +484,6 @@ def delete_file(metadata):
             EDAMNotFoundException) as exc:
         raise ServiceError(u"Unable to delete file {}: {}"
                            .format(metadata.filename, exc))
-
-
-#     resourceNoteGuid = metadata.extra.get('evernote_note_guid', None)
-#     try:
-#         # We didn't store any owning note GUID for this file
-#         # so it must be a note
-#         if not resourceNoteGuid:
-#             plug.logger.debug(u"Removing note {} (GUID {})",
-#                               metadata.filename, resourceNoteGuid)
-#             # res = notestore_onitu.deleteNote(token,
-#             #                                 metadata.extra['evernote_guid'])
-#         else:  # it is a resource of a file
-#             guid = metadata.extra['evernote_guid']  # guid of the resource
-#             plug.logger.debug(u"Removing note resource {} (GUID {})"
-#                               .format(metadata.filename, guid))
-#             # Get the note, manually remove the resource in the resource list
-#             # Yep, that's dirty, because e.g. the note's markup keeps
-#             # referencing a broken resource, but there's no dedicated API
-#             # call, it is the official best practice...
-#             note = notestore_onitu.getNote(token, resourceNoteGuid,
-#                                            False, False, False, False)
-#             # Reconstruct the list omitting the concerned resource.
-#             note.resources = [rc for rc in note.resources if rc.guid != guid]
-#             note = notestore_onitu.updateNote(token, note)
-#     except (EDAMUserException, EDAMSystemException,
-#             EDAMNotFoundException) as exc:
-#         raise ServiceError(u"Unable to delete file {}: {}"
-#                            .format(metadata.filename, exc))
 
 
 # ############################## WATCHER #####################################
@@ -559,8 +560,9 @@ class CheckChanges(threading.Thread):
     def update_note(self, noteMetadata, onituMetadata):
         """Updates a note. Checks that the content has changed by doing
         a hash comparison. Also updates the note's resources."""
+        # True = with resources data
         note = notestore_onitu.getNote(noteMetadata.guid,
-                                       False, False, False, False)
+                                       False, True, False, False)
         updateMetadata = False
         updateFile = False
         # The flaw in checking the USN is that it increases even for
