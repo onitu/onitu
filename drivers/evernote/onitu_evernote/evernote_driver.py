@@ -101,19 +101,28 @@ def add_resource_to_note(rscMetadata, rscContent, note):
     # ElementTree.tostring strips the Evernote XML declaration, so
     # we have to put it back
     newContent = enclose_content_with_markup(newContent, declOnly=True)
-    note = update_note_content(rscMetadata, newContent, note=note)
+    try:
+        note = update_note_content(rscMetadata, newContent, note=note)
+    except (AttributeError, ResponseNotReady) as err:
+        # The Thrift library often throws these. However, it works
+        # nonetheless, so we should ignore those errors.
+        plug.logger.warning(u"Error: {} - continuing", err)
     rsc = None
     lastUSN = 0
     # Re-find our resource. To do it check the filename, the hash and in case
     # of resources identical in name AND body (unlikely), take the most recent
     for resource in note.resources:
-        if (resource.data.filename == newRsc.attributes.fileName
+        if (resource.attributes.fileName == newRsc.attributes.fileName
            and resource.data.bodyHash == newRsc.data.bodyHash
            and resource.updateSequenceNum > lastUSN):
             rsc = resource
             lastUSN = rsc.updateSequenceNum
     # Don't update the size since it comes from Onitu
     update_resource_metadata(rscMetadata, rsc, updateSize=False)
+    noteMetadata = plug.get_metadata(u"{0}/{0}.enml".format(note.title),
+                                     rscMetadata.folder)
+    register_note_resource(noteMetadata, rsc, rscMetadata)
+    noteMetadata.write()
 
 
 def update_resource_metadata(onituMetadata, resource, updateFile=False,
