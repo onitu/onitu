@@ -15,7 +15,7 @@ To install Onitu locally (in a virtualenv for instance), execute the following c
 
 Then, you can start using onitu with the ``onitu`` command.
 
-Tests and Benchmarks |Build Status|
+Tests and Benchmarks |Build Status| |Landscape|
 -----------------------------------
 
 ::
@@ -28,3 +28,6 @@ Tests and Benchmarks |Build Status|
 .. |Onitu| image:: logo.png
 .. |Build Status| image:: https://travis-ci.org/onitu/onitu.png?branch=develop
    :target: https://travis-ci.org/onitu/onitu
+.. |Landscape| .. image:: https://landscape.io/github/onitu/onitu/develop/landscape.svg
+   :target: https://landscape.io/github/onitu/onitu/develop
+   :alt: Code Health
