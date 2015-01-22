@@ -2,24 +2,11 @@ from fnmatch import fnmatchcase
 
 
 class Folder(object):
-    def __init__(self, name, services, logger,
-                 mimetypes=None, file_size=None,
-                 blacklist=None, whitelist=None, **kwargs):
+    def __init__(self, name, services, logger, options={}):
         self.name = name
-        self.services = frozenset(services)
+        self.services = services
         self.logger = logger
-        self.options = kwargs
-
-        self.mimetypes = mimetypes
-
-        if not file_size:
-            file_size = {}
-
-        self.min_size = self._to_bytes(file_size.get('min'))
-        self.max_size = self._to_bytes(file_size.get('max'))
-
-        self.blacklist = blacklist
-        self.whitelist = whitelist
+        self.options = options
 
     def __str__(self):
         return self.name
@@ -31,82 +18,119 @@ class Folder(object):
 
     @classmethod
     def get_folders(cls, escalator, services, logger):
-        service_folders = {
-            s: escalator.get(u'service:{}:folders'.format(s), default=[])
-            for s in services
-        }
+
+        sfopts = {}
+        for s in services:
+            folders = {}
+            for f in escalator.get(u'service:{}:folders'.format(s)):
+                folders[f] = escalator.get(
+                    u'service:{}:folder:{}:options'.format(s, f))
+            sfopts[s] = folders
 
         folders = {}
 
         for key, options in escalator.range('folder:'):
             name = key.split(':')[-1]
-            dest = filter(lambda s: name in service_folders[s], services)
-            folders[name] = cls(name, dest, logger, **options)
+            dest = {s: o[name] for s, o in sfopts.items() if name in o}
+            folders[name] = cls(name, dest, logger, options)
 
         return folders
 
     def targets(self, metadata, source):
-        filename = metadata['filename']
 
-        if not self.check_size(metadata['size']):
+        # To decide which targets are relevant there are two things we
+        # should take into account. folder options and service/folder
+        # options.
+
+        # Step 1: Do we (the folder) want the file?
+
+        if not self.assert_options(self.options, metadata, 'rw'):
+            return set()
+
+        # Step 2: Does the source want to share it?
+
+        options = self.services[source]
+        if not self.assert_options(options, metadata, 'r',
+                                   authority=u"{} (source)".format(source)):
+            return set()
+
+        # Step 3: Check who else is interested.
+
+        targets = set()
+        for service, options in self.services.items():
+            if service == source:
+                continue
+            if self.assert_options(options, metadata, 'w', authority=service):
+                targets.add(service)
+
+        return targets
+
+    def assert_options(self, options, metadata, mode="", authority=None):
+
+        def check_list(l, c):
+            if l is None:
+                return None
+            return any(fnmatchcase(c, rule) for rule in l)
+
+        # Those options are either our own or those of a service.
+        # This is because there is no difference between
+        # service/folder and folder options.
+
+        if authority is None:
+            authority = u"Folder <{}>".format(self.name)
+        else:
+            authority = u"Service <{}> in Folder <{}>".format(
+                authority, self.name)
+
+        # mode
+
+        modeopts = options.get("mode", "rw")
+        if any(c not in modeopts for c in mode):
             self.logger.info(
-                "Ignoring event for '{}' in folder {} due to its size: "
-                "{} bytes",
-                filename, self.name, metadata['size']
-            )
-            return
-
-        if not self.check_mimetype(metadata['mimetype']):
-            self.logger.info(
-                "Ignoring event for '{}' in folder {} due to its mimetype: {}",
-                filename, self.name, metadata['mimetype']
-            )
-            return
-
-        if self.blacklisted(filename):
-            self.logger.info(
-                "Ignoring event for '{}' in folder {} because its filename "
-                "is blacklisted",
-                filename, self.name
-            )
-            return
-
-        if not self.whitelisted(filename):
-            self.logger.info(
-                "Ignoring event for '{}' in folder {} because its filename "
-                "is not whitelisted",
-                filename, self.name
-            )
-            return
-
-        return self.services - frozenset((source,))
-
-    def check_size(self, size):
-        if self.min_size is not None and size < self.min_size:
+                "{} ignores event for '{}' because mode is '{}'",
+                authority, metadata['filename'], modeopts)
             return False
 
-        if self.max_size is not None and size > self.max_size:
+        # min/max size
+
+        minsz = options.get("file_size", {}).get("min")
+        maxsz = options.get("file_size", {}).get("max")
+
+        if minsz is not None and metadata['size'] < self._to_bytes(minsz):
+            self.logger.info(
+                "{} ignores event for '{}' due to its size: {} bytes",
+                authority, metadata['filename'], metadata['size'])
+            return False
+
+        if maxsz is not None and metadata['size'] > self._to_bytes(maxsz):
+            self.logger.info(
+                "{} ignores event for '{}' due to its size: {} bytes",
+                authority, metadata['filename'], metadata['size'])
+            return False
+
+        # mimetypes
+
+        if check_list(options.get("mimetypes"), metadata['mimetype']) is False:
+            self.logger.info(
+                "{} ignores event for '{}' due to its mimetype: {}",
+                authority, metadata['filename'], metadata['mimetype'])
+            return False
+
+        # black/white list
+
+        if check_list(options.get("blacklist"), metadata['filename']) is True:
+            self.logger.info(
+                "{} ignores event for '{}' because it is blacklisted",
+                authority, metadata['filename'])
+            return False
+
+        if check_list(options.get("whitelist"), metadata['filename']) is False:
+            self.logger.info(
+                "{} ignores event for '{}' because it is not whitelisted",
+                authority, metadata['filename'])
             return False
 
         return True
-
-    def check_mimetype(self, mimetype):
-        if self.mimetypes is None:
-            return True
-
-        return any(fnmatchcase(mimetype, c) for c in self.mimetypes)
-
-    def blacklisted(self, filename):
-        if self.blacklist is None:
-            return False
-
-        return any(fnmatchcase(filename, rule) for rule in self.blacklist)
-
-    def whitelisted(self, filename):
-        if self.whitelist is None:
-            return True
-
-        return any(fnmatchcase(filename, rule) for rule in self.whitelist)
 
     def _to_bytes(self, size):
         units = {
