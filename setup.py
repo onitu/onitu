@@ -15,6 +15,7 @@ setup(
     license=onitu.__license__,
     long_description=readme,
     packages=find_packages(exclude=['drivers', 'tests', 'docs']),
+    zip_safe=False,
     install_requires=[
         "circus>=0.11",
         "pyzmq>=14.1.1",

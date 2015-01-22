@@ -1,0 +1,107 @@
+
+* {
+    font-family: "Gafata", sans-serif;
+}
+
+body {
+    padding-top: 60px;
+}
+
+#dropdownOtherTypes {
+    text-align: right;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.nav-sidebar > .list-group-item {
+    padding: 0;
+}
+
+.nav-sidebar > .list-group-item.disabled {
+    text-align: center;
+}
+
+.list-group-item > a > .fa {
+    color: #525252;
+    margin-right: .5em;
+    margin-left: .5em;
+}
+
+.list-group-item.active > a > .fa {
+    color: #fff;
+}
+
+.btn,
+.list-group-item > a,
+.nav a {
+    outline: 0;
+}
+
+.nav-sidebar {
+    margin-right: -21px;
+    margin-bottom: 20px;
+    margin-left: -7px;
+}
+
+.nav-sidebar > li > a {
+    padding-right: 20px;
+    padding-left: 20px;
+}
+
+.nav-sidebar > .active > a,
+.nav-sidebar > .active > a:hover,
+.nav-sidebar > .active > a:focus {
+    color: #fff;
+    background-color: #428bca;
+}
+
+.dropdown-menu > li > a:hover, .dropdown-menu > li > a:focus {
+    background-image: none;
+}
+
+.dropdown-styleless {
+    padding: 0;
+    border: none;
+}
+
+table#files-list > tbody > tr > td,
+table#files-list > thead > tr > th {
+    text-align: center;
+}
+
+table#files-list > tbody > tr > td:nth-child(6) > i.fa {
+    margin-right: .5em;
+}
+
+table#files-list > tbody > tr:hover > td,
+.table-hover > tbody > tr:hover > th {
+    background-color: none;
+}
+
+table#files-list > tbody > tr:hover > td:first-child {
+    border-left: #4D6C9E 3px solid;
+}
+
+table#file-details > tbody > tr> td {
+    text-align: center;
+}
+
+table#file-details > thead > tr > th {
+    border-bottom: none;
+}
+
+table#file-details > tbody > tr:first-child > td {
+    border-top: none;
+}
+
+.row-folder-name i.fa {
+    color: #428BCA;
+}
+
+.row-folder-name > .folder-name {
+    border-bottom: 2px #DDD dotted;
+}
+
+.row-folder-name {
+    padding-bottom: .5em;
+}
