@@ -194,15 +194,15 @@ def get_file(metadata):
 def upload_file(metadata, content):
     filename = metadata.filename
     # Used for tests.
-    if plug.options['png_header']:
-        content = PNG_HEADER + content
+    # if plug.options['png_header']:
+    #    content = PNG_HEADER + content
     data = BytesIO(content)
     try:
         # If it has no photo ID it means it's a new file going to Flickr.
         if metadata.extra.get('photo_id', None) is None:
             photoID = flickr.upload_photo_in_photoset(filename, data,
                                                       metadata.folder.path)
-            # Retrieve the photo ID given to the file by Flickr and save it
+            # save the photo ID given to the file by Flickr
             metadata.extra['photo_id'] = photoID
             metadata.write()
         # If the file is known to Flickr we must call replace instead.
@@ -214,8 +214,17 @@ def upload_file(metadata, content):
                                       photo_id=photoID,
                                       fileobj=data, format='etree')
     except FlickrError as fe:
-        raise ServiceError(u"Failed to upload photo {}: error {} {}"
-                           .format(filename, fe.code, fe.message))
+        # It happens when we try to replace a photo we didn't know was deleted
+        # on Flickr. Try to re-upload it instead
+        if fe.message == u"Error: 7: Photo not found":
+            photoID = flickr.upload_photo_in_photoset(filename, data,
+                                                      metadata.folder.path)
+            # save the photo ID given to the file by Flickr
+            metadata.extra['photo_id'] = photoID
+            metadata.write()
+        else:
+            raise ServiceError(u"Failed to upload photo {} - {}"
+                               .format(filename, fe.message))
     now = int((datetime.utcnow() - datetime(1970, 1, 1)).total_seconds())
     metadata.extra['last_update'] = now
     metadata.write()
@@ -295,7 +304,6 @@ class CheckChanges(threading.Thread):
                 self.photosetID = flickr.get_photoset_ID(self.folder.path)
                 self.check_photoset()
             except FlickrError as fe:
-
                 if fe.message == u"Error: 1: Photoset not found":
                     albumNotFound = True
                 else:
@@ -312,7 +320,8 @@ class CheckChanges(threading.Thread):
                             .format(self.folder.path))
                 if warn is not None:
                     plug.logger.warning(warn)
-            plug.logger.debug(u"Next check in {} seconds", self.timer)
+            plug.logger.debug(u"Re-check album {} in {} seconds",
+                              self.folder.path, self.timer)
             self.stopEvent.wait(self.timer)
 
     def stop(self):
