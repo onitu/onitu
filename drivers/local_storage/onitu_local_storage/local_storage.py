@@ -310,9 +310,9 @@ else:
             except EscalatorClosed:
                 pass
             except OSError as e:
-                plug.logger.error("Error when dealing with FS event: {}", e)
+                plug.logger.warning("Error when dealing with FS event: {}", e)
             except (DriverError, ServiceError) as e:
-                plug.logger.error(str(e))
+                plug.logger.warning(str(e))
             except Exception:
                 log_traceback(plug.logger)
 
