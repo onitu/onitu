@@ -33,7 +33,7 @@ class Hubic:
         # Get openstacks credentials
         try:
             self._get_openstack_credentials()
-        except Exception as e:
+        except:
             plug.logger.error("Error on connecting to Hubic, your credentials might be expired")
 
     # ############################ OPENSTACK ##################################

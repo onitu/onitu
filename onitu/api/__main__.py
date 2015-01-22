@@ -114,7 +114,7 @@ def timeout():
     )
 
 
-def get_callback(*args, **kwargs):
+def get_callback():
     return 'http://localhost/test/index.html'
 
 

@@ -31,7 +31,7 @@ def get_client():
     plug.logger.debug("Trying to connect to Dropbox...")
 
     try:
-        db = plug.entry_db
+        db = plug.service_db
         token = db.get('oauth_token')
         client = DropboxClient(token)
         plug.logger.debug(
