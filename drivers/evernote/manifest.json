@@ -6,11 +6,11 @@
       "name": "Timer for modification check",
       "description": "Time in seconds between two checks for files modifications",
       "type": "integer",
-      "default": 10
+      "default": 300
     },
     "token": {
       "name": "Your Evernote token",
-      "description": "Your Evernote token retrieved with the get_token.py script",
+      "description": "Your Evernote developer token obtained by creating your developer account",
       "type": "string"
     }
   }
