@@ -80,6 +80,41 @@ def delete_resource(rscMetadata):
                            .format(rscMetadata.path, exc))
 
 
+def update_resource(rscMetadata, content):
+    """Updates the content of the note. There's no simple way to do it
+    (e.g. an Evernote API call), so the only way to do it is to remove the
+    old resource instance from the note's resource list, and replace the
+    hash in the note's content."""
+    plug.logger.debug(u"Updating resource {}", rscMetadata.path)
+    noteGuid = rscMetadata.extra['note_guid']
+    m = md5.new()
+    m.update(content)
+    bodyHash = m.digest()
+    note = notestore_onitu.getNote(token, noteGuid,
+                                   True, False, False, False)
+    rsc = None
+    for resource in note.resources:
+        if resource.guid == rscMetadata.extra[u'guid']:
+            resource.data.size = len(content)
+            resource.data.body = content
+            resource.data.bodyHash = bodyHash
+            rsc = resource
+            break
+    md5_hash = hashlib.md5()
+    md5_hash.update(content)
+    md5_hash = md5_hash.hexdigest()
+    root = ElementTree.fromstring(note.content)
+    for media in root.findall('en-media'):
+        if (media.attrib['hash'] == rscMetadata.extra['hex_hash']
+           and media.attrib['type'] == rscMetadata.mimetype):
+            media.attrib['hash'] = md5_hash
+            break
+    newContent = ElementTree.tostring(root)
+    newContent = enclose_content_with_markup(newContent, declOnly=True)
+    note = update_note_content(None, newContent, note=note)
+    update_resource_metadata(rscMetadata, rsc)
+
+
 def delete_note_resources(noteMetadata):
     """Deletes all the resource files bound to the given note metadata."""
     resources = noteMetadata.extra.get(u'resources', {})
@@ -264,7 +299,7 @@ def find_note_by_title(noteTitle, notebookGuid):
             if noteMetadata.title == noteTitle:
                 plug.logger.debug(u"Found note {}", noteTitle)
                 note = notestore_onitu.getNote(token, noteMetadata.guid,
-                                               True, False, False, False)  # TODO Include content here ? Do not include resource data ? Decide !
+                                               True, False, False, False)
                 return note
     except (EDAMUserException, EDAMSystemException,
             EDAMNotFoundException) as exc:
@@ -421,7 +456,9 @@ def upload_file(metadata, content):
     noteTitle = metadata.filename[:firstSlashIdx]
     # The file isn't in a directory called "title"
     if firstSlashIdx == -1:
-        pass  # TODO Move the file in the directory
+        # TODO Move the file in the directory
+        raise DriverError(u"File {} isn't in a subdirectory"
+                          .format(metadata.path))
     else:
         guid = metadata.extra.get('guid', None)
         # No GUID: new file
@@ -454,8 +491,7 @@ def upload_file(metadata, content):
                                          updateSize=False)
             # it's an updated resource
             else:
-                # TODO Get the note, add a resource, and parse the contents to add a reference to the new resource
-                pass  # update_resource(metadata, content)
+                update_resource(metadata, content)
     files_to_ignore.remove(metadata.filename)
 
 
@@ -478,7 +514,6 @@ def delete_file(metadata):
             notestore_onitu.deleteNote(token, metadata.extra['guid'])
             plug.delete_file(metadata)
         else:
-            plug.logger.debug(u"DELETE RESOURCE {}", metadata.path)  # TODO TMP
             delete_resource(metadata)
     except (EDAMUserException, EDAMSystemException,
             EDAMNotFoundException) as exc:
