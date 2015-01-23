@@ -5,7 +5,7 @@ from io import BytesIO
 
 from tests.utils import driver
 from onitu_webdav.wd import get_WEBDAV_client, create_dirs
-from onitu.utils import get_random_string, b
+from onitu.utils import get_random_string, b, dirname
 
 
 class Driver(driver.Driver):
@@ -44,7 +44,7 @@ class Driver(driver.Driver):
         self.webd.clean(b(path))
 
     def write(self, filename, content):
-        create_dirs(self.webd, os.path.dirname(filename))
+        create_dirs(self.webd, dirname(filename))
         buff = BytesIO(content)
         self.webd.upload_from(buff, b(filename))
 

@@ -8,7 +8,7 @@ import webdav.client as wc
 
 from onitu.plug import Plug, ServiceError
 from onitu.escalator.client import EscalatorClosed
-from onitu.utils import u, b
+from onitu.utils import u, b, dirname
 
 TIMESTAMP_FMT = '%a, %d %b %Y %H:%M:%S %Z'
 plug = Plug()
@@ -72,7 +72,7 @@ def start_upload(metadata):
     webd = get_WEBDAV_client_from_plug()
     plug.logger.debug(u"start upload: {}", metadata.path)
     events_to_ignore.add(metadata.path)
-    create_dirs(webd, os.path.dirname(metadata.path))
+    create_dirs(webd, dirname(metadata.path))
 
 
 @plug.handler()
