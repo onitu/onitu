@@ -330,17 +330,18 @@ class CheckChanges(threading.Thread):
         while not isParent and parent_id != "root":
             _, info = libdrive.get_information_by_id(access_token,
                                                      parent_id)
-            path.append(info["title"])
-            plug.logger.debug("tree: {}", tree)
-            plug.logger.debug("path= {}, previous parent_id= {}",
-                             path, parent_id)
             for folder_path, folder_id in root_watched.items():
                 plug.logger.debug("folder_id= {}", folder_id)
                 if parent_id == folder_id:
                     isParent = True
                     f_path = folder_path
-            parent_id = tree[parent_id]
-        plug.logger.debug("path= {}", f_path)
+            if not isParent:
+                path.append(info["title"])
+                plug.logger.debug("tree: {}", tree)
+                plug.logger.debug("path= {}, previous parent_id= {}",
+                                 path, parent_id)
+                parent_id = tree[parent_id]
+        plug.logger.debug("path_folder= {}, path= {}", f_path, path)
         f_path = f_path.split("/")
         return "/".join(f_path + list(reversed(path)))
 
@@ -427,7 +428,7 @@ class CheckChanges(threading.Thread):
                 else:
                     if self.check_if_parent_exist(f["id"]) is False:
                         continue
-                    path = self.get_path(f["id"])
+                    path = self.get_path(f["parents"])
                     plug.logger.debug("get path: {}", path)
 
                 if path == "":
