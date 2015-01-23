@@ -1,0 +1,29 @@
+{
+  "name": "webdav",
+  "description": "Store files on a remote machine using webdav.",
+  "options": {
+    "hostname": {
+      "name": "Hostname",
+      "description": "The hostname for the webdav connection",
+      "type": "string"
+    },
+    "username": {
+      "name": "Username",
+      "description": "The username for the webdav connection",
+      "type": "string",
+      "default": ""
+    },
+    "password": {
+      "name": "Password",
+      "description": "The password for the webdav connection",
+      "type": "string",
+      "default": ""
+    },
+    "changes_timer": {
+      "name": "Timer for modification check",
+      "description": "Time in seconds between two checks for files modifications",
+      "type": "integer",
+      "default": 60
+    }
+  }
+}

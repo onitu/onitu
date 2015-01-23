@@ -201,3 +201,12 @@ def log_traceback(logger=None):
         handler = error
 
     handler(traceback.format_exc())
+
+
+def dirname(path):
+    """
+    Behave the same way than os.path.dirname except that
+    it uses `/`even on windows
+    """
+    split_path = path.split('/')
+    return '/'.join(split_path[:-1])
