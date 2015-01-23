@@ -1,4 +1,3 @@
-import os
 import threading
 import datetime
 
@@ -116,7 +115,7 @@ def move_file(old_metadata, new_metadata):
     )
 
 
-def update_file(metadata, f, infos):
+def update_file(metadata, infos):
     try:
         metadata.size = int(infos['size'])
         metadata.extra['revision'] = infos['modified']
@@ -217,9 +216,6 @@ class CheckChanges(threading.Thread):
                 # We are closing
                 return
             self.stop.wait(self.timer)
-
-    def stop(self):
-        self.stop.set()
 
 
 def start():
