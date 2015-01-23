@@ -148,6 +148,7 @@ def upload_file(metadata, content):
     except (IOError, OSError) as e:
         raise ServiceError("Error writing file '{}': {}"
                            .format(metadata.path, e))
+    plug.logger.debug(u"Uploading file {} - Done", metadata.path)
 
 
 @plug.handler()
@@ -249,8 +250,12 @@ class CheckChanges(threading.Thread):
         if regFile.st_mtime > onitu_mtime:
             plug.logger.debug(u"Updating {}", filePath)
             metadata.size = regFile.st_size
-            update_metadata(metadata, regFile.st_mtime,
-                            update_file=True)
+            if metadata.path not in events_to_ignore:
+                update_metadata(metadata, regFile.st_mtime,
+                                update_file=True)
+            else:
+                plug.logger.debug(u"File {} is in transfer - skipped",
+                                  metadata.path)
         else:
             plug.logger.debug(u"File {} is up-to-date", filePath)
         # Cross this file out from the deleted files list
