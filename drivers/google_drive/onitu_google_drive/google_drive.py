@@ -56,13 +56,22 @@ def get_token():
     global access_token
     global token_expi
 
-    if time.time() + 20.0 < token_expi:
-        return
-    _, data = libdrive.get_token(plug.options["client_id"],
-                                 plug.options["client_secret"],
-                                 plug.options["refresh_token"])
-    access_token = data["access_token"]
-    token_expi = time.time() + data["expires_in"]
+    if not hasattr(get_token, "counter"):
+        get_token.counter = 0
+    try:
+        if time.time() + 20.0 < token_expi:
+            return
+        _, data = libdrive.get_token(plug.options["client_id"],
+                                     plug.options["client_secret"],
+                                     plug.options["refresh_token"])
+        access_token = data["access_token"]
+        token_expi = time.time() + data["expires_in"]
+        get_token.counter = 0
+    except:
+        get_token.counter += 1
+        time.sleep(1*(2**get_token.counter))
+        get_token()
+
 
 
 @plug.handler()
@@ -449,12 +458,12 @@ class CheckChanges(threading.Thread):
                 m = None
                 plug.logger.debug("files list: {}", files)
                 for file in files:
-                    metadata= None
+                    metadata = None
                     for _, f_id in file.items():
                         metadata = Metadata.get_by_id(plug, f_id)
-                    if metadata.extra["id"] == id_file:
-                        m = metadata
-                        break
+                        if metadata is not None and metadata.extra["id"] == id_file:
+                            m = metadata
+                            break
                 if m is not None:
                     plug.delete_file(m)
                     plug.logger.debug(u"file delete path: {}".format(path))
@@ -463,7 +472,10 @@ class CheckChanges(threading.Thread):
         while not self.stop.isSet():
             get_token()
             for _, folder_id in root_watched.items():
-                self.check_folder("", folder_id)
+                try:
+                    self.check_folder("", folder_id)
+                except e:
+                    plug.logger.error("Exception: {}", e)
             self.stop.wait(self.timer)
 
     def stop(self):
