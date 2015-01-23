@@ -4,3 +4,4 @@ include tox.ini
 include setup.json
 recursive-include tests *
 recursive-include docs *
+recursive-include onitu/facet *

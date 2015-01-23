@@ -45,16 +45,25 @@ class Folder(object):
         return cls(folder, path, options)
 
     def relpath(self, filename):
-        if not filename.startswith(self.path):
+        path = self._normalize(self.path)
+
+        if not filename.startswith(path):
             raise DriverError(
                 u"'{}' is not in the folder {}".format(filename, self.name)
             )
-        return filename[len(self.path):].lstrip('/')
+        return filename[len(path):].lstrip('/')
 
     def join(self, filename):
-        if filename.startswith(self.path):
-            filename = filename[len(self.path):]
-        return self.path.rstrip('/') + '/' + filename.lstrip('/')
+        path = self._normalize(self.path)
 
-    def contains(self, filename):
-        return filename != self.path and filename.startswith(self.path)
+        if filename.startswith(path):
+            filename = filename[len(path):]
+        return path + filename.lstrip('/')
+
+    def contains(self, candidate):
+        path = self._normalize(self.path)
+        candidate = self._normalize(candidate)
+        return candidate != path and candidate.startswith(path)
+
+    def _normalize(self, path):
+        return path.rstrip('/') + '/'

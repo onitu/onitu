@@ -39,6 +39,45 @@ def test_folders(setup, launcher):
         launcher.close()
 
 
+def test_mode(setup, launcher):
+    R = TestDriver('R', folders={'dir': {'path': 'dir', 'mode': 'r'}})
+    W = TestDriver('W', folders={'dir': {'path': 'dir', 'mode': 'w'}})
+    RW = TestDriver('RW', folders={'dir': {'path': 'dir', 'mode': 'rw'}})
+
+    setup.folders = {'dir': {}}
+
+    setup.add(R)
+    setup.add(W)
+    setup.add(RW)
+
+    try:
+        launcher()
+
+        loop = BooleanLoop()
+
+        launcher.copy_file('dir', 'test1', 10, R, W, RW)
+        launcher.copy_file('dir', 'test2', 10, RW, W)
+
+        loop.restart()
+
+        launcher.on_event_source_ignored_mode(
+            loop.stop, service='W', folder='dir', filename='test3', mode='w'
+        )
+        launcher.copy_file('dir', 'test3', 10, W)
+
+        loop.run(timeout=1)
+        loop.restart()
+
+        launcher.on_event_service_ignored_mode(
+            loop.stop, service='R', folder='dir', filename='test4', mode='r'
+        )
+        launcher.copy_file('dir', 'test4', 10, RW, W)
+
+        loop.run(timeout=1)
+    finally:
+        launcher.close()
+
+
 def test_size(setup, launcher):
     A = TestDriver('A', folders={
         'dir': 'dir',
@@ -63,7 +102,7 @@ def test_size(setup, launcher):
 
         loop = BooleanLoop()
 
-        launcher.on_event_ignored_size(
+        launcher.on_event_folder_ignored_size(
             loop.stop, folder='dir', filename='test1', size=1
         )
         launcher.copy_file('dir', 'test1', 1, A)
@@ -73,14 +112,14 @@ def test_size(setup, launcher):
         launcher.copy_file('dir', 'test4', 10, A, B)
 
         loop.restart()
-        launcher.on_event_ignored_size(
+        launcher.on_event_folder_ignored_size(
             loop.stop, folder='dir', filename='test5', size=11
         )
         launcher.copy_file('dir', 'test5', 11, A)
         loop.run(timeout=1)
 
         loop.restart()
-        launcher.on_event_ignored_size(
+        launcher.on_event_folder_ignored_size(
             loop.stop, folder='dir', filename='test6', size=12
         )
         launcher.copy_file('dir', 'test6', 12, A)
@@ -113,7 +152,7 @@ def test_blacklist(setup, launcher):
 
         loop = BooleanLoop()
 
-        launcher.on_event_ignored_blacklisted(
+        launcher.on_event_folder_ignored_blacklisted(
             loop.stop, folder='dir', filename='foo/test'
         )
         launcher.copy_file('dir', 'foo/test', 10, A)
@@ -151,13 +190,13 @@ def test_whitelist(setup, launcher):
 
         launcher.copy_file('dir', 'foo/test', 10, A, B)
 
-        launcher.on_event_ignored_not_whitelisted(
+        launcher.on_event_folder_ignored_not_whitelisted(
             loop.stop, folder='dir', filename='foo'
         )
         launcher.copy_file('dir', 'foo', 10, A)
         loop.run(timeout=1)
 
-        launcher.on_event_ignored_not_whitelisted(
+        launcher.on_event_folder_ignored_not_whitelisted(
             loop.stop, folder='dir', filename='toto'
         )
         launcher.copy_file('dir', 'toto', 10, A)
@@ -192,7 +231,7 @@ def test_mimetypes(setup, launcher):
 
         launcher.copy_file('dir', 'test.json', 10, A, B)
 
-        launcher.on_event_ignored_mimetype(
+        launcher.on_event_folder_ignored_mimetype(
             loop.stop, folder='dir', filename='test.js',
             mimetype='application/javascript'
         )
@@ -226,7 +265,7 @@ def test_rename(setup, launcher):
 
         loop = BooleanLoop()
 
-        launcher.on_event_ignored_blacklisted(
+        launcher.on_event_folder_ignored_blacklisted(
             loop.stop, folder='dir', filename='foo/test'
         )
         launcher.copy_file('dir', 'foo/test', 10, A)
@@ -270,7 +309,7 @@ def test_update_size_from_source(setup, launcher):
 
         loop = BooleanLoop()
 
-        launcher.on_event_ignored_size(
+        launcher.on_event_folder_ignored_size(
             loop.stop, folder='dir', filename='test', size=3
         )
         launcher.copy_file('dir', 'test', 3, A)
@@ -304,7 +343,7 @@ def test_update_size_from_other_service(setup, launcher):
 
         loop = BooleanLoop()
 
-        launcher.on_event_ignored_size(
+        launcher.on_event_folder_ignored_size(
             loop.stop, folder='dir', filename='test', size=3
         )
         launcher.copy_file('dir', 'test', 3, A)

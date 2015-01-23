@@ -30,6 +30,10 @@ if IS_WINDOWS:
     ignoreNotif = dict()
     FILE_LIST_DIRECTORY = 0x0001
 
+ignore_delete = set()
+ignore_move = set()
+
+
 
 def to_tmp(filename):
     if IS_WINDOWS:
@@ -66,12 +70,18 @@ def update(metadata, mtime=None):
 
 
 def delete(metadata):
-    if metadata is not None:
-        plug.delete_file(metadata)
+    if metadata.path in ignore_delete:
+        ignore_delete.discard(metadata.path)
+        return
+
+    plug.delete_file(metadata)
 
 
 def move(old_metadata, new_filename):
-    print(old_metadata.path, new_filename)
+    if old_metadata.path in ignore_move:
+        ignore_move.discard(old_metadata.path)
+        return
+
     new_metadata = plug.move_file(old_metadata, new_filename)
     new_metadata.extra['revision'] = os.path.getmtime(new_filename)
     # We update the size in case the file was moved very quickly after a change
@@ -84,24 +94,24 @@ def check_changes(folder):
     expected_files = set()
 
     expected_files.update(plug.list(folder).keys())
-    for folderPath in walkfiles(folder.path):
-        if os.path.splitext(folderPath)[1] == TMP_EXT:
+    for filePath in walkfiles(folder.path):
+        if os.path.splitext(filePath)[1] == TMP_EXT:
             continue
-        filename = folder.relpath(folderPath)
-        if IS_WINDOWS:
-            filename = filename[1:].replace("\\", "/")
+
+        filePath = filePath.replace("\\", "/")
+
+        filename = folder.relpath(filePath)
 
         expected_files.discard(filename)
         metadata = plug.get_metadata(filename, folder)
         revision = metadata.extra.get('revision', 0.)
 
         try:
-            mtime = os.path.getmtime(folderPath)
+            mtime = os.path.getmtime(filePath)
         except (IOError, OSError) as e:
             raise ServiceError(
                 u"Error updating file '{}': {}".format(metadata.path, e)
             )
-            mtime = 0.
 
         if mtime > revision:
             update(metadata, mtime)
@@ -117,6 +127,8 @@ def check_changes(folder):
 @plug.handler()
 def normalize_path(p):
     normalized = os.path.normpath(os.path.expanduser(p))
+    if IS_WINDOWS:
+        normalized = normalized.replace("\\", "/")
     if not os.path.isabs(normalized):
         raise DriverError(u"The folder path '{}' is not absolute.".format(p))
 
@@ -196,11 +208,11 @@ def end_upload(metadata):
 
     metadata.extra['revision'] = mtime
     metadata.write()
+
     if IS_WINDOWS:
         if metadata.path in ignoreNotif and \
            not ignoreNotif[metadata.path]:
             ignoreNotif[metadata.path] = time() + 1
-
 
 @plug.handler()
 def abort_upload(metadata):
@@ -220,8 +232,10 @@ def abort_upload(metadata):
 @plug.handler()
 def delete_file(metadata):
     try:
+        ignore_delete.add(metadata.path)
         os.unlink(metadata.path)
     except (IOError, OSError) as e:
+        ignore_delete.discard(metadata.path)
         raise ServiceError(
             u"Error deleting file '{}': {}".format(metadata.path, e)
         )
@@ -233,11 +247,13 @@ def move_file(old_metadata, new_metadata):
         ignoreNotif[new_metadata.path] = False
         ignoreNotif[old_metadata.path] = False
     try:
+        ignore_move.add(old_metadata.path)
         os.renames(old_metadata.path, new_metadata.path)
     except (IOError, OSError) as e:
         if IS_WINDOWS:
             del ignoreNotif[new_metadata.path]
             del ignoreNotif[old_metadata.path]
+        ignore_move.discard(old_metadata.path)
         raise ServiceError(
             u"Error moving file '{}': {}".format(old_metadata.path, e)
         )
@@ -245,6 +261,7 @@ def move_file(old_metadata, new_metadata):
         Rtime = time()
         ignoreNotif[new_metadata.path] = Rtime
         ignoreNotif[old_metadata.path] = Rtime
+		
 
 if IS_WINDOWS:
     def verifDictModifFile(writingDict, Rtime, cleanOld=False):
@@ -263,8 +280,8 @@ if IS_WINDOWS:
                             update(metadata)
                             del writingDict[i]
             else:
-                if j > 1 and Rtime - j >= 2:
-                        del writingDict[i]
+                if j > 1 and Rtime - j >= 1:
+                        writingDict.pop(i)
         return writingDict
 
     def moveFrom(metadata):
@@ -373,7 +390,7 @@ if IS_WINDOWS:
             Rtime = time()
             transferSet = set()
             for action, file_ in events:
-                abs_path = path.path(dir.folder.path + "/" + file_)
+                abs_path = path.path(dir.folder.path + "\\" + file_)
                 if actions_names[action] == 'moveFrom':
                     old_path = file_
                 if actions_names[action] != 'write'\
@@ -420,10 +437,6 @@ if IS_WINDOWS:
                                    Rtime)
                 except EscalatorClosed:
                     return
-            for file in transferSet:
-                if file in ignoreNotif:
-                    del ignoreNotif[file]
-            transferSet.clear()
             try:
                 writingDict = verifDictModifFile(writingDict, Rtime)
                 ignoreNotif = verifDictModifFile(ignoreNotif, Rtime, True)
@@ -439,7 +452,7 @@ if IS_WINDOWS:
 else:
     class Watcher(pyinotify.ProcessEvent):
         def __init__(self, folder, *args, **kwargs):
-            super(Watcher, self).__init__(*args, **kwargs)
+            pyinotify.ProcessEvent.__init__(self, *args, **kwargs)
 
             self.folder = folder
 
@@ -477,9 +490,9 @@ else:
             except EscalatorClosed:
                 pass
             except OSError as e:
-                plug.logger.error("Error when dealing with FS event: {}", e)
+                plug.logger.warning("Error when dealing with FS event: {}", e)
             except (DriverError, ServiceError) as e:
-                plug.logger.error(str(e))
+                plug.logger.warning(str(e))
             except Exception:
                 log_traceback(plug.logger)
 
@@ -505,7 +518,7 @@ def start():
 
         if not os.path.exists(folder.path):
             raise DriverError(
-                u"Cannot create the folder '{}': {}".format(folder.path)
+                u"Could not create the folder '{}'.".format(folder.path)
             )
 
         watch_changes(folder)

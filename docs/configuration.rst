@@ -2,9 +2,9 @@
 Configuration file
 ==================
 
-.. warning::
-   This documentation describes a proposal for the next format of Onitu's configuration. Curently the setup is done is JSON and is nothing like what is described here.
-
+.. Warning::
+   Some small parts of this might not yet be implemented but most of it should be OK. (WIP)
+   
 Onitu's configuration file is YAML.
 
 Layout

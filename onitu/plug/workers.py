@@ -11,7 +11,7 @@ from .router import CHUNK, FILE, ERROR
 
 
 class Worker(object):
-    def __init__(self, dealer, fid, *args, **kwargs):
+    def __init__(self, dealer, fid):
         super(Worker, self).__init__()
 
         self.dealer = dealer
@@ -29,6 +29,10 @@ class Worker(object):
     def __call__(self):
         try:
             self.metadata = Metadata.get_by_id(self.dealer.plug, self.fid)
+
+            if not self.metadata:
+                return
+
             self.filename = self.metadata.filename
 
             self.do()
@@ -40,6 +44,9 @@ class Worker(object):
 
             if self.fid in self.dealer.in_progress:
                 self.dealer.in_progress.pop(self.fid)
+
+    def do(self):
+        raise NotImplementedError()
 
     def stop(self):
         self._stop.set()
@@ -72,7 +79,7 @@ class TransferWorker(Worker):
             self.start_transfer()
             dealer = self.context.socket(zmq.DEALER)
             dealer.connect(get_events_uri(self.session, self.driver, 'router'))
-            if 'upload_chunk' in self.dealer.plug._handlers:
+            if self.dealer.plug.has_handler('upload_chunk'):
                 self.get_file_multipart(dealer)
             else:
                 self.get_file_oneshot(dealer)
@@ -227,7 +234,7 @@ class MoveWorker(Worker):
         is_uptodate = self.dealer.name in self.metadata.uptodate
 
         try:
-            if 'move_file' in self.dealer.plug._handlers and is_uptodate:
+            if self.dealer.plug.has_handler('move_file') and is_uptodate:
                 self.call('move_file', self.metadata, new_metadata)
                 self.metadata.delete()
             else:

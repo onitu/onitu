@@ -1,0 +1,50 @@
+<div class="col-md-11">
+    <form class="form-horizontal" role="form">
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <h3>Information about driver {{stats.name}}</h3>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10 col-md-offset-2">
+                <a class="btn btn-default" href="#/drivers/{{stats.name}}/edit"><i class="fa fa-fw fa-edit"></i>&nbsp;Edit</a>
+                <a ng-show="showButtonOAuth === true" class="btn btn-default pull-right" href="{{oauthurl}}">&nbsp;Oauth2 authentication</a>
+
+                <div class="btn-group pull-right">
+                    <a class="btn btn-success"><i class="fa fa-fw fa-play-circle"></i>&nbsp;Start</a>
+                    <a class="btn btn-danger"><i class="fa fa-fw fa-power-off"></i>&nbsp;Stop</a>
+                    <a class="btn btn-info"><i class="fa fa-fw fa-refresh"></i>&nbsp;Restart</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="statsName" class="col-md-2 control-label">Name</label>
+            <div class="col-md-10">
+                {{stats.name}}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="statsTime" class="col-md-2 control-label">Time</label>
+            <div class="col-md-10">
+                {{stats.time | date:'EEEE, MMMM d, y h:mm a'}}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="statsStatus" class="col-md-2 control-label">Status</label>
+            <div class="col-md-10">
+                {{stats.status}}
+            </div>
+        </div>
+
+        <div class="form-group" ng-repeat="(key, value) in stats.info">
+            <label for="statsOption-{{key}}" class="col-md-2 control-label">{{key}}</label>
+            <div class="col-md-10">
+                <input type="text" class="form-control" id="statsOption-{{key}}" placeholder="{{value}}" readonly>
+            </div>
+        </div>
+    </form>
+</div>

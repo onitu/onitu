@@ -70,32 +70,40 @@ logs = {
             "'{src}' moved to '{dest}'"
         ),
     ),
-    'event_ignored_size': (
-        (
-            "Referee",
-            "Ignoring event for '{filename}' in folder {folder} due to its "
-            "size: {size} bytes"
-        ),
-    ),
-    'event_ignored_mimetype': (
-        (
-            "Referee",
-            "Ignoring event for '{filename}' in folder {folder} due to its "
-            "mimetype: {mimetype}"
-        ),
-    ),
-    'event_ignored_blacklisted': (
-        (
-            "Referee",
-            "Ignoring event for '{filename}' in folder {folder} because its "
-            "filename is blacklisted"
-        ),
-    ),
-    'event_ignored_not_whitelisted': (
-        (
-            "Referee",
-            "Ignoring event for '{filename}' in folder {folder} because its "
-            "filename is not whitelisted"
-        ),
-    ),
 }
+
+
+rule_authorities = (
+    ('folder', "Folder <{folder}>"),
+    ('service', "Service <{service}> in Folder <{folder}>"),
+    ('source', "Service <{service} (source)> in Folder <{folder}>")
+)
+
+for authority, prefix in rule_authorities:
+
+    prefix = prefix + " ignores event for '{filename}' "
+
+    logs['event_{}_ignored_mode'.format(authority)] = ((
+        "Referee",
+        prefix + "because mode is '{mode}'"
+        ),)
+
+    logs['event_{}_ignored_size'.format(authority)] = ((
+        "Referee",
+        prefix + "due to its size: {size} bytes"
+        ),)
+
+    logs['event_{}_ignored_mimetype'.format(authority)] = ((
+        "Referee",
+        prefix + "due to its mimetype: {mimetype}"
+        ),)
+
+    logs['event_{}_ignored_blacklisted'.format(authority)] = ((
+        "Referee",
+        prefix + "because it is blacklisted"
+        ),)
+
+    logs['event_{}_ignored_not_whitelisted'.format(authority)] = ((
+        "Referee",
+        prefix + "because it is not whitelisted"
+        ),)

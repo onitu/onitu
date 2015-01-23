@@ -32,7 +32,7 @@ class Router(object):
 
         self.handlers = {
             CHUNK: self._handle_get_chunk,
-            FILE: self._handle_get_file
+            FILE: self._handle_get_file,
         }
 
     def run(self):
@@ -91,22 +91,22 @@ class Router(object):
         offset = int(offset.decode())
         size = int(size.decode())
 
-        if 'get_chunk' in self.plug._handlers:
+        if self.plug.has_handler('get_chunk'):
             self.logger.debug(
                 "Getting chunk of size {} from offset {} in '{}'",
                 size, offset, metadata.filename
             )
             chunk = self.call('get_chunk', metadata, offset, size) or b''
             return [CHUNK, chunk]
-        elif 'get_file' in self.plug._handlers:
+        elif self.plug.has_handler('get_file'):
             return self._handle_get_file(metadata)
 
     def _handle_get_file(self, metadata):
-        if 'get_file' in self.plug._handlers:
+        if self.plug.has_handler('get_file'):
             self.logger.debug(
                 "Getting file '{}'", metadata.filename
             )
             return [FILE, self.call('get_file', metadata)]
-        elif 'get_chunk' in self.plug._handlers:
+        elif self.plug.has_handler('get_chunk'):
             return self._handle_get_chunk(metadata, b'0',
                                           b(str(metadata.size)))

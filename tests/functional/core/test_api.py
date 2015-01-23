@@ -131,9 +131,10 @@ def test_service():
     assert json['options'] == rep1.options
 
 
-def test_file_id():
+def test_file_id(module_launcher):
     filename = u"onitu,is*a project ?!_-ùñï©œð€.txt"
-    folder = u't€st'
+    folder = u'default'
+    module_launcher.create_file(folder, filename, 100)
     fid_path = u"/api/v1.0/files/id/{}/{}".format(
         quote(b(folder)), quote(b(filename))
     )
@@ -143,6 +144,7 @@ def test_file_id():
     json = extract_json(r)
     assert r.status_code == 200
     assert json[filename] == get_fid(folder, filename)
+    module_launcher.delete_file(folder, filename, rep1, rep2)
 
 
 def test_list_files(module_launcher):
@@ -169,6 +171,23 @@ def test_list_files(module_launcher):
     for i in range(files_number):
         origin_file_size = origin_files[files[i]['filename']]
         assert files[i]['size'] == origin_file_size
+
+
+def test_file_content(module_launcher):
+    filename = u"onitu,is*a project ?!_-ùñï©œð€.png"
+    folder = u'default'
+    module_launcher.create_file(folder, filename, 100)
+    fid = get_fid(folder, filename)
+    fid_path = u"/api/v1.0/files/{}/content".format(
+        quote(fid)
+    )
+    url = u"{}{}".format(api_addr, fid_path)
+
+    r = get(url)
+    assert r.status_code == 200
+    assert len(r.content) == 100
+    assert r.headers['content-type'] == 'image/png'
+    module_launcher.delete_file(folder, filename, rep1, rep2)
 
 
 def test_file_fail(module_launcher):
