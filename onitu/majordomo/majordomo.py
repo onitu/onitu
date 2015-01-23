@@ -33,7 +33,6 @@ class Majordomo(HeartBeatBroker):
 
         self.circus_client = CircusClient(endpoint=get_circusctl_endpoint(
             self.session))
-        self.nb_remotes = 0
         self.remote_names = {}
 
         self.logger.info('Started')
@@ -57,14 +56,11 @@ class Majordomo(HeartBeatBroker):
                          frontend_req_uri, frontend_rep_uri)
 
     def new_remote(self, src_id, msg):
-        # Use unicode
         service, conf = unpack_msg(msg)
         dest_id = uuid.uuid4().hex
-        self.nb_remotes += 1
         self.remote_names[src_id] = service
         self.escalator.put('service:{}:driver'.format(service),
                            'remote_driver')
-        # Protect over non-ascii ids
         options = conf.get('options', {})
         options.update({
             'id': dest_id,

@@ -22,13 +22,11 @@ def cmd_handler(name, *args_serializers):
                             for (ser, arg) in zip(args_serializers, args)]
             handlers_socket.send_multipart((b(plug.options['remote_id']),
                                             pack_obj(msg)))
-            plug.logger.debug('===={}====', msg)
             _, resp = handlers_socket.recv_multipart()
             status, resp = unpack_msg(resp)
             if status:
                 E = exceptions_status.get(status, DriverError)
                 raise E(*resp)
-            plug.logger.debug('RESP {}', resp)
             return resp
     return handler
 
@@ -46,7 +44,6 @@ def start():
     global remote_socket, handlers_socket
 
     plug.logger.info("Launching remote driver")
-    plug.logger.debug("{}".format((plug.options,))
 
     ctx = zmq.Context.instance()
     remote_socket = ctx.socket(zmq.REQ)

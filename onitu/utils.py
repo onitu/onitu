@@ -277,3 +277,18 @@ def get_setup(setup_file, logger):
         logger.error(
             "Error parsing '{}' : {}", setup_file, e
         )
+
+# The default directory where Onitu store its informations
+if IS_WINDOWS:
+    DEFAULT_CONFIG_DIR = os.path.join(
+        os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'onitu'
+    )
+elif sys.platform == 'darwin':
+    DEFAULT_CONFIG_DIR = os.path.join(
+        os.path.expanduser('~/Library/Application Support'), 'onitu'
+    )
+else:
+    DEFAULT_CONFIG_DIR = os.path.join(
+        os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config')),
+        'onitu'
+    )

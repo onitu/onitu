@@ -24,28 +24,12 @@ from .escalator.client import Escalator
 from .utils import get_logs_uri, IS_WINDOWS, get_stats_endpoint
 from .utils import get_logs_dispatcher, get_setup
 from .utils import get_circusctl_endpoint, get_pubsub_endpoint, u
+from .utils import DEFAULT_CONFIG_DIR
 
 # Time given to each process (Drivers, Referee, API...) to
 # exit before being killed. This avoid any hang during
 # shutdown
 GRACEFUL_TIMEOUT = 1.
-
-
-# The default directory where Onitu store its informations
-if IS_WINDOWS:
-    DEFAULT_CONFIG_DIR = os.path.join(
-        os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'onitu'
-    )
-elif sys.platform == 'darwin':
-    DEFAULT_CONFIG_DIR = os.path.join(
-        os.path.expanduser('~/Library/Application Support'), 'onitu'
-    )
-else:
-    DEFAULT_CONFIG_DIR = os.path.join(
-        os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config')),
-        'onitu'
-    )
-
 
 session = None
 setup = None
@@ -183,7 +167,8 @@ def main():
     )
     parser.add_argument(
         '--majordomo-keys-dir',
-        help="Directory where clients' public keys are stored",
+        help="Directory where clients' public keys are stored "
+             "(defaults to keys in config directory)",
         default=None
     )
     parser.add_argument(

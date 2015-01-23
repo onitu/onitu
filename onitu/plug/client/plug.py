@@ -33,7 +33,7 @@ class PlugProxy(object):
         self.heartbeat = None
         self._stop = threading.Event()
 
-    def initialize(self, setup, auth=True):
+    def initialize(self, setup, auth=True, keys=()):
         identity = b(uuid.uuid4().hex)
 
         self.name = setup['name']
@@ -47,9 +47,9 @@ class PlugProxy(object):
         self.handlers_socket.identity = identity
 
         if auth:
-            pub_key, priv_key = zmq.auth.load_certificate(
-                'keys/client.key_secret')
-            server_key, _ = zmq.auth.load_certificate('keys/server.key')
+            server_key, client_key = keys
+            pub_key, priv_key = zmq.auth.load_certificate(client_key)
+            server_key, _ = zmq.auth.load_certificate(server_key)
             self.requests_socket.curve_publickey = pub_key
             self.requests_socket.curve_secretkey = priv_key
             self.requests_socket.curve_serverkey = server_key
