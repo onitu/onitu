@@ -37,7 +37,7 @@ class Setup(object):
             for service in self.services.values():
                 service.close()
 
-        shutil.rmtree(self.config_dir)
+        shutil.rmtree(self.config_dir, ignore_errors=True)
 
     @property
     def dump(self):
