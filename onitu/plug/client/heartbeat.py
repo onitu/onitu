@@ -25,8 +25,7 @@ class HeartBeat(threading.Thread):
                 if p.get(self.socket) != zmq.POLLIN:
                     self.callback()
                     return
-                msg = self.socket.recv()
-                print(msg)
+                self.socket.recv()
         except zmq.ContextTerminated:
             self.socket.close()
 

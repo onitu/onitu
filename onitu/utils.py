@@ -15,6 +15,12 @@ import traceback
 import pkg_resources
 import msgpack
 
+from logbook import NullHandler, RotatingFileHandler
+from logbook import INFO, DEBUG, NestedSetup
+from logbook.more import ColorizedStderrHandler
+from logbook.queues import ZeroMQSubscriber
+
+
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
 
@@ -222,3 +228,52 @@ def log_traceback(logger=None):
         handler = error
 
     handler(traceback.format_exc())
+
+
+def get_logs_dispatcher(config_dir, uri, debug=False):
+    """Configure the dispatcher that will print the logs received
+    on the ZeroMQ channel.
+    """
+    handlers = []
+
+    if not debug:
+        handlers.append(NullHandler(level=DEBUG))
+
+    handlers.append(RotatingFileHandler(
+        os.path.join(config_dir, 'onitu.log'),
+        level=INFO,
+        max_size=1048576,  # 1 Mb
+        bubble=True
+    ))
+
+    handlers.append(ColorizedStderrHandler(level=INFO, bubble=True))
+    subscriber = ZeroMQSubscriber(uri, multi=True)
+    return subscriber.dispatch_in_background(setup=NestedSetup(handlers))
+
+
+def get_setup(setup_file, logger):
+    if setup_file.endswith(('.yml', '.yaml')):
+        try:
+            import yaml
+        except ImportError:
+            logger.error(
+                "You provided a YAML setup file, but PyYAML was not found on "
+                "your system."
+            )
+        loader = yaml.load
+    elif setup_file.endswith('.json'):
+        import json
+        loader = json.load
+    else:
+        logger.error(
+            "The setup file must be either in JSON or YAML."
+        )
+        return
+
+    try:
+        with open(setup_file) as f:
+            return loader(f)
+    except Exception as e:
+        logger.error(
+            "Error parsing '{}' : {}", setup_file, e
+        )

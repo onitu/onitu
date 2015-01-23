@@ -19,5 +19,4 @@ class HeartBeatBroker(Broker):
 
 @HeartBeatBroker.handle('heartbeat')
 def _heartbeat(broker, relay, msg):
-    print('ping', msg.src_id)
     relay.src.send(b'pong')

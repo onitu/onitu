@@ -16,15 +16,13 @@ import circus
 
 from itertools import chain
 
-from logbook import Logger, INFO, DEBUG, NestedSetup
-from logbook import NullHandler, RotatingFileHandler
-from logbook.queues import ZeroMQHandler, ZeroMQSubscriber
-from logbook.more import ColorizedStderrHandler
+from logbook import Logger
+from logbook.queues import ZeroMQHandler
 from tornado import gen
-
 
 from .escalator.client import Escalator
 from .utils import get_logs_uri, IS_WINDOWS, get_stats_endpoint
+from .utils import get_logs_dispatcher, get_setup
 from .utils import get_circusctl_endpoint, get_pubsub_endpoint, u
 
 # Time given to each process (Drivers, Referee, API...) to
@@ -121,7 +119,6 @@ def load_service(escalator, service, conf):
                 'Unknown folder {} in service {}', name, service
             )
             continue
-
         if type(options) != dict:
             path = options
             options = {}
@@ -149,55 +146,6 @@ def start_watcher(name, module, *args, **kwargs):
         **kwargs
     )
     yield watcher.start()
-
-
-def get_logs_dispatcher(config_dir, uri, debug=False):
-    """Configure the dispatcher that will print the logs received
-    on the ZeroMQ channel.
-    """
-    handlers = []
-
-    if not debug:
-        handlers.append(NullHandler(level=DEBUG))
-
-    handlers.append(RotatingFileHandler(
-        os.path.join(config_dir, 'onitu.log'),
-        level=INFO,
-        max_size=1048576,  # 1 Mb
-        bubble=True
-    ))
-
-    handlers.append(ColorizedStderrHandler(level=INFO, bubble=True))
-    subscriber = ZeroMQSubscriber(uri, multi=True)
-    return subscriber.dispatch_in_background(setup=NestedSetup(handlers))
-
-
-def get_setup(setup_file):
-    if setup_file.endswith(('.yml', '.yaml')):
-        try:
-            import yaml
-        except ImportError:
-            logger.error(
-                "You provided a YAML setup file, but PyYAML was not found on "
-                "your system."
-            )
-        loader = yaml.load
-    elif setup_file.endswith('.json'):
-        import json
-        loader = json.load
-    else:
-        logger.error(
-            "The setup file must be either in JSON or YAML."
-        )
-        return
-
-    try:
-        with open(setup_file) as f:
-            return loader(f)
-    except Exception as e:
-        logger.error(
-            "Error parsing '{}' : {}", setup_file, e
-        )
 
 
 def main():
@@ -236,7 +184,7 @@ def main():
     parser.add_argument(
         '--majordomo-keys-dir',
         help="Directory where clients' public keys are stored",
-        default='keys'
+        default=None
     )
     parser.add_argument(
         '--majordomo-server-key',
@@ -254,6 +202,10 @@ def main():
     args = parser.parse_args()
 
     config_dir = args.config_dir
+
+    if args.majordomo_keys_dir is None:
+        args.majordomo_keys_dir = os.path.join(config_dir, "keys")
+
     majordomo_params.extend((args.majordomo_req_uri,
                              args.majordomo_rep_uri,
                              args.majordomo_auth,
@@ -274,7 +226,7 @@ def main():
     else:
         setup_file = args.setup
 
-    setup = get_setup(setup_file)
+    setup = get_setup(setup_file, logger)
     if not setup:
         return 1
 

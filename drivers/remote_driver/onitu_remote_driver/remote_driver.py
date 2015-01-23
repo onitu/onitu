@@ -45,8 +45,8 @@ move_file = cmd_handler('move_file', 'metadata', 'metadata')
 def start():
     global remote_socket, handlers_socket
 
-    print("Launching driver")
-    print(plug.options)
+    plug.logger.info("Launching remote driver")
+    plug.logger.debug("{}".format((plug.options,))
 
     ctx = zmq.Context.instance()
     remote_socket = ctx.socket(zmq.REQ)

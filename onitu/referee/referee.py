@@ -152,17 +152,13 @@ class Referee(object):
             "Update for '{}' from {} in folder {}",
             metadata['filename'], source, folder
         )
-
-        print('targets', folder.targets(metadata, source))
         self.notify(folder.targets(metadata, source), UP, fid, source)
 
     def _handle_reset(self, fid):
-        print('RESET')
         self.services = self.escalator.get('services', default=[])
         self.folders = Folder.get_folders(
             self.escalator, self.services, self.logger
         )
-        print(self.services)
 
     def notify(self, services, cmd, fid, *args):
         if not services:
