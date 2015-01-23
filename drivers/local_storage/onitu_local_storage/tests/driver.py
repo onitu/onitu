@@ -8,7 +8,6 @@ from tests.utils import driver
 
 class Driver(driver.Driver):
     SPEED_BUMP = 1
-    ignore_errors = True
 
     def __init__(self, *args, **options):
         self._root = tempfile.mkdtemp()
@@ -21,7 +20,7 @@ class Driver(driver.Driver):
         return self._root
 
     def close(self):
-        shutil.rmtree(self.root)
+        shutil.rmtree(self.root, ignore_errors=True)
 
     def mkdir(self, subdirs):
         try:
@@ -38,7 +37,7 @@ class Driver(driver.Driver):
         time.sleep(0.1)
 
     def rmdir(self, path):
-        shutil.rmtree(os.path.join(self.root, path))
+        shutil.rmtree(os.path.join(self.root, path), ignore_errors=True)
 
     def write(self, filename, content):
         with open(self.root / filename, 'wb+') as f:
