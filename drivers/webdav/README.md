@@ -24,7 +24,7 @@ services:
     folders:
       docs: ~/Documents
   B:
-    driver: wd
+    driver: webdav
     options:
         hostname: "https://dav.box.com"
         username: "me@mydomain.tld"
@@ -40,7 +40,7 @@ To test the driver, you can define the following env var:
 - ONITU_WEBDAV_CHANGE_TIMER
 - ONITU_WEBDAV_USERNAME
 - ONITU_WEBDAV_PASSWORD
-- ONITU_WEBDAV_ROOT to define where the test will be stored during the tests.
+- ONITU_WEBDAV_ROOT to define where the files will be stored during the tests.
 
 To launch the tests:
 
