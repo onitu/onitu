@@ -5,6 +5,7 @@ import time
 from onitu.plug.metadata import Metadata
 
 tree = None
+folder_id_name = {}
 access_token = None
 root_watched = {}
 token_expi = None
@@ -25,6 +26,7 @@ def check_and_add_folder(metadata):
     if folder_path != "/":
         folder_path = folder_path.rstrip('/')
 
+    plug.logger.debug(root_watched)
     root_id = root_watched[folder_path]
 
     try:
@@ -38,11 +40,13 @@ def check_and_add_folder(metadata):
                     prev_id = tmproot
                     tmproot = data["items"][0]["id"]
                     tree[tmproot] = prev_id
+                    folder_id_name[prev_id] = data["items"][0]["title"]
                 else:
                     _, data = libdrive.add_folder(access_token, f, tmproot)
                     prev_id = tmproot
                     tmproot = data["id"]
                     tree[tmproot] = prev_id
+                    folder_id_name[prev_id] = data["title"]
     finally:
         mutex.release()
     return tmproot, path
@@ -93,9 +97,16 @@ def start_upload(metadata):
                                          path[len(path)-1],
                                          tmproot, self_id, 0)
     else:
+        if self_id == None:
+            _, data = libdrive.get_information(access_token,
+                                               path[len(path)-1],
+                                               tmproot)
+            if data["items"] != []:
+                self_id = data["items"][0]["id"]
         h, data = libdrive.start_upload(access_token,
                                         path[len(path)-1],
                                         tmproot, self_id)
+        plug.logger.debug("header: {}", h)
         metadata.extra["location"] = h["location"]
     metadata.extra["parent_id"] = tmproot
     metadata.write()
@@ -200,8 +211,6 @@ class CheckChanges(threading.Thread):
         self.lasterChangeId = 0
 
     def update_metadata(self, filepath, f):
-        db = plug.service_db
-        print
         plug.logger.debug("Update metadata ?: {} {}", filepath, f)
         # try:
         # fid = db.get('listes:{}'.format(f["id"]))
@@ -298,12 +307,16 @@ class CheckChanges(threading.Thread):
             _, info = libdrive.get_information_by_id(access_token,
                                                      parent_id)
             path.append(info["title"])
-            parent_id = tree[parent_id]
+            plug.logger.debug("tree: {}", tree)
+            plug.logger.debug("path= {}, previous parent_id= {}",
+                             path, parent_id)
             for folder_path, folder_id in root_watched.items():
+                plug.logger.debug("folder_id= {}", folder_id)
                 if parent_id == folder_id:
                     isParent = True
                     f_path = folder_path
-
+            parent_id = tree[parent_id]
+        plug.logger.debug("path= {}", f_path)
         f_path = f_path.split("/")
         return "/".join(f_path + list(reversed(path)))
 
@@ -366,7 +379,7 @@ class CheckChanges(threading.Thread):
                         bufDel[fileId] = fileId
                         if fileId in buf:
                             del buf[fileId]
-                        plug.logger.debug(u"File deleted change {}",
+                        plug.logger.debug(u"File trashed change {}",
                                           change)
                     else:
                         b, tmp = self.add_to_buf(change, buf)
@@ -390,7 +403,7 @@ class CheckChanges(threading.Thread):
                 else:
                     if self.check_if_parent_exist(f["id"]) is False:
                         continue
-                    path = self.get_path(f["parents"])
+                    path = self.get_path(f["id"])
                     plug.logger.debug("get path: {}", path)
 
                 if path == "":
@@ -402,19 +415,22 @@ class CheckChanges(threading.Thread):
                 plug.logger.debug(u"file change path: {}".format(path))
 
             for id_file in bufDel:
-                path = filepath.split("/")[0]
-
-                files =  plug.list(path)
+                path = []
+                files = []
+                for folder_path in plug.folders_to_watch:
+                    path = folder_path
+                    plug.logger.debug("folder_path: {}", folder_path)
+                    files += plug.list(path)
+                    plug.logger.debug("files list: {}", plug.list(path))
                 m = None
                 for file in files:
                     metadata = Metadata.get_by_id(plug, file[1])
                     if metadata.extra["id"] == id_file:
                         m = metadata
                         break
-
-                    if m is not None:
-                        plug.delete_file(m)
-                        plug.logger.debug(u"file delete path: {}".format(path))
+                if m is not None:
+                    plug.delete_file(m)
+                    plug.logger.debug(u"file delete path: {}".format(path))
 
     def run(self):
         while not self.stop.isSet():
@@ -444,6 +460,7 @@ def start(*args, **kwargs):
         path = watch.path.split("/")
         path = [p for p in path if p != u""]
         for f in path:
+            plug.logger.debug("{}", f)
             _, data = libdrive.get_information(access_token, f, root_id)
             if (data["items"] != []):
                 prev_id = root_id
@@ -453,8 +470,10 @@ def start(*args, **kwargs):
                 _, data = libdrive.add_folder(access_token, f, root_id)
                 prev_id = root_id
                 root_id = data["id"]
-        tree[root_id] = prev_id
+                tree[root_id] = prev_id
+            plug.logger.debug("{}", tree)
         root_watched[watch.path] = root_id
+        plug.logger.debug("{}", root_watched)
     check = CheckChanges(int(plug.options['changes_timer']))
     check.setDaemon(True)
     check.start()

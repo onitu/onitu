@@ -2,8 +2,6 @@ import os
 import time
 import tempfile
 
-from path import path
-
 from tests.utils import driver
 from onitu.utils import u, b, get_random_string
 from onitu_google_drive import libdrive
@@ -13,10 +11,7 @@ refresh_token = "1/ezUs-qa0qMRXYDj4x0rcq0ODO_1nG-qiG-3POqzjs8w"
 
 class Driver(driver.Driver):
     def __init__(self, *args, **options):
-        tmp = tempfile.NamedTemporaryFile()
-        _, fileName = os.path.split(tmp.name)
-        if 'root' not in options:
-            options['root'] = "/{}/".format(get_random_string(10))
+        self._root = "/{}/".format(get_random_string(10))
         if 'refresh_token' not in options:
             options['refresh_token'] = refresh_token
         if 'client_id' not in options:
@@ -29,7 +24,7 @@ class Driver(driver.Driver):
         self.options = options
         self.get_token(options['client_id'], options['client_secret'])
 
-        path = options["root"].split("/")
+        path = self._root.split("/")
         path = [p for p in path if p != u""]
 
         for f in path:
@@ -57,7 +52,7 @@ class Driver(driver.Driver):
 
     @property
     def root(self):
-        return path(self.options['root'])
+        return self._root
 
     def close(self):
         self.get_token(self.options['client_id'],
