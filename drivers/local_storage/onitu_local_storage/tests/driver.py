@@ -40,7 +40,7 @@ class Driver(driver.Driver):
         shutil.rmtree(os.path.join(self.root, path), ignore_errors=True)
 
     def write(self, filename, content):
-        with open(self.root / filename, 'wb+') as f:
+        with open(os.path.join(self.root, filename), 'wb+') as f:
             f.write(content)
 
     def generate(self, filename, size):
@@ -58,7 +58,7 @@ class Driver(driver.Driver):
         )
 
     def checksum(self, filename):
-        with open(self.root / filename, 'rb') as f:
+        with open(os.path.join(self.root, filename), 'rb') as f:
             return hashlib.md5(f.read()).hexdigest()
 
 

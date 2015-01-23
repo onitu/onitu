@@ -291,7 +291,6 @@ if IS_WINDOWS:
             delete(metadata)
         elif actions_names.get(action) == 'moveFrom' and \
                 metadata.path not in ignoreNotif:
-            plug.logger.warning('{} {}', metadata.path, ignoreNotif)
             moveFrom(metadata)
         elif actions_names.get(action) == 'moveTo' and fileAction.moving:
             ignoreNotif[metadata.path] = False
