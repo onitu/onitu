@@ -157,6 +157,9 @@ def upload_chunk(metadata, offset, chunk):
 #         tree = {k: v for k, v in tree.items() if v == id_d or k == id_d}
 #         libdrive.delete_by_id(access_token, metadata.extra["id"])
 
+@plug.handler()
+def restart_upload(metadata, offset):
+    start_upload(metadata)
 
 @plug.handler()
 def set_chunk_size(size):
@@ -212,15 +215,36 @@ class CheckChanges(threading.Thread):
 
     def update_metadata(self, filepath, f):
         plug.logger.debug("Update metadata ?: {} {}", filepath, f)
+        f_path = ""
+        dir_path = ""
         # try:
         # fid = db.get('listes:{}'.format(f["id"]))
-        path = filepath.split("/")[0]
-
-        files =  plug.list(path)
+        for folder_path, _ in root_watched.items():
+            plug.logger.debug("find= {}", filepath.find(folder_path))
+            if filepath.find(folder_path) == 0:
+                f_path = filepath.replace(folder_path, "")
+                dir_path = folder_path
+                break
+        path = f_path.split("/")
+        plug.logger.debug("path= {}, filepath= {}", path, filepath)
+        path = path[0:len(path)-1]
+        plug.logger.debug("path= {}, filepath= {}", path, filepath)
+        path = [p for p in path if p != u""]
+        plug.logger.debug("path= {}, filepath= {}", path, filepath)
+        path = "/".join(path)
+        plug.logger.debug("path= {}, filepath= {}", path, filepath)
+        files = None
+        for folder in plug.folders_to_watch:
+            plug.logger.debug("path folder: {}, path: {}", folder.path, dir_path)
+            if folder.path == dir_path:
+                files = plug.list(folder)
+                break
         fid = None
-        for file in files:
-            if file[0] == filepath:
-                fid = file[1]
+        plug.logger.debug("files: {}", files)
+        for name, f_id in files.items():
+            plug.logger.debug("name: {}, filepath: {}", name, f_path.replace("/", "", 1))
+            if name == f_path.replace("/", "", 1):
+                fid = f_id
                 break
 
         if fid is None:
