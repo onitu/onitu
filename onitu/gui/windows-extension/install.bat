@@ -31,8 +31,8 @@ xcopy /Y /E /S %~dp0icons %ALLUSERSPROFILE%
 
 taskkill /f /IM explorer.exe
 
-%SYSTEMROOT%\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe bin\AMyIconOverlayHandlersAdded.dll /codebase
-%SYSTEMROOT%\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe bin\AMyIconOverlayHandlersPending.dll /codebase
+%SYSTEMROOT%\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe dlls\AMyIconOverlayHandlersAdded.dll /codebase
+%SYSTEMROOT%\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe dlls\AMyIconOverlayHandlersPending.dll /codebase
 
 echo.
 echo Onitu's Windows-extension installed. You can now leave this window...

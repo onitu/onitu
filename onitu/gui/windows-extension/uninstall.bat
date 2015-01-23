@@ -27,8 +27,8 @@ if '%errorlevel%' NEQ '0' (
 
 taskkill /f /IM explorer.exe
 
-%SYSTEMROOT%\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe bin\AMyIconOverlayHandlersAdded.dll /codebase /u
-%SYSTEMROOT%\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe bin\AMyIconOverlayHandlersPending.dll /codebase /u
+%SYSTEMROOT%\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe dlls\AMyIconOverlayHandlersAdded.dll /codebase /u
+%SYSTEMROOT%\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe dlls\AMyIconOverlayHandlersPending.dll /codebase /u
 
 echo.
 echo Onitu's Windows-extension was uninstalled. You can now leave this window...
