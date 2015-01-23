@@ -34,7 +34,6 @@ ignore_delete = set()
 ignore_move = set()
 
 
-
 def to_tmp(filename):
     if IS_WINDOWS:
         return os.path.join(
@@ -214,6 +213,7 @@ def end_upload(metadata):
            not ignoreNotif[metadata.path]:
             ignoreNotif[metadata.path] = time() + 1
 
+
 @plug.handler()
 def abort_upload(metadata):
     tmp_file = to_tmp(metadata.path)
@@ -261,7 +261,7 @@ def move_file(old_metadata, new_metadata):
         Rtime = time()
         ignoreNotif[new_metadata.path] = Rtime
         ignoreNotif[old_metadata.path] = Rtime
-		
+
 
 if IS_WINDOWS:
     def verifDictModifFile(writingDict, Rtime, cleanOld=False):
@@ -437,6 +437,7 @@ if IS_WINDOWS:
                                    Rtime)
                 except EscalatorClosed:
                     return
+            transferSet.clear()
             try:
                 writingDict = verifDictModifFile(writingDict, Rtime)
                 ignoreNotif = verifDictModifFile(ignoreNotif, Rtime, True)
