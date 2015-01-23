@@ -420,11 +420,13 @@ class CheckChanges(threading.Thread):
                 for folder_path in plug.folders_to_watch:
                     path = folder_path
                     plug.logger.debug("folder_path: {}", folder_path)
-                    files += plug.list(path)
-                    plug.logger.debug("files list: {}", plug.list(path))
+                    files.append(plug.list(path))
                 m = None
+                plug.logger.debug("files list: {}", files)
                 for file in files:
-                    metadata = Metadata.get_by_id(plug, file[1])
+                    metadata= None
+                    for _, f_id in file.items():
+                        metadata = Metadata.get_by_id(plug, f_id)
                     if metadata.extra["id"] == id_file:
                         m = metadata
                         break
