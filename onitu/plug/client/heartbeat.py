@@ -4,11 +4,12 @@ import zmq
 
 
 class HeartBeat(threading.Thread):
-    def __init__(self, identity, callback):
+    def __init__(self, identity, callback, hb_addr):
         super(HeartBeat, self).__init__()
         ctx = zmq.Context.instance()
         self.socket = ctx.socket(zmq.REQ)
-        self.socket.connect('tcp://127.0.0.1:20005')
+        #self.socket.connect('tcp://127.0.0.1:20005')
+        self.socket.connect(hb_addr)
         self.identity = identity
 
         self.callback = callback

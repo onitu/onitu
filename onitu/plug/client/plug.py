@@ -73,7 +73,7 @@ class PlugProxy(object):
 
         self.folders = FolderWrapper.get_folders(self)
 
-        self.heartbeat = HeartBeat(identity + b'client', self.close)
+        self.heartbeat = HeartBeat(identity + b'client', self.close, setup['hb_addr'])
         self.heartbeat.start()
 
     def close(self):

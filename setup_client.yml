@@ -2,6 +2,7 @@ name: remote-client
 
 requests_addr: "tcp://127.0.0.1:20001"
 handlers_addr: "tcp://127.0.0.1:20003"
+hb_addr: "tcp://127.0.0.1:20005"
 
 service:
   driver: local_storage
