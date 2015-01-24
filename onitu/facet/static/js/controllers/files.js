@@ -5,8 +5,8 @@
 
 "use strict";
 
-facetControllers.controller("filesListCtrl", [ "$rootScope", "$scope", "$routeParams", "$location", "filesFactory",
-	function ($rootScope, $scope, $routeParams, $location, filesFactory) {
+facetControllers.controller("filesListCtrl", [ "$rootScope", "$scope", "$routeParams", "$location", "filesFactory", "Restangular",
+	function ($rootScope, $scope, $routeParams, $location, filesFactory, Restangular) {
         var assign_files_by_dir = function (files) {
             var f = {
                 orphans: [],
@@ -60,65 +60,66 @@ facetControllers.controller("filesListCtrl", [ "$rootScope", "$scope", "$routePa
         }
 
         $scope.displayFile = function (file) {
-            $location.path("/files/" + file.uptodate[0] + "/" + file.filename + "/info");
+            $location.path("/files/" + file.fid);
         }
 
+		$scope.download = function (file) {
+			return Restangular.one('files/' + fid + '/content').get();
+		}
+
         filesFactory.getFiles($routeParams.type).then(function (files) {
-            files = assign_files_by_dir(files);
-
-            $.each(files.by_dir, function (dirname, service) {
-                $.each(service, function (_, file) {
-                    var slash_idx = file.filename.lastIndexOf("/");
-
-                    if (slash_idx > -1) {
-                        file.filename = file.filename.substr(slash_idx + 1);
-                    }
-                });
-            });
-
-            // Split the files between orphans (no parent directory) and the rest
-            $rootScope.files = files;
+			$rootScope.files = _(_(files).sortBy('filename')).groupBy('folder_name');
         });
 	}
 ]);
 
 facetControllers.controller("fileDetailsCtrl", [ "$rootScope", "$scope", "$routeParams", "filesFactory",
     function ($rootScope, $scope, $routeParams, filesFactory) {
-        var drivername = $routeParams.drivername;
-        var filename = $routeParams.filename;
+        // var drivername = $routeParams.drivername;
+        // var filename = $routeParams.filename;
+		//
+        // var find_file = function (drivername, filename) {
+        //     // FIXME: works only with orphans
+        //     $.each($rootScope.files.orphans, function (_, file) {
+        //         if (file.filename === filename && file.uptodate.indexOf(drivername) > -1) {
+        //             $scope.file = file;
+		//
+		//
+        //             $.each($rootScope.drivers, function (_, driver) {
+        //                 if (driver.name === drivername) {
+        //                     $scope.driver = driver;
+		//
+        //                     return false;
+        //                 }
+        //             });
+		//
+        //             // FIXME: better preview
+        //             $scope.trustedFilePath = "";//$scope.driver.options.root + '/' + $scope.file.filename;
+		//
+        //             return false;
+        //         }
+        //     });
+        // }
+		//
+        // // If the files were not fetched beforehand, update the global cache
+        // // FIXME: assign_files_by_dir()
+        // if ($rootScope.files === undefined) {
+        //     filesFactory.getFiles().then(function (files) {
+        //         $rootScope.files = files;
+        //         find_file(drivername, filename);
+        //     });
+        // } else {
+        //     find_file(drivername, filename);
+        // }
 
-        var find_file = function (drivername, filename) {
-            // FIXME: works only with orphans
-            $.each($rootScope.files.orphans, function (_, file) {
-                if (file.filename === filename && file.uptodate.indexOf(drivername) > -1) {
-                    $scope.file = file;
+		$scope.download = function (file) {
+			console.log(file);
+			return Restangular.one('files/' + fid + '/content').get();
+		}
 
 
-                    $.each($rootScope.drivers, function (_, driver) {
-                        if (driver.name === drivername) {
-                            $scope.driver = driver;
-
-                            return false;
-                        }
-                    });
-
-                    // FIXME: better preview
-                    $scope.trustedFilePath = "";//$scope.driver.options.root + '/' + $scope.file.filename;
-
-                    return false;
-                }
-            });
-        }
-
-        // If the files were not fetched beforehand, update the global cache
-        // FIXME: assign_files_by_dir()
-        if ($rootScope.files === undefined) {
-            filesFactory.getFiles().then(function (files) {
-                $rootScope.files = files;
-                find_file(drivername, filename);
-            });
-        } else {
-            find_file(drivername, filename);
-        }
+		filesFactory.getFile($routeParams.fid).then(function (file) {
+			$rootScope.file = file;
+		});
     }
 ]);

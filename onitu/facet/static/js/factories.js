@@ -8,6 +8,9 @@
 facetFactories.factory("filesFactory", [ "Restangular",
 	function (Restangular) {
 		return {
+			getFile: function(fid) {
+				return Restangular.one('files/' + fid + '/metadata').get();
+			},
             getFiles: function (file_type) {
                 var filter_array_by_type = function (files, type) {
                     var ret = [];
