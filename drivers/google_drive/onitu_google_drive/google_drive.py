@@ -1,0 +1,490 @@
+from onitu.plug import Plug
+from onitu_google_drive import libdrive
+import threading
+import time
+from onitu.plug.metadata import Metadata
+
+tree = None
+folder_id_name = {}
+access_token = None
+root_watched = {}
+token_expi = None
+
+
+mutex = threading.Lock()
+plug = Plug()
+ft = 'application/vnd.google-apps.folder'
+
+
+def check_and_add_folder(metadata):
+    mutex.acquire()
+    global tree
+
+    folder_path = metadata.path.replace(metadata.filename, "")
+    if folder_path != "/":
+        folder_path = folder_path.rstrip('/')
+
+    plug.logger.debug(root_watched)
+    root_id = root_watched[folder_path]
+
+    try:
+        path = metadata.filename.split("/")
+        path = [p for p in path if p != u""]
+        tmproot = root_id
+        if len(path) > 1:
+            for f in path[:len(path)-1]:
+                _, data = libdrive.get_information(access_token, f, tmproot)
+                if (data["items"] != []):
+                    prev_id = tmproot
+                    tmproot = data["items"][0]["id"]
+                    tree[tmproot] = prev_id
+                    folder_id_name[prev_id] = data["items"][0]["title"]
+                else:
+                    _, data = libdrive.add_folder(access_token, f, tmproot)
+                    prev_id = tmproot
+                    tmproot = data["id"]
+                    tree[tmproot] = prev_id
+                    folder_id_name[prev_id] = data["title"]
+    finally:
+        mutex.release()
+    return tmproot, path
+
+
+def get_token():
+    global access_token
+    global token_expi
+
+    if not hasattr(get_token, "counter"):
+        get_token.counter = 0
+    try:
+        if time.time() + 20.0 < token_expi:
+            return
+        _, data = libdrive.get_token(plug.options["client_id"],
+                                     plug.options["client_secret"],
+                                     plug.options["refresh_token"])
+        access_token = data["access_token"]
+        token_expi = time.time() + data["expires_in"]
+        get_token.counter = 0
+    except:
+        get_token.counter += 1
+        time.sleep(1*(2**get_token.counter))
+        get_token()
+
+
+@plug.handler()
+def get_chunk(metadata, offset, size):
+    plug.logger.debug(u"Getting chunk of size {} from file {}"
+                      u" from offset {} to {}"
+                      .format(size, metadata.path,
+                              offset, offset+(size-1)))
+    if size > metadata.size:
+        size = metadata.size
+    _, content = libdrive.get_chunk(access_token,
+                                    metadata.extra["downloadUrl"],
+                                    offset, size)
+    plug.logger.debug(u"Getting chunk of size {} from file {}"
+                      u" from offset {} to {} - Done"
+                      .format(size, metadata.path,
+                              offset, offset+(size-1)))
+    return content
+
+
+@plug.handler()
+def start_upload(metadata):
+    plug.logger.debug(u"Start updload {}".format(metadata.path))
+    metadata.extra["inProcess"] = ""
+    metadata.write()
+    tmproot, path = check_and_add_folder(metadata)
+    self_id = None
+    if "id" in metadata.extra:
+        self_id = metadata.extra["id"]
+    if metadata.size == 0:
+        h, data = libdrive.send_metadata(access_token,
+                                         path[len(path)-1],
+                                         tmproot, self_id, 0)
+    else:
+        if self_id is None:
+            _, data = libdrive.get_information(access_token,
+                                               path[len(path)-1],
+                                               tmproot)
+            if data["items"] != []:
+                self_id = data["items"][0]["id"]
+        h, data = libdrive.start_upload(access_token,
+                                        path[len(path)-1],
+                                        tmproot, self_id)
+        plug.logger.debug("header: {}", h)
+        metadata.extra["location"] = h["location"]
+    metadata.extra["parent_id"] = tmproot
+    metadata.write()
+    plug.logger.debug(u"Start updload {} - Done".format(metadata.path))
+
+
+@plug.handler()
+def end_upload(metadata):
+    plug.logger.debug(u"End updload {}".format(metadata.path))
+    del metadata.extra["inProcess"]
+    if "location" in metadata.extra:
+        del metadata.extra["location"]
+    path = metadata.path.split("/")
+    path = [p for p in path if p != u""]
+    _, data = libdrive.get_information(access_token,
+                                       path[len(path)-1],
+                                       metadata.extra["parent_id"])
+    metadata.extra["id"] = data["items"][0]["id"]
+    metadata.extra["revision"] = data["items"][0]["md5Checksum"]
+    metadata.extra["downloadUrl"] = data["items"][0]["downloadUrl"]
+    db = plug.service_db
+    db.put('listes:{}'.format(metadata.extra["id"]), metadata.fid)
+    metadata.write()
+    plug.logger.debug(u"End updload {} - Done".format(metadata.path))
+
+
+@plug.handler()
+def upload_chunk(metadata, offset, chunk):
+    plug.logger.debug(u"Uploading chunk of size {} from file {}"
+                      u" from offset {} to {}"
+                      .format(len(chunk), metadata.path,
+                              offset, offset+(len(chunk)-1)))
+
+    _, data = libdrive.upload_chunk(access_token,
+                                    metadata.extra["location"],
+                                    offset, chunk, metadata.size)
+    plug.logger.debug(u"Uploading chunk of size {} from file {}"
+                      u" from offset {} to {} - Done"
+                      .format(len(chunk), metadata.path,
+                              offset, offset+(len(chunk)-1)))
+
+
+@plug.handler()
+def restart_upload(metadata, offset):
+    start_upload(metadata)
+
+
+@plug.handler()
+def set_chunk_size(size):
+    ret = size // (256*1024)
+    if ret * 256 * 1024 == size:
+        return size
+    return (ret+1) * (256*1024)
+
+
+@plug.handler()
+def delete_file(metadata):
+    plug.logger.debug(u"Deleting '{}'".format(metadata.path))
+    global tree
+    id_d = metadata.extra["id"]
+    tree = {k: v for k, v in tree.items() if v == id_d or k == id_d}
+    libdrive.delete_by_id(access_token, id_d)
+    plug.logger.debug(u"Deleting '{}' - Done".format(metadata.path))
+
+
+@plug.handler()
+def move_file(old_metadata, new_metadata):
+
+    tmproot, path = check_and_add_folder(new_metadata)
+
+    plug.logger.debug(u"Moving '{}' to '{}'"
+                      .format(old_metadata.path, new_metadata.path))
+
+    params = {
+        "addParents": [tmproot],
+        "removeParents":  [old_metadata.extra["parent_id"]]
+    }
+    _, data = libdrive.send_metadata(access_token, path[len(path)-1],
+                                     None, old_metadata.extra["id"],
+                                     new_metadata.size, params)
+    new_metadata.size = int(data["fileSize"])
+    new_metadata.extra["revision"] = data["md5Checksum"]
+    new_metadata.extra["id"] = data["id"]
+    new_metadata.extra["parent_id"] = tmproot
+    new_metadata.extra["downloadUrl"] = data["downloadUrl"]
+    new_metadata.write()
+
+    plug.logger.debug(u"Moving '{}' to '{}' - Done"
+                      .format(old_metadata.path, new_metadata.path))
+
+
+class CheckChanges(threading.Thread):
+
+    def __init__(self, timer):
+        super(CheckChanges, self).__init__()
+        self.stop = threading.Event()
+        self.timer = timer
+        self.lasterChangeId = 0
+
+    def update_metadata(self, filepath, f):
+        plug.logger.debug("Update metadata ?: {} {}", filepath, f)
+        f_path = ""
+        dir_path = ""
+        for folder_path, _ in root_watched.items():
+            if filepath.find(folder_path) == 0:
+                f_path = filepath.replace(folder_path, "")
+                dir_path = folder_path
+                break
+        path = f_path.split("/")
+        path = path[0:len(path)-1]
+        path = [p for p in path if p != u""]
+        path = "/".join(path)
+        files = None
+        for folder in plug.folders_to_watch:
+            if folder.path == dir_path:
+                files = plug.list(folder)
+                break
+        fid = None
+        plug.logger.debug("files: {}", files)
+        for name, f_id in files.items():
+            if name == f_path.replace("/", "", 1):
+                fid = f_id
+                break
+
+        if fid is None:
+            plug.logger.debug("No fid find for {}", filepath)
+
+        metadata = Metadata.get_by_id(plug, fid)
+        if metadata is not None:
+            while "inProcess" in metadata.extra:
+                metadata = Metadata.get_by_id(plug, fid)
+                time.sleep(0.1)
+        else:
+            plug.logger.debug("filepath= {}", filepath)
+            metadata = plug.get_metadata(filepath)
+        revision = ""
+        if "revision" in metadata.extra:
+            revision = metadata.extra["revision"]
+        _, f = libdrive.get_information_by_id(access_token, f["id"])
+        if f["md5Checksum"] != revision:
+            metadata.size = int(f["fileSize"])
+            metadata.extra["revision"] = f["md5Checksum"]
+            if f["mimeType"] is not "application/vnd.google-apps.folder":
+                metadata.extra["downloadUrl"] = f["downloadUrl"]
+            metadata.extra["id"] = f["id"]
+            metadata.extra["parent_id"] = f["parents"][0]["id"]
+            plug.update_file(metadata)
+            plug.logger.debug("Updated metadata!")
+
+    def check_folder_list_file(self, path, path_id):
+        _, filelist = libdrive.get_files_by_path(access_token, path_id)
+        for f in filelist["items"]:
+            if f["mimeType"] == "application/vnd.google-apps.folder":
+                if path == "":
+                    self.check_folder_list_file(f["title"], f["id"])
+                else:
+                    self.check_folder_list_file(path + "/" + f["title"],
+                                                f["id"])
+            else:
+                plug.logger.debug("Getted path: {}", path)
+                if path == "":
+                    filepath = f["title"]
+                else:
+                    filepath = path + "/" + f["title"]
+                self.update_metadata(filepath, f)
+
+    def add_to_buf(self, change, buf):
+        cc = change["file"]["mimeType"]
+        if cc != ft:
+            t = {}
+            plug.logger.debug(u"{}".format(t))
+            t["id"] = change["file"]["id"]
+            t["title"] = change["file"]["title"]
+            t["parents"] = change["file"]["parents"][0]["id"]
+            t["md5Checksum"] = change["file"]["md5Checksum"]
+            t["fileSize"] = change["file"]["fileSize"]
+            t["modificationDate"] = change["modificationDate"]
+            c = change
+            b = t["id"] in buf \
+                and buf[t["id"]]["modificationDate"] < c["modificationDate"]
+            if t["id"] not in buf or b:
+                plug.logger.debug(u"File with change {}".format(t["title"]))
+                return (True, t)
+        return (False, None)
+
+    def check_if_path_exist(self, path_id):
+        if path_id in tree:
+            return True
+        return False
+
+    def get_path(self, parent_id):
+        path = []
+        isParent = False
+        f_path = None
+        for folder_path, folder_id in root_watched.items():
+            if parent_id == folder_id:
+                isParent = True
+                f_path = folder_path
+        while not isParent and parent_id != "root":
+            _, info = libdrive.get_information_by_id(access_token,
+                                                     parent_id)
+            for folder_path, folder_id in root_watched.items():
+                plug.logger.debug("folder_id= {}", folder_id)
+                if parent_id == folder_id:
+                    isParent = True
+                    f_path = folder_path
+            if not isParent:
+                path.append(info["title"])
+                parent_id = tree[parent_id]
+        plug.logger.debug("path_folder= {}, path= {}", f_path, path)
+        f_path = f_path.split("/")
+        return "/".join(f_path + list(reversed(path)))
+
+    def check_if_parent_exist(self, file_id):
+        global tree
+        _, parent = libdrive.get_parent(access_token, file_id)
+        if "items" not in parent:
+            return False
+        p = parent["items"][0]
+        if self.check_if_path_exist(p["id"]):
+            _, info = libdrive.get_information_by_id(access_token,
+                                                     p["id"])
+            if info["mimeType"] == "application/vnd.google-apps.folder":
+                tree[file_id] = p["id"]
+            return True
+        else:
+            isRoot = False
+            for _, folder_id in root_watched.items():
+                if p["id"] == folder_id:
+                    isRoot = True
+            if p["isRoot"] is True or isRoot:
+                return False
+            else:
+                ret = self.check_if_parent_exist(p["id"])
+                if ret is False:
+                    return False
+                else:
+                    _, i = libdrive.get_information_by_id(access_token,
+                                                          p["id"])
+                    if i["mimeType"] == "application/vnd.google-apps.folder":
+                        tree[file_id] = p["id"]
+                    return True
+
+    def check_folder(self, path, path_id):
+        if self.lasterChangeId == 0:
+            _, data = libdrive.get_change(access_token, 1, 1)
+            self.lasterChangeId = data["largestChangeId"]
+            for folder_path, folder_id in root_watched.items():
+                self.check_folder_list_file(folder_path, folder_id)
+        else:
+            buf = {}
+            bufDel = {}
+            page_token = None
+            while True:
+                _, data = libdrive.get_change(access_token, 1000,
+                                              self.lasterChangeId)
+                if self.lasterChangeId == data["largestChangeId"]:
+                    return
+                plug.logger.debug(u"new change detected")
+                for change in data["items"]:
+                    if change["deleted"] is True:
+                        fileId = change["fileId"]
+                        bufDel[fileId] = fileId
+                        if fileId in buf:
+                            del buf[fileId]
+                        plug.logger.debug(u"File deleted change {}",
+                                          change)
+                    elif change["file"]["labels"]["trashed"] is True:
+                        fileId = change["file"]["id"]
+                        bufDel[fileId] = fileId
+                        if fileId in buf:
+                            del buf[fileId]
+                        plug.logger.debug(u"File trashed change {}",
+                                          change)
+                    else:
+                        b, tmp = self.add_to_buf(change, buf)
+                        if b:
+                            if tmp["id"] in bufDel:
+                                del bufDel[tmp["id"]]
+                            buf[tmp["id"]] = tmp
+                            plug.logger.debug(u"File change {}",
+                                              change)
+                self.lasterChangeId = data["largestChangeId"]
+                page_token = data.get("nextPageToken")
+                if not page_token:
+                    break
+
+            for id_file in buf:
+                f = buf[id_file]
+
+                if self.check_if_path_exist(f["parents"]):
+                    path = self.get_path(f["parents"])
+                    plug.logger.debug("get path: {}", path)
+                else:
+                    if self.check_if_parent_exist(f["id"]) is False:
+                        continue
+                    path = self.get_path(f["parents"])
+                    plug.logger.debug("get path: {}", path)
+
+                if path == "":
+                    filepath = f["title"]
+                else:
+                    filepath = path + "/" + f["title"]
+
+                self.update_metadata(filepath, f)
+                plug.logger.debug(u"file change path: {}".format(path))
+
+            for id_file in bufDel:
+                path = []
+                files = []
+                for folder_path in plug.folders_to_watch:
+                    path = folder_path
+                    plug.logger.debug("folder_path: {}", folder_path)
+                    files.append(plug.list(path))
+                m = None
+                plug.logger.debug("files list: {}", files)
+                for file in files:
+                    metadata = None
+                    for _, f_id in file.items():
+                        metadata = Metadata.get_by_id(plug, f_id)
+                        if metadata is not None \
+                           and metadata.extra["id"] == id_file:
+                            m = metadata
+                            break
+                if m is not None:
+                    plug.delete_file(m)
+                    plug.logger.debug(u"file delete path: {}".format(path))
+
+    def run(self):
+        while not self.stop.isSet():
+            get_token()
+            for _, folder_id in root_watched.items():
+                try:
+                    self.check_folder("", folder_id)
+                except Exception as e:
+                    plug.logger.error("Exception: {}", e)
+            self.stop.wait(self.timer)
+
+    def stop(self):
+        self.stop.set()
+
+
+def start(*args, **kwargs):
+    global access_token
+    access_token = ""
+    global token_expi
+    token_expi = 0.0
+    global tree
+    tree = {}
+    get_token()
+    global root_watched
+    for folder in plug.folders_to_watch:
+        plug.logger.debug("folder to watch: {}", folder.path)
+    for watch in plug.folders_to_watch:
+        root_id = "root"
+        prev_id = ""
+        path = watch.path.split("/")
+        path = [p for p in path if p != u""]
+        for f in path:
+            plug.logger.debug("{}", f)
+            _, data = libdrive.get_information(access_token, f, root_id)
+            if (data["items"] != []):
+                prev_id = root_id
+                root_id = data["items"][0]["id"]
+                tree[root_id] = prev_id
+            else:
+                _, data = libdrive.add_folder(access_token, f, root_id)
+                prev_id = root_id
+                root_id = data["id"]
+                tree[root_id] = prev_id
+        root_watched[watch.path] = root_id
+    check = CheckChanges(int(plug.options['changes_timer']))
+    check.setDaemon(True)
+    check.start()
+    plug.listen()
