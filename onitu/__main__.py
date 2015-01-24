@@ -16,43 +16,26 @@ import circus
 
 from itertools import chain
 
-from logbook import Logger, INFO, DEBUG, NestedSetup
-from logbook import NullHandler, RotatingFileHandler
-from logbook.queues import ZeroMQHandler, ZeroMQSubscriber
-from logbook.more import ColorizedStderrHandler
+from logbook import Logger
+from logbook.queues import ZeroMQHandler
 from tornado import gen
-
 
 from .escalator.client import Escalator
 from .utils import get_logs_uri, IS_WINDOWS, get_stats_endpoint
+from .utils import get_logs_dispatcher, get_setup
 from .utils import get_circusctl_endpoint, get_pubsub_endpoint, u
+from .utils import DEFAULT_CONFIG_DIR
 
 # Time given to each process (Drivers, Referee, API...) to
 # exit before being killed. This avoid any hang during
 # shutdown
 GRACEFUL_TIMEOUT = 1.
 
-
-# The default directory where Onitu store its informations
-if IS_WINDOWS:
-    DEFAULT_CONFIG_DIR = os.path.join(
-        os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'onitu'
-    )
-elif sys.platform == 'darwin':
-    DEFAULT_CONFIG_DIR = os.path.join(
-        os.path.expanduser('~/Library/Application Support'), 'onitu'
-    )
-else:
-    DEFAULT_CONFIG_DIR = os.path.join(
-        os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config')),
-        'onitu'
-    )
-
-
 session = None
 setup = None
 logger = None
 arbiter = None
+majordomo_params = []
 
 
 @gen.coroutine
@@ -82,6 +65,16 @@ def start_setup(*args, **kwargs):
 
     yield start_watcher("Rest API", 'onitu.api')
 
+    majordomo = arbiter.add_watcher(
+        "Majordomo",
+        sys.executable,
+        args=('-m', 'onitu.majordomo', session) + tuple(majordomo_params),
+        copy_env=True,
+        graceful_timeout=GRACEFUL_TIMEOUT
+    )
+
+    yield majordomo.start()
+
 
 @gen.coroutine
 def load_service(escalator, service, conf):
@@ -110,7 +103,6 @@ def load_service(escalator, service, conf):
                 'Unknown folder {} in service {}', name, service
             )
             continue
-
         if type(options) != dict:
             path = options
             options = {}
@@ -140,55 +132,6 @@ def start_watcher(name, module, *args, **kwargs):
     yield watcher.start()
 
 
-def get_logs_dispatcher(config_dir, uri, debug=False):
-    """Configure the dispatcher that will print the logs received
-    on the ZeroMQ channel.
-    """
-    handlers = []
-
-    if not debug:
-        handlers.append(NullHandler(level=DEBUG))
-
-    handlers.append(RotatingFileHandler(
-        os.path.join(config_dir, 'onitu.log'),
-        level=INFO,
-        max_size=1048576,  # 1 Mb
-        bubble=True
-    ))
-
-    handlers.append(ColorizedStderrHandler(level=INFO, bubble=True))
-    subscriber = ZeroMQSubscriber(uri, multi=True)
-    return subscriber.dispatch_in_background(setup=NestedSetup(handlers))
-
-
-def get_setup(setup_file):
-    if setup_file.endswith(('.yml', '.yaml')):
-        try:
-            import yaml
-        except ImportError:
-            logger.error(
-                "You provided a YAML setup file, but PyYAML was not found on "
-                "your system."
-            )
-        loader = yaml.load
-    elif setup_file.endswith('.json'):
-        import json
-        loader = json.load
-    else:
-        logger.error(
-            "The setup file must be either in JSON or YAML."
-        )
-        return
-
-    try:
-        with open(setup_file) as f:
-            return loader(f)
-    except Exception as e:
-        logger.error(
-            "Error parsing '{}' : {}", setup_file, e
-        )
-
-
 def main():
     global session, setup, logger, arbiter
 
@@ -205,6 +148,35 @@ def main():
         help="Use this flag to disable the log dispatcher"
     )
     parser.add_argument(
+        '--majordomo-req-uri',
+        help="The ZMQ REQ socket where clients should connect",
+        default='tcp://*:20001'
+    )
+    parser.add_argument(
+        '--majordomo-rep-uri',
+        help="The ZMQ REP socket where clients should connect",
+        default='tcp://*:20003'
+    )
+    parser.add_argument(
+        '--majordomo-no-auth',
+        help="Disable Majordomo authentication",
+        dest='majordomo_auth',
+        action='store_const',
+        const='',
+        default='auth'
+    )
+    parser.add_argument(
+        '--majordomo-keys-dir',
+        help="Directory where clients' public keys are stored "
+             "(defaults to keys in config directory)",
+        default=None
+    )
+    parser.add_argument(
+        '--majordomo-server-key',
+        help="Server's secret key file",
+        default='server.key_secret'
+    )
+    parser.add_argument(
         '--debug', action='store_true', help="Enable debugging logging"
     )
     parser.add_argument(
@@ -215,6 +187,15 @@ def main():
     args = parser.parse_args()
 
     config_dir = args.config_dir
+
+    if args.majordomo_keys_dir is None:
+        args.majordomo_keys_dir = os.path.join(config_dir, "keys")
+
+    majordomo_params.extend((args.majordomo_req_uri,
+                             args.majordomo_rep_uri,
+                             args.majordomo_auth,
+                             args.majordomo_keys_dir,
+                             args.majordomo_server_key))
 
     if not os.path.exists(config_dir):
         os.makedirs(config_dir)
@@ -230,7 +211,7 @@ def main():
     else:
         setup_file = args.setup
 
-    setup = get_setup(setup_file)
+    setup = get_setup(setup_file, logger)
     if not setup:
         return 1
 

@@ -1,0 +1,9 @@
+name: remote-client
+
+requests_addr: "tcp://127.0.0.1:20001"
+handlers_addr: "tcp://127.0.0.1:20003"
+
+service:
+  driver: local_storage
+  folders:
+    test: /home/rozo_a/Projects/onitu/onitu/example/service_c
