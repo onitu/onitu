@@ -20,9 +20,7 @@ def check_and_add_folder(metadata):
     mutex.acquire()
     global tree
 
-    #TODO remove medata.filename to metadata.path and check on root list
     folder_path = metadata.path.replace(metadata.filename, "")
-    plug.logger.debug("path file: {}, folder: {}, filename: {}", metadata.path, folder_path, metadata.filename)
     if folder_path != "/":
         folder_path = folder_path.rstrip('/')
 
@@ -73,7 +71,6 @@ def get_token():
         get_token()
 
 
-
 @plug.handler()
 def get_chunk(metadata, offset, size):
     plug.logger.debug(u"Getting chunk of size {} from file {}"
@@ -106,7 +103,7 @@ def start_upload(metadata):
                                          path[len(path)-1],
                                          tmproot, self_id, 0)
     else:
-        if self_id == None:
+        if self_id is None:
             _, data = libdrive.get_information(access_token,
                                                path[len(path)-1],
                                                tmproot)
@@ -156,19 +153,12 @@ def upload_chunk(metadata, offset, chunk):
                       u" from offset {} to {} - Done"
                       .format(len(chunk), metadata.path,
                               offset, offset+(len(chunk)-1)))
-#
-#
-# @plug.handler()
-# def abort_upload(metadata):
-#     global tree
-#     if "id" in metadata.extra:
-#         id_d = metadata.extra["id"]
-#         tree = {k: v for k, v in tree.items() if v == id_d or k == id_d}
-#         libdrive.delete_by_id(access_token, metadata.extra["id"])
+
 
 @plug.handler()
 def restart_upload(metadata, offset):
     start_upload(metadata)
+
 
 @plug.handler()
 def set_chunk_size(size):
@@ -226,32 +216,23 @@ class CheckChanges(threading.Thread):
         plug.logger.debug("Update metadata ?: {} {}", filepath, f)
         f_path = ""
         dir_path = ""
-        # try:
-        # fid = db.get('listes:{}'.format(f["id"]))
         for folder_path, _ in root_watched.items():
-            plug.logger.debug("find= {}", filepath.find(folder_path))
             if filepath.find(folder_path) == 0:
                 f_path = filepath.replace(folder_path, "")
                 dir_path = folder_path
                 break
         path = f_path.split("/")
-        plug.logger.debug("path= {}, filepath= {}", path, filepath)
         path = path[0:len(path)-1]
-        plug.logger.debug("path= {}, filepath= {}", path, filepath)
         path = [p for p in path if p != u""]
-        plug.logger.debug("path= {}, filepath= {}", path, filepath)
         path = "/".join(path)
-        plug.logger.debug("path= {}, filepath= {}", path, filepath)
         files = None
         for folder in plug.folders_to_watch:
-            plug.logger.debug("path folder: {}, path: {}", folder.path, dir_path)
             if folder.path == dir_path:
                 files = plug.list(folder)
                 break
         fid = None
         plug.logger.debug("files: {}", files)
         for name, f_id in files.items():
-            plug.logger.debug("name: {}, filepath: {}", name, f_path.replace("/", "", 1))
             if name == f_path.replace("/", "", 1):
                 fid = f_id
                 break
@@ -267,11 +248,6 @@ class CheckChanges(threading.Thread):
         else:
             plug.logger.debug("filepath= {}", filepath)
             metadata = plug.get_metadata(filepath)
-        # except:
-        #     metadata = plug.get_metadata(filepath)
-        #     while "inProcess" in metadata.extra:
-        #         metadata = plug.get_metadata(filepath)
-        #         time.sleep(0.1)
         revision = ""
         if "revision" in metadata.extra:
             revision = metadata.extra["revision"]
@@ -306,7 +282,6 @@ class CheckChanges(threading.Thread):
     def add_to_buf(self, change, buf):
         cc = change["file"]["mimeType"]
         if cc != ft:
-
             t = {}
             plug.logger.debug(u"{}".format(t))
             t["id"] = change["file"]["id"]
@@ -346,9 +321,6 @@ class CheckChanges(threading.Thread):
                     f_path = folder_path
             if not isParent:
                 path.append(info["title"])
-                plug.logger.debug("tree: {}", tree)
-                plug.logger.debug("path= {}, previous parent_id= {}",
-                                 path, parent_id)
                 parent_id = tree[parent_id]
         plug.logger.debug("path_folder= {}, path= {}", f_path, path)
         f_path = f_path.split("/")
@@ -461,7 +433,8 @@ class CheckChanges(threading.Thread):
                     metadata = None
                     for _, f_id in file.items():
                         metadata = Metadata.get_by_id(plug, f_id)
-                        if metadata is not None and metadata.extra["id"] == id_file:
+                        if metadata is not None \
+                           and metadata.extra["id"] == id_file:
                             m = metadata
                             break
                 if m is not None:
@@ -474,7 +447,7 @@ class CheckChanges(threading.Thread):
             for _, folder_id in root_watched.items():
                 try:
                     self.check_folder("", folder_id)
-                except e:
+                except Exception as e:
                     plug.logger.error("Exception: {}", e)
             self.stop.wait(self.timer)
 
@@ -492,7 +465,7 @@ def start(*args, **kwargs):
     get_token()
     global root_watched
     for folder in plug.folders_to_watch:
-        plug.logger.debug("{}", folder.path)
+        plug.logger.debug("folder to watch: {}", folder.path)
     for watch in plug.folders_to_watch:
         root_id = "root"
         prev_id = ""
@@ -510,9 +483,7 @@ def start(*args, **kwargs):
                 prev_id = root_id
                 root_id = data["id"]
                 tree[root_id] = prev_id
-            plug.logger.debug("{}", tree)
         root_watched[watch.path] = root_id
-        plug.logger.debug("{}", root_watched)
     check = CheckChanges(int(plug.options['changes_timer']))
     check.setDaemon(True)
     check.start()

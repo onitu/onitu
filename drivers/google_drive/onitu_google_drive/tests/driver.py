@@ -1,9 +1,8 @@
 import os
 import time
-import tempfile
 
 from tests.utils import driver
-from onitu.utils import u, b, get_random_string
+from onitu.utils import get_random_string
 from onitu_google_drive import libdrive
 
 refresh_token = "1/ezUs-qa0qMRXYDj4x0rcq0ODO_1nG-qiG-3POqzjs8w"
@@ -204,6 +203,7 @@ class Driver(driver.Driver):
                                       None,
                                       old_data["items"][0]["id"],
                                       old_data["items"][0]["fileSize"], params)
+
 
 class DriverFeatures(driver.DriverFeatures):
     pass
