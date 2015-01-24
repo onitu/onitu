@@ -1,3 +1,5 @@
+from onitu.utils import u
+
 from .exceptions import DriverError
 
 
@@ -33,6 +35,7 @@ class Folder(object):
 
     @classmethod
     def get(cls, plug, folder):
+        folder = u(folder)
         prefix = u'service:{}:folder:{}'.format(plug.name, folder)
         path = plug.escalator.get(u'{}:path'.format(prefix), default="")
         options = plug.escalator.get(u'{}:options'.format(prefix), default={})

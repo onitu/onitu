@@ -54,12 +54,12 @@ class Metadata(object):
         self.folder_name = folder_name
         self.folder = folder
 
-        if not fid and filename:
-            fid = get_fid(folder_name, filename)
+        if not fid and self.filename:
+            fid = get_fid(self.folder_name, self.filename)
         self.fid = fid
 
-        if not self.mimetype and filename:
-            self.mimetype = get_mimetype(filename)
+        if not self.mimetype and self.filename:
+            self.mimetype = get_mimetype(self.filename)
 
         self.extra = {}
 
@@ -72,7 +72,7 @@ class Metadata(object):
         """Instantiate a new :class:`.Metadata` object for the file
         with the given name inside the given folder.
         """
-        fid = get_fid(folder, filename)
+        fid = get_fid(folder, u(filename))
         return cls.get_by_id(plug, fid)
 
     @classmethod
