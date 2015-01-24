@@ -64,9 +64,10 @@ body {
     border: none;
 }
 
-table#files-list > tbody > tr > td,
-table#files-list > thead > tr > th {
-    text-align: center;
+#files-list .filename {
+    text-align: left;
+    width: 50%;
+    padding-left: 5em;
 }
 
 table#files-list > tbody > tr > td:nth-child(6) > i.fa {
@@ -78,8 +79,9 @@ table#files-list > tbody > tr:hover > td,
     background-color: none;
 }
 
-table#files-list > tbody > tr:hover > td:first-child {
+table#files-list > tbody > tr:hover {
     border-left: #4D6C9E 3px solid;
+
 }
 
 table#file-details > tbody > tr> td {
