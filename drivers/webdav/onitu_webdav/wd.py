@@ -99,7 +99,7 @@ def end_upload(metadata):
     except Exception as e:
         raise ServiceError(
             u"Error while updating metadata on file '{}': {}".format(
-                metadata.path, e)
+                metadata.path, u(e))
         )
     finally:
         if metadata.path in events_to_ignore:
@@ -108,11 +108,13 @@ def end_upload(metadata):
 
 @plug.handler()
 def move_file(old_metadata, new_metadata):
+    events_to_ignore.add(new_metadata.path)
     webd = get_WEBDAV_client_from_plug()
     webd.move(
         remote_path_from=b(old_metadata.path),
         remote_path_to=b(new_metadata.path)
     )
+    events_to_ignore.remove(new_metadata.path)
 
 
 def update_file(metadata, infos):
@@ -184,7 +186,7 @@ class CheckChanges(threading.Thread):
                         infos['modified'], TIMESTAMP_FMT
                     )
                     if mtime_local > mtime_onitu:
-                        update_file(metadata, f, infos)
+                        update_file(metadata, infos)
             except wc.WebDavException as exception:
                 plug.logger.debug(
                     (u"Exception while the informations about a file "
