@@ -85,6 +85,8 @@ def check_changes(folder):
     expected_files.update(plug.list(folder).keys())
 
     for path in walkfiles(folder.path):
+        path = u(path)
+
         if os.path.splitext(path)[1] == TMP_EXT:
             continue
 
