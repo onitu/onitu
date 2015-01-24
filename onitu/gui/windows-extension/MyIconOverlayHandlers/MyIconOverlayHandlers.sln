@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30501.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyIconOverlayHandlersBase", "MyIconOverlayHandlersBase\MyIconOverlayHandlersBase.csproj", "{DEE5B09E-7742-42FE-A4BE-DCAA75C18372}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyIconOverlayHandlersAdded", "MyIconOverlayHandlersAdded\MyIconOverlayHandlersAdded.csproj", "{3BAE70BA-7D27-4FB4-B291-838BB4FAB2F8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyIconOverlayHandlersPending", "MyIconOverlayHandlersPending\MyIconOverlayHandlersPending.csproj", "{2148C023-D872-4992-B9B9-1DBC0A63FBB0}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{F36EFD47-1362-47F8-BCB9-814AD0B0A8D1}"
+	ProjectSection(SolutionItems) = preProject
+		.nuget\NuGet.Config = .nuget\NuGet.Config
+		.nuget\NuGet.exe = .nuget\NuGet.exe
+		.nuget\NuGet.targets = .nuget\NuGet.targets
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DEE5B09E-7742-42FE-A4BE-DCAA75C18372}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DEE5B09E-7742-42FE-A4BE-DCAA75C18372}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DEE5B09E-7742-42FE-A4BE-DCAA75C18372}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DEE5B09E-7742-42FE-A4BE-DCAA75C18372}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3BAE70BA-7D27-4FB4-B291-838BB4FAB2F8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3BAE70BA-7D27-4FB4-B291-838BB4FAB2F8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3BAE70BA-7D27-4FB4-B291-838BB4FAB2F8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3BAE70BA-7D27-4FB4-B291-838BB4FAB2F8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2148C023-D872-4992-B9B9-1DBC0A63FBB0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2148C023-D872-4992-B9B9-1DBC0A63FBB0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2148C023-D872-4992-B9B9-1DBC0A63FBB0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2148C023-D872-4992-B9B9-1DBC0A63FBB0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
