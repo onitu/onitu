@@ -159,7 +159,7 @@ class PlugProxy(object):
         self.logger.debug('move_file {} to {}',
                           old_metadata.filename, new_filename)
         old_m = metadata_serializer(old_metadata)
-        self.request(pack_msg('move_file', old_m))
+        self.request(pack_msg('move_file', old_m, new_filename))
 
     @property
     def folders_to_watch(self):
