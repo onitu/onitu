@@ -24,7 +24,7 @@ from tornado import gen
 
 
 from .escalator.client import Escalator
-from .utils import get_logs_uri, IS_WINDOWS, get_stats_endpoint
+from .utils import get_logs_uri, IS_WINDOWS, log_traceback, get_stats_endpoint
 from .utils import get_circusctl_endpoint, get_pubsub_endpoint, u
 
 # Time given to each process (Drivers, Referee, API...) to
@@ -60,27 +60,30 @@ def start_setup(*args, **kwargs):
     """Parse the setup JSON file, clean the database,
     and start the :class:`.Referee` and the drivers.
     """
-    escalator = Escalator(session, create_db=True)
+    try:
+        escalator = Escalator(session, create_db=True)
 
-    with escalator.write_batch() as batch:
-        # TODO: handle folders from previous run
-        for name, options in setup.get('folders', {}).items():
-            if options is None:
-                options = {}
+        with escalator.write_batch() as batch:
+            # TODO: handle folders from previous run
+            for name, options in setup.get('folders', {}).items():
+                if options is None:
+                    options = {}
 
-            batch.put(u'folder:{}'.format(name), options)
+                batch.put(u'folder:{}'.format(name), options)
 
-    services = setup.get('services', {})
-    escalator.put('services', list(services.keys()))
+        services = setup.get('services', {})
+        escalator.put('services', list(services.keys()))
 
-    yield start_watcher("Referee", 'onitu.referee')
+        yield start_watcher("Referee", 'onitu.referee')
 
-    for service, conf in services.items():
-        yield load_service(escalator, service, conf)
+        for service, conf in services.items():
+            yield load_service(escalator, service, conf)
 
-    logger.debug("Services loaded")
+        logger.debug("Services loaded")
 
-    yield start_watcher("Rest API", 'onitu.api')
+        yield start_watcher("Rest API", 'onitu.api')
+    except Exception:
+        log_traceback(logger)
 
 
 @gen.coroutine
