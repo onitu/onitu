@@ -145,7 +145,7 @@ class Plug(object):
         # (if this event occurs before the transfer was restarted)
         self.escalator.delete(u'service:{}:transfer:{}'.format(self.name, fid))
 
-        metadata.uptodate = (self.name,)
+        metadata.set_uptodate(reset=True)
         metadata.write()
 
         self.logger.debug(
@@ -155,10 +155,24 @@ class Plug(object):
         self.notify_referee(fid, UP, self.name)
 
     def delete_file(self, metadata):
+        if not metadata.is_uptodate:
+            self.logger.warning(
+                "Tried to delete '{}' without being up-to-date",
+                metadata.filename
+            )
+            return
+
         metadata.delete()
         self.notify_referee(metadata.fid, DEL, self.name)
 
     def move_file(self, metadata, new_path):
+        if not metadata.is_uptodate:
+            self.logger.warning(
+                "Tried to move '{}' without being up-to-date",
+                metadata.filename
+            )
+            return
+
         new_folder = self.get_folder(new_path)
 
         if not new_folder:
@@ -167,7 +181,7 @@ class Plug(object):
 
         new_filename = new_folder.relpath(new_path)
         new_metadata = metadata.clone(new_folder, new_filename)
-        new_metadata.uptodate = (self.name,)
+        new_metadata.set_uptodate(reset=True)
         new_metadata.write()
 
         metadata.delete()
@@ -205,6 +219,7 @@ class Plug(object):
 
         if not metadata:
             metadata = Metadata(plug=self, folder=folder, filename=filename)
+            metadata.set_uptodate()
 
         return metadata
 
@@ -212,6 +227,8 @@ class Plug(object):
         """
         List the files in a given folder. Return a dict with filenames as keys
         and fids as values.
+
+        Only the up-to-date files are returned.
 
         :param folder: The name of the folder which will be listed.
         :type string:
@@ -222,8 +239,13 @@ class Plug(object):
         :rtype: dict
         """
         prefix = u'path:{}:{}'.format(folder, path)
-        return {filename.replace(prefix, '', 1): fid
-                for filename, fid in self.escalator.range(prefix)}
+        return {
+            filename.replace(prefix, '', 1): fid
+            for filename, fid in self.escalator.range(prefix)
+            if self.escalator.exists(
+                u'file:{}:uptodate:{}'.format(fid, self.name)
+            )
+        }
 
     def exists(self, folder, path):
         """

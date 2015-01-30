@@ -181,6 +181,11 @@ def get_file(fid):
     if not metadata:
         return file_not_found(fid)
     metadata['fid'] = fid
+    metadata['uptodate'] = [
+        key.split(':')[-1]
+        for key in escalator.range(u'file:{}:uptodate:'.format(fid),
+                                   include_value=False)
+    ]
     return metadata
 
 
@@ -190,7 +195,10 @@ def get_file_content(fid):
     metadata = escalator.get('file:{}'.format(fid), default=None)
     if not metadata:
         return file_not_found(fid)
-    service = metadata['uptodate'][0]
+    services = escalator.range(
+        u'file:{}:uptodate:'.format(fid), include_value=False
+    )
+    service = services[0].split(':')[-1]
     content = call_handler(service, FILE, fid)
     if content[0] != ERROR:
         response.content_type = metadata['mimetype']
