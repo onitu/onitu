@@ -217,6 +217,7 @@ def test_file(module_launcher):
     assert json['filename'] == "test_file.txt"
     assert json['size'] == 10
     assert json['mimetype'] == "text/plain"
+    assert json['uptodate'] == [rep1.name, rep2.name]
 
 
 def test_stop(circus_client):
