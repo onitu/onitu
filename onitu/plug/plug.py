@@ -155,10 +155,24 @@ class Plug(object):
         self.notify_referee(fid, UP, self.name)
 
     def delete_file(self, metadata):
+        if not metadata.is_uptodate:
+            self.logger.warning(
+                "Tried to delete '{}' without being up-to-date",
+                metadata.filename
+            )
+            return
+
         metadata.delete()
         self.notify_referee(metadata.fid, DEL, self.name)
 
     def move_file(self, metadata, new_path):
+        if not metadata.is_uptodate:
+            self.logger.warning(
+                "Tried to move '{}' without being up-to-date",
+                metadata.filename
+            )
+            return
+
         new_folder = self.get_folder(new_path)
 
         if not new_folder:
