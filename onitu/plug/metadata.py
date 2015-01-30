@@ -1,3 +1,5 @@
+import time
+
 from onitu.utils import get_fid, get_mimetype, u
 
 from .folder import Folder
@@ -19,8 +21,6 @@ class Metadata(object):
         The absolute filename of the file
     **size**
         The size of the file, in octets
-    **uptodate**
-        The entries with an up-to-date version of this file
     **mimetype**
         The MIME type of the file, as detected by python
 
@@ -31,10 +31,10 @@ class Metadata(object):
     are stocked separately.
     """
 
-    PROPERTIES = ('filename', 'folder_name', 'size', 'uptodate', 'mimetype')
+    PROPERTIES = ('filename', 'folder_name', 'size', 'mimetype')
 
     def __init__(self, plug=None, filename=None, folder=None, folder_name=None,
-                 size=0, fid=None, uptodate=None, mimetype=None):
+                 size=0, fid=None, mimetype=None):
         super(Metadata, self).__init__()
 
         self._filename = None
@@ -43,7 +43,6 @@ class Metadata(object):
 
         self.filename = filename
         self.size = size
-        self.uptodate = uptodate or ()
         self.mimetype = mimetype
 
         if folder_name and not folder:
@@ -133,6 +132,43 @@ class Metadata(object):
             self._path = self.folder.join(self.filename)
 
         return self._path
+
+    @property
+    def is_uptodate(self):
+        return self.plug.escalator.exists(
+            u'file:{}:uptodate:{}'.format(self.fid, self.plug.name)
+        )
+
+    @property
+    def last_update(self):
+        """
+        Return the timestamp of the last update for this service if the
+        file is up-to-date, and `None` otherwise.
+        """
+        return self.plug.escalator.get(
+            u'file:{}:uptodate:{}'.format(self.fid, self.plug.name),
+            default=None
+        )
+
+    @property
+    def uptodate_services(self):
+        services = self.plug.escalator.range(
+            'file:{}:uptodate:'.format(self.fid), include_value=False
+        )
+        return tuple(key.split(':')[-1] for key in services)
+
+    def set_uptodate(self, reset=False):
+        if reset:
+            services = self.plug.escalator.range(
+                'file:{}:uptodate:'.format(self.fid), include_value=False
+            )
+            for key in services:
+                self.plug.escalator.delete(key)
+
+        self.plug.escalator.put(
+            u'file:{}:uptodate:{}'.format(self.fid, self.plug.name),
+            time.time()
+        )
 
     def dict(self):
         """Return the metadata as a dict"""
