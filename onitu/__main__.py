@@ -151,6 +151,8 @@ def get_logs_dispatcher(config_dir, uri, debug=False):
 
     if not debug:
         handlers.append(NullHandler(level=DEBUG))
+    else:
+        handlers.append(NullHandler())
 
     handlers.append(RotatingFileHandler(
         os.path.join(config_dir, 'onitu.log'),
