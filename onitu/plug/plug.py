@@ -214,6 +214,8 @@ class Plug(object):
         List the files in a given folder. Return a dict with filenames as keys
         and fids as values.
 
+        Only the up-to-date files are returned.
+
         :param folder: The name of the folder which will be listed.
         :type string:
         :param path: The path from which the listing should start. Default to
@@ -223,8 +225,13 @@ class Plug(object):
         :rtype: dict
         """
         prefix = u'path:{}:{}'.format(folder, path)
-        return {filename.replace(prefix, '', 1): fid
-                for filename, fid in self.escalator.range(prefix)}
+        return {
+            filename.replace(prefix, '', 1): fid
+            for filename, fid in self.escalator.range(prefix)
+            if self.escalator.exists(
+                u'file:{}:uptodate:{}'.format(fid, self.name)
+            )
+        }
 
     def exists(self, folder, path):
         """
