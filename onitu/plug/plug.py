@@ -145,7 +145,7 @@ class Plug(object):
         # (if this event occurs before the transfer was restarted)
         self.escalator.delete(u'service:{}:transfer:{}'.format(self.name, fid))
 
-        metadata.uptodate = (self.name,)
+        metadata.set_uptodate(reset=True)
         metadata.write()
 
         self.logger.debug(
@@ -167,7 +167,7 @@ class Plug(object):
 
         new_filename = new_folder.relpath(new_path)
         new_metadata = metadata.clone(new_folder, new_filename)
-        new_metadata.uptodate = (self.name,)
+        new_metadata.set_uptodate(reset=True)
         new_metadata.write()
 
         metadata.delete()
@@ -205,6 +205,7 @@ class Plug(object):
 
         if not metadata:
             metadata = Metadata(plug=self, folder=folder, filename=filename)
+            metadata.set_uptodate()
 
         return metadata
 

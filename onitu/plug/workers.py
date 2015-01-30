@@ -188,7 +188,7 @@ class TransferWorker(Worker):
         if success:
             self.escalator.delete(self.transfer_key)
 
-            self.metadata.uptodate += (self.dealer.name,)
+            self.metadata.set_uptodate()
             self.metadata.write()
 
             self.logger.info(
@@ -231,12 +231,13 @@ class MoveWorker(Worker):
 
         self.logger.debug("Moving '{}' to '{}'", self.filename, new_filename)
 
-        is_uptodate = self.dealer.name in self.metadata.uptodate
+        has_move_file = self.dealer.plug.has_handler('move_file')
 
         try:
-            if self.dealer.plug.has_handler('move_file') and is_uptodate:
+            if has_move_file and self.metadata.is_uptodate:
                 self.call('move_file', self.metadata, new_metadata)
                 self.metadata.delete()
+                new_metadata.set_uptodate()
             else:
                 # If the driver doesn't have a handler for moving a file,
                 # we try to simulate it with a deletion and a transfer.
@@ -246,7 +247,8 @@ class MoveWorker(Worker):
                 self.call('delete_file', self.metadata)
                 self.metadata.delete()
                 transfer = TransferWorker(
-                    self.dealer, self.new_fid, new_metadata.uptodate[0]
+                    self.dealer, self.new_fid,
+                    new_metadata.uptodate_services[0]
                 )
                 transfer()
         except AbortOperation:
