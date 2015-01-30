@@ -109,6 +109,9 @@ class Escalator(object):
             else:
                 values = tuple(protocol.msg.unpack_msg(value)
                                for value in values)
+        else:
+            values = tuple(u(key) for key in values)
+
         return values
 
     def write_batch(self, transaction=False):
