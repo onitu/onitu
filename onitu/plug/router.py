@@ -3,14 +3,11 @@ from logbook import Logger
 
 from onitu.utils import b, get_events_uri, log_traceback
 from onitu.escalator.client import EscalatorClosed
+from onitu.brocker.commands import GET_CHUNK, GET_FILE
+from onitu.brocker.responses import CHUNK, FILE, OK, ERROR
 
 from .metadata import Metadata
 from .exceptions import AbortOperation
-
-CHUNK = b'C'
-FILE = b'F'
-ERROR = b'E'
-OK = b'O'
 
 
 class Router(object):
@@ -31,8 +28,8 @@ class Router(object):
         self.context = plug.context
 
         self.handlers = {
-            CHUNK: self._handle_get_chunk,
-            FILE: self._handle_get_file,
+            GET_CHUNK: self._handle_get_chunk,
+            GET_FILE: self._handle_get_file,
         }
 
     def run(self):
@@ -66,7 +63,7 @@ class Router(object):
                 pass
             except RuntimeError as e:
                 self.logger.error(e)
-            except Exception as e:
+            except Exception:
                 log_traceback(self.logger)
 
             self.router.send_multipart([identity] + resp)
