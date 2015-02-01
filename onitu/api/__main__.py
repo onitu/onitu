@@ -11,8 +11,9 @@ from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
 from onitu.utils import get_fid, u, b, PY2, get_circusctl_endpoint
-from onitu.utils import get_events_uri, get_logs_uri
-from onitu.plug.router import FILE, ERROR
+from onitu.utils import get_brocker_uri, get_logs_uri
+from onitu.brocker.commands import GET_FILE
+from onitu.brocker.responses import ERROR
 
 if PY2:
     from urllib import unquote as unquote_
@@ -123,10 +124,10 @@ def timeout():
     )
 
 
-def call_handler(service, cmd, *args):
+def call_brocker(cmd, *args):
     context = zmq.Context.instance()
     dealer = context.socket(zmq.DEALER)
-    dealer.connect(get_events_uri(session, service, 'router'))
+    dealer.connect(get_brocker_uri(session))
 
     try:
         message = [cmd] + [b(arg) for arg in args]
@@ -195,11 +196,7 @@ def get_file_content(fid):
     metadata = escalator.get('file:{}'.format(fid), default=None)
     if not metadata:
         return file_not_found(fid)
-    services = escalator.range(
-        u'file:{}:uptodate:'.format(fid), include_value=False
-    )
-    service = services[0].split(':')[-1]
-    content = call_handler(service, FILE, fid)
+    content = call_brocker(GET_FILE, fid)
     if content[0] != ERROR:
         response.content_type = metadata['mimetype']
         response.headers['Content-Disposition'] = (
