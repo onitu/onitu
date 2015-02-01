@@ -159,6 +159,10 @@ def get_events_uri(session, name, suffix=None):
     return _get_uri(session, name)
 
 
+def get_brocker_uri(session):
+    return _get_uri(session, 'brocker')
+
+
 def get_logs_uri(session):
     return _get_uri(session, 'logs')
 

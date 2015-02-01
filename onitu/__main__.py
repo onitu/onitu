@@ -75,6 +75,7 @@ def start_setup(*args, **kwargs):
         escalator.put('services', list(services.keys()))
 
         yield start_watcher("Referee", 'onitu.referee')
+        yield start_watcher("Brocker", 'onitu.brocker')
 
         for service, conf in services.items():
             yield load_service(escalator, service, conf)
