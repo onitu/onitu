@@ -23,14 +23,14 @@ def test_multipass_copy(module_launcher):
     loop = BooleanLoop()
 
     module_launcher.on_transfer_started(
-        startloop.stop, d_from=src, d_to=dest, filename=filename,
+        startloop.stop, d_to=dest, filename=filename,
         unique=False
     )
     module_launcher.on_transfer_ended(
-        loop.stop, d_from=src, d_to=dest, filename=filename, unique=False
+        loop.stop, d_to=dest, filename=filename, unique=False
     )
     module_launcher.on_transfer_aborted(
-        loop.stop, d_from=src, d_to=dest, filename=filename, unique=False
+        loop.stop, d_to=dest, filename=filename, unique=False
     )
 
     src.generate(src.path('default', filename), size)

@@ -25,25 +25,25 @@ logs = {
     'transfer_started': (
         (
             "{d_to} - Dealer",
-            "Starting to get '{filename}' from {d_from}"
+            "Starting to get '{filename}'"
         ),
     ),
     'transfer_ended': (
         (
             "{d_to} - Dealer",
-            "Transfer of '{filename}' from {d_from} successful"
+            "Transfer of '{filename}' successful"
         ),
     ),
     'transfer_aborted': (
         (
             "{d_to} - Dealer",
-            "Transfer of '{filename}' from {d_from} aborted"
+            "Transfer of '{filename}' aborted"
         ),
     ),
     'transfer_restarted': (
         (
             "{d_to} - Dealer",
-            "Restarting transfer of '{filename}' from {d_from}"
+            "Restarting transfer of '{filename}'"
         ),
     ),
     'file_deleted': (

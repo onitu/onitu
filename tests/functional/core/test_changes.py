@@ -19,7 +19,7 @@ def launch_with_files(launcher, prefix, n, size, delete=True):
         loop = CounterLoop(n)
         for filename in files:
             launcher.on_transfer_ended(
-                loop.check, d_from=src, d_to=dest, filename=filename
+                loop.check, d_to=dest, filename=filename
             )
 
         launcher()

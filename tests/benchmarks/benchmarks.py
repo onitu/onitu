@@ -96,7 +96,7 @@ class BenchmarkSimpleCopy(Benchmark):
         self.launcher.unset_all_events()
         loop = BooleanLoop()
         self.launcher.on_transfer_ended(
-            loop.stop, d_from='rep1', d_to='rep2', filename=filename
+            loop.stop, d_to='rep2', filename=filename
         )
         self.reps[0].generate(filename, size)
         with Timer() as t:
@@ -160,10 +160,10 @@ class BenchmarkMultipleCopies(Benchmark):
         self.launcher.unset_all_events()
         loop = CounterLoop(2)
         self.launcher.on_transfer_ended(
-            loop.check, d_from='rep1', d_to='rep2', filename=filename
+            loop.check, d_to='rep2', filename=filename
         )
         self.launcher.on_transfer_ended(
-            loop.check, d_from='rep1', d_to='rep3', filename=filename
+            loop.check, d_to='rep3', filename=filename
         )
         self.reps[0].generate(filename, size)
         with Timer() as t:

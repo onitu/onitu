@@ -196,9 +196,7 @@ class Launcher(object):
     def copy_file(self, folder, filename, size, src, *dests):
         loop = CounterLoop(len(dests))
         for dest in dests:
-            self.on_transfer_ended(
-                loop.check, d_from=src, d_to=dest, filename=filename
-            )
+            self.on_transfer_ended(loop.check, d_to=dest, filename=filename)
         src.generate(src.path(folder, filename), size)
         loop.run(timeout=10)
 
