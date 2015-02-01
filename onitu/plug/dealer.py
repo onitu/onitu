@@ -121,9 +121,9 @@ class Dealer(object):
         if not transfers:
             return
 
-        for key, (driver, offset) in transfers:
+        for key, offset in transfers:
             fid = key.split(':')[-1]
-            self.call(UP, fid, driver, offset=offset, restart=True)
+            self.call(UP, fid, offset=offset, restart=True)
 
     def call(self, cmd, fid, *args, **kwargs):
         if cmd not in WORKERS:

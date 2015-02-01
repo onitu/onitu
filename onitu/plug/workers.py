@@ -3,11 +3,12 @@ from threading import Event
 import zmq
 
 from onitu.referee import UP, DEL, MOV
-from onitu.utils import get_events_uri, log_traceback
+from onitu.utils import get_brocker_uri, log_traceback
+from onitu.brocker.commands import GET_CHUNK, GET_FILE
+from onitu.brocker.responses import ERROR
 
 from .metadata import Metadata
 from .exceptions import AbortOperation
-from .router import CHUNK, FILE, ERROR
 
 
 class Worker(object):
@@ -53,10 +54,9 @@ class Worker(object):
 
 
 class TransferWorker(Worker):
-    def __init__(self, dealer, fid, driver, offset=0, restart=False):
+    def __init__(self, dealer, fid, offset=0, restart=False):
         super(TransferWorker, self).__init__(dealer, fid)
 
-        self.driver = driver
         self.offset = offset
         self.restart = restart
 
@@ -78,7 +78,7 @@ class TransferWorker(Worker):
         try:
             self.start_transfer()
             dealer = self.context.socket(zmq.DEALER)
-            dealer.connect(get_events_uri(self.session, self.driver, 'router'))
+            dealer.connect(get_brocker_uri(self.session))
             if self.dealer.plug.has_handler('upload_chunk'):
                 self.get_file_multipart(dealer)
             else:
@@ -97,33 +97,24 @@ class TransferWorker(Worker):
         if self.restart:
             self.call('restart_upload', self.metadata, self.offset)
 
-            self.logger.info(
-                "Restarting transfer of '{}' from {}",
-                self.filename, self.driver
-            )
+            self.logger.info("Restarting transfer of '{}'", self.filename)
         else:
-            self.escalator.put(self.transfer_key, (self.driver, self.offset))
+            self.escalator.put(self.transfer_key, self.offset)
 
             self.call('start_upload', self.metadata)
 
-            self.logger.info(
-                "Starting to get '{}' from {}", self.filename, self.driver
-            )
+            self.logger.info("Starting to get '{}'", self.filename)
 
     def get_file_oneshot(self, dealer):
-        self.logger.debug(
-            "Asking {} for the content of '{}'", self.driver, self.filename
-        )
+        self.logger.debug("Getting the content of '{}'", self.filename)
 
-        dealer.send_multipart((FILE, str(self.fid).encode()))
+        dealer.send_multipart((GET_FILE, str(self.fid).encode()))
         resp = dealer.recv_multipart()
 
         if resp[0] == ERROR:
             raise AbortOperation()
 
-        self.logger.debug(
-            "Received content of file '{}' from {}", self.filename, self.driver
-        )
+        self.logger.debug("Received content of file '{}'", self.filename)
 
         self.call('upload_file', self.metadata, resp[1])
 
@@ -132,17 +123,15 @@ class TransferWorker(Worker):
             if self._stop.is_set():
                 raise AbortOperation()
 
-            self.logger.debug("Asking {} for a new chunk", self.driver)
-
             dealer.send_multipart((
-                CHUNK,
+                GET_CHUNK,
                 str(self.fid).encode(),
                 str(self.offset).encode(),
                 str(self.chunk_size).encode()
             ))
             resp = dealer.recv_multipart()
 
-            if resp[0] == ERROR:
+            if len(resp) < 2 or resp[0] == ERROR:
                 raise AbortOperation()
 
             chunk = resp[1]
@@ -150,15 +139,10 @@ class TransferWorker(Worker):
             if not chunk or len(chunk) == 0:
                 raise AbortOperation()
 
-            self.logger.debug(
-                "Received chunk of size {} from {} for '{}'",
-                len(chunk), self.driver, self.filename
-            )
-
             self.call('upload_chunk', self.metadata, self.offset, chunk)
 
             self.offset += len(chunk)
-            self.escalator.put(self.transfer_key, (self.driver, self.offset))
+            self.escalator.put(self.transfer_key, self.offset)
 
     def end_transfer(self, success):
         if self._stop.is_set():
@@ -191,15 +175,9 @@ class TransferWorker(Worker):
             self.metadata.set_uptodate()
             self.metadata.write()
 
-            self.logger.info(
-                "Transfer of '{}' from {} successful",
-                self.filename, self.driver
-            )
+            self.logger.info("Transfer of '{}' successful", self.filename)
         else:
-            self.logger.info(
-                "Transfer of '{}' from {} aborted",
-                self.filename, self.driver
-            )
+            self.logger.info("Transfer of '{}' aborted", self.filename)
 
 
 class DeletionWorker(Worker):
@@ -246,10 +224,7 @@ class MoveWorker(Worker):
                 # where the transfer fails and has to be restarted
                 self.call('delete_file', self.metadata)
                 self.metadata.delete()
-                transfer = TransferWorker(
-                    self.dealer, self.new_fid,
-                    new_metadata.uptodate_services[0]
-                )
+                transfer = TransferWorker(self.dealer, self.new_fid)
                 transfer()
         except AbortOperation:
             pass
