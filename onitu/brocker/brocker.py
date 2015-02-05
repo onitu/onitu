@@ -74,6 +74,8 @@ class Brocker(object):
                 if dealer:
                     dealer.close()
 
+        return [ERROR]
+
     def select_best_source(self, fid):
         excluded = set()
 
