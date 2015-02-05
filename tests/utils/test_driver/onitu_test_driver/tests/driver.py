@@ -41,8 +41,8 @@ class Driver(driver.Driver):
     def exists(self, filename):
         return self._request('exists', filename)
 
-    def unlink(self, filename):
-        self._notif('delete', filename)
+    def unlink(self, filename, notify=True):
+        self._notif('delete', filename, notify)
 
     def rename(self, source, target):
         self._notif('move', source, target)

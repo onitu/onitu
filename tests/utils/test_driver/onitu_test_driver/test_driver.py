@@ -178,10 +178,12 @@ class Watcher(Thread):
     def handle_exists(self, filename):
         return filename in files
 
-    def handle_delete(self, filename):
+    def handle_delete(self, filename, notify=True):
         metadata = plug.get_metadata(filename)
         delete(metadata)
-        plug.delete_file(metadata)
+
+        if notify:
+            plug.delete_file(metadata)
 
     def handle_move(self, source, target):
         if source not in files:
