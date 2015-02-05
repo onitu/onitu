@@ -93,8 +93,11 @@ class Router(object):
                 "Getting chunk of size {} from offset {} in '{}'",
                 size, offset, metadata.filename
             )
-            chunk = self.call('get_chunk', metadata, offset, size) or b''
-            return [CHUNK, chunk]
+            chunk = self.call('get_chunk', metadata, offset, size)
+            if chunk:
+                return [CHUNK, chunk]
+            else:
+                return [ERROR]
         elif self.plug.has_handler('get_file'):
             return self._handle_get_file(metadata)
 
@@ -103,7 +106,11 @@ class Router(object):
             self.logger.debug(
                 "Getting file '{}'", metadata.filename
             )
-            return [FILE, self.call('get_file', metadata)]
+            content = self.call('get_file', metadata)
+            if content:
+                return [FILE, content]
+            else:
+                return [ERROR]
         elif self.plug.has_handler('get_chunk'):
             return self._handle_get_chunk(metadata, b'0',
                                           b(str(metadata.size)))
