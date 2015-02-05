@@ -67,6 +67,7 @@ class Brocker(object):
 
                 response = dealer.recv_multipart()
                 if not response or response[0] == ERROR:
+                    self.logger.debug("Error with source {}", source)
                     continue
 
                 return response
@@ -74,6 +75,7 @@ class Brocker(object):
                 if dealer:
                     dealer.close()
 
+        self.logger.debug("No more source available.")
         return [ERROR]
 
     def select_best_source(self, fid):
@@ -96,6 +98,8 @@ class Brocker(object):
 
             # TODO: actually select the best one
             source = sources.pop()
+
+            self.logger.debug("Selecting source {}", source)
             yield source
 
             # Apparently there was an issue with this source, so we exclude it.
