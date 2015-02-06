@@ -107,7 +107,8 @@ def test_services():
     for (service, rep) in zip(services, (rep1, rep2)):
         assert service['driver'] == rep.type
         assert service['name'] == rep.name
-        assert service['options'] == rep.options
+        assert all(item in service['options'].items()
+                   for item in rep.options.items())
 
 
 def test_service_fail():
@@ -128,7 +129,8 @@ def test_service():
     assert r.status_code == 200
     assert json['driver'] == rep1.type
     assert json['name'] == rep1.name
-    assert json['options'] == rep1.options
+    assert all(item in json['options'].items()
+               for item in rep1.options.items())
 
 
 def test_file_id(module_launcher):
