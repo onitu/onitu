@@ -93,11 +93,20 @@ class Brocker(object):
 
             sources = services - excluded
 
-            if not sources:
-                break
+            max_velocity = None
+            source = None
 
-            # TODO: actually select the best one
-            source = sources.pop()
+            for candidate in sources:
+                options = self.escalator.get(
+                    u'service:{}:options'.format(candidate), default={}
+                )
+                velocity = options.get('velocity', 0.5)
+                if velocity > max_velocity:
+                    max_velocity = velocity
+                    source = candidate
+
+            if not source:
+                break
 
             self.logger.debug("Selecting source {}", source)
             yield source
