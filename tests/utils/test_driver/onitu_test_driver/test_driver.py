@@ -124,6 +124,10 @@ class Watcher(Thread):
         self.req_socket = self.context.socket(zmq.REP)
         self.notif_socket = self.context.socket(zmq.PULL)
 
+        for folder in plug.folders.values():
+            for path in plug.list(folder).keys():
+                files.add(folder.join(path))
+
         self.handlers = {
             'write': self.handle_write,
             'generate': self.handle_generate,
