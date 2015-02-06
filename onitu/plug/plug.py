@@ -268,6 +268,10 @@ class Plug(object):
             'chunk_size': {
                 'type': 'integer',
                 'default': 1 << 20  # 1 MB
+            },
+            'velocity': {
+                'type': 'float',
+                'default': manifest.get('velocity', 0.5)
             }
         })
 
