@@ -39,6 +39,10 @@ def move(old_metadata, new_metadata):
 @plug.handler()
 def get_chunk(metadata, offset, size):
     plug.logger.debug("get_chunk called")
+
+    if metadata.path not in files:
+        return None
+
     return read(metadata)[offset:offset + size]
 
 
@@ -81,6 +85,10 @@ def upload_file(metadata, content):
 @plug.handler()
 def get_file(metadata):
     plug.logger.debug("get_file called")
+
+    if metadata.path not in files:
+        return None
+
     return read(metadata)
 
 
