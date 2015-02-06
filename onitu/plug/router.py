@@ -94,7 +94,7 @@ class Router(object):
                 size, offset, metadata.filename
             )
             chunk = self.call('get_chunk', metadata, offset, size)
-            if chunk:
+            if chunk is not None:
                 return [CHUNK, chunk]
             else:
                 return [ERROR]
@@ -107,7 +107,7 @@ class Router(object):
                 "Getting file '{}'", metadata.filename
             )
             content = self.call('get_file', metadata)
-            if content:
+            if content is not None:
                 return [FILE, content]
             else:
                 return [ERROR]
