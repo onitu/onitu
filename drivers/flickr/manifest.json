@@ -1,6 +1,7 @@
 {
     "name": "Flickr",
     "description": "A Driver to synchronize your photos and videos with a Flickr account. In order to use it, you need to retrieve Oauth tokens with the provided get_tokens.py script.",
+    "velocity": 0.5,
     "options": {
 	"oauth_token": {
 	    "name": "Oauth token",

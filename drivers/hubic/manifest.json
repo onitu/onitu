@@ -1,6 +1,7 @@
 {
   "name": "Hubic",
   "description": "Store files on your OVH Hubic repository.",
+  "velocity": 0.5,
   "options": {
     "refresh_token": {
       "name": "Refresh token",

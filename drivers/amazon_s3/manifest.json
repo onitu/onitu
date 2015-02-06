@@ -1,6 +1,7 @@
 {
   "name": "Amazon S3",
   "description": "Driver to synchronize files with an AWS S3 bucket.",
+  "velocity": 0.6,
   "options": {
     "bucket": {
       "name": "S3 Bucket",

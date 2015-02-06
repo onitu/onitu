@@ -1,6 +1,7 @@
 {
   "name": "webdav",
   "description": "Store files on a remote machine using webdav.",
+  "velocity": 0.3,
   "options": {
     "hostname": {
       "name": "Hostname",

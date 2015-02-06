@@ -1,6 +1,7 @@
 {
   "name": "sftp",
   "description": "Store files on a remote machine using SFTP.",
+  "velocity": 0.3,
   "options": {
     "hostname": {
       "name": "Hostname",

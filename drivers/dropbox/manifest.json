@@ -1,6 +1,7 @@
 {
   "name": "Dropbox",
   "description": "Driver to synchronize files with your Dropbox account. Needs to run the get_access_token.py script first in order to retrieve your OAuth access token key and secret to use with Onitu.",
+  "velocity": 0.7,
   "options": {
     "access_key": {
       "name": "Dropbox Access Token Key",
