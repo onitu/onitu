@@ -16,6 +16,8 @@ plug = Plug()
 API_KEY = '66a1c393c8de67fbeef54bb785375e06'
 API_SECRET = '5bfbc7256872d085'
 flickr = None
+# Lock to manage album creation race conditions
+albumLock = threading.Lock()
 # Used for tests, when plug.options['png_header'] is True.
 PNG_HEADER = '\x89\x50\x4e\x47\x0d\x0a\x1a\x0a'
 
@@ -116,14 +118,15 @@ class FlickrHandler():
                                       format='etree')
         photoID = resp.find('photoid').text
         # Now add the uploaded photo to the photoset of the folder
-        try:
-            photosetID = flickr.get_photoset_ID(photosetName)
-        except DriverError:  # This means the album has been deleted
-            # We need to recreate it by setting the given photo as primary.
-            plug.logger.debug(u"No {} photoset on Flickr, creating it"
-                              .format(photosetName))
-            self.create_photoset_with_photo(photosetName, photoID)
-            return photoID
+        with albumLock:
+            try:
+                photosetID = flickr.get_photoset_ID(photosetName)
+            except DriverError:  # This means the album has been deleted
+                # We need to recreate it by setting the given photo as primary
+                plug.logger.debug(u"No {} photoset on Flickr, creating it"
+                                  .format(photosetName))
+                self.create_photoset_with_photo(photosetName, photoID)
+                return photoID
         # The album already exists, no error
         plug.logger.debug(u"Adding {} (ID: {}) to photoset {} (ID: {})"
                           .format(filename, photoID,
