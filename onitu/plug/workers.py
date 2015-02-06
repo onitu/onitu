@@ -79,10 +79,14 @@ class TransferWorker(Worker):
             self.start_transfer()
             dealer = self.context.socket(zmq.DEALER)
             dealer.connect(get_brocker_uri(self.session))
-            if self.dealer.plug.has_handler('upload_chunk'):
-                self.get_file_multipart(dealer)
-            else:
+
+            if self.metadata.size < self.chunk_size * 2:
                 self.get_file_oneshot(dealer)
+            else:
+                if self.dealer.plug.has_handler('upload_chunk'):
+                    self.get_file_multipart(dealer)
+                else:
+                    self.get_file_oneshot(dealer)
         except AbortOperation:
             pass
         else:
@@ -116,7 +120,10 @@ class TransferWorker(Worker):
 
         self.logger.debug("Received content of file '{}'", self.filename)
 
-        self.call('upload_file', self.metadata, resp[1])
+        if self.dealer.plug.has_handler('upload_file'):
+            self.call('upload_file', self.metadata, resp[1])
+        else:
+            self.call('upload_chunk', self.metadata, 0, resp[1])
 
     def get_file_multipart(self, dealer):
         while self.offset < self.metadata.size:
