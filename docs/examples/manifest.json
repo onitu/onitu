@@ -1,6 +1,7 @@
 {
   "name": "Your driver's name",
   "description": "The description of your driver.",
+  "velocity": 0.6,
   "options": {
     "my_option": {
       "name": "Option's name",
