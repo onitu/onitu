@@ -70,6 +70,9 @@ logs = {
             "'{src}' moved to '{dest}'"
         ),
     ),
+    'source_selected': (
+        ("Brocker", "Selecting source {source}"),
+    )
 }
 
 
