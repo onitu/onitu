@@ -8,7 +8,6 @@ class HeartBeat(threading.Thread):
         super(HeartBeat, self).__init__()
         ctx = zmq.Context.instance()
         self.socket = ctx.socket(zmq.REQ)
-        #self.socket.connect('tcp://127.0.0.1:20005')
         self.socket.connect(hb_addr)
         self.identity = identity
 

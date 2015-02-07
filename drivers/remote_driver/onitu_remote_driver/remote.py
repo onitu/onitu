@@ -32,11 +32,15 @@ class Remote(threading.Thread):
             except zmq.ZMQError as e:
                 if e.errno == zmq.ETERM:
                     break
-            msg = unpack_msg(msg)
-            command = remote_commands.get(msg[0], None)
-            if command:
-                command(self.plug, self.socket, *msg[1:])
-            else:
+            try:
+                msg = unpack_msg(msg)
+                command = remote_commands.get(msg[0], None)
+                if command:
+                    command(self.plug, self.socket, *msg[1:])
+                else:
+                    self.socket.send_multipart((req_id, b'ko'))
+            except Exception as e:
+                logger.error('Error {}', e)
                 self.socket.send_multipart((req_id, b'ko'))
 
 

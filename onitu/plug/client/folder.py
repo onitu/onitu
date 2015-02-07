@@ -10,6 +10,7 @@ class FolderWrapper(object):
 
     @classmethod
     def get_folders(cls, plug):
+        plug.logger.debug('folder:get_folders')
         r = plug.request(pack_msg('get_folders'))
         folders = unpack_msg(r)
         folders = {name: plug.folder_unserialize(value)
@@ -18,6 +19,7 @@ class FolderWrapper(object):
 
     @classmethod
     def get(cls, plug, folder):
+        plug.logger.debug('folder:get {}', forlder)
         r = plug.request(pack_msg('get_folder', folder))
         return plug.folder_unserialize(unpack_msg(r))
 

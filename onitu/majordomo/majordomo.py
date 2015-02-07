@@ -105,6 +105,7 @@ class Majordomo(HeartBeatBroker):
             }
         }
         self.circus_client.call(query)
+        self.logger.info('New client connected')
 
     def close_remote(self, src_id):
         name = self.remote_names.get(src_id)
@@ -117,6 +118,7 @@ class Majordomo(HeartBeatBroker):
                 }
             }
             self.circus_client.call(query)
+            self.logger.info('Client exited')
 
     def stop(self):
         if self.auth:

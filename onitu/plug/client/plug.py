@@ -179,9 +179,11 @@ class PlugProxy(object):
         return folder
 
     def list(self, folder, path=''):
+        self.logger.debug('list {} in {}', folder, path)
         r = self.request(pack_msg('list', folder_serializer(folder), path))
         return unpack_msg(r)
 
     def exists(self, folder, path):
+        self.logger.debug('exists {} in {}', folder, path)
         r = self.request(pack_msg('exists', folder_serializer(folder), path))
         return unpack_msg(r)

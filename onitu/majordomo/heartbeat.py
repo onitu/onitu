@@ -19,4 +19,6 @@ class HeartBeatBroker(Broker):
 
 @HeartBeatBroker.handle('heartbeat')
 def _heartbeat(broker, relay, msg):
+    if hasattr(broker, 'logger'):
+        broker.logger.debug('Received ping')
     relay.src.send(b'pong')
