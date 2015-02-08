@@ -2,6 +2,8 @@
 
 '''HTML code.'''
 
+import six
+
 auth_okay_html = '''<!DOCTYPE html>
 <html>
 <head>
@@ -82,6 +84,5 @@ auth_okay_html = '''<!DOCTYPE html>
 </html>
 '''
 
-import six
 if six.PY3:
     auth_okay_html = auth_okay_html.encode('utf-8')

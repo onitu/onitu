@@ -1,12 +1,6 @@
 import hashlib
 import os
 import sys
-# Python 2/3 compatibility
-if sys.version_info.major == 2:
-    from StringIO import StringIO as IOStream
-elif sys.version_info.major == 3:
-    # In Py3k, chunks are passed as raw bytes. Hence we can't use StringIO
-    from io import BytesIO as IOStream
 
 import requests
 
@@ -14,6 +8,13 @@ import tinys3
 
 from onitu.utils import get_random_string
 from tests.utils import driver
+
+# Python 2/3 compatibility
+if sys.version_info.major == 2:
+    from StringIO import StringIO as IOStream
+else:
+    # In Py3k, chunks are passed as raw bytes. Hence we can't use StringIO
+    from io import BytesIO as IOStream
 
 
 class Driver(driver.Driver):

@@ -1,19 +1,21 @@
 # -*- coding: utf-8 -*-
 
-import requests
 import time
 
-from sys import version_info
-if version_info.major == 2:
-    from urllib import quote as quote
-elif version_info.major == 3:
-    from urllib.parse import quote as quote
+import requests
 import pytest
+
+from sys import version_info
 
 from tests.utils.testdriver import TestDriver
 from tests.utils.units import KB
 
 from onitu.utils import get_fid, b
+
+if version_info.major == 2:
+    from urllib import quote as quote
+else:
+    from urllib.parse import quote as quote
 
 rep1, rep2 = None, None
 

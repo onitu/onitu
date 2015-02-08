@@ -3,12 +3,6 @@ import socket
 import threading
 import sys
 from ssl import SSLError
-# Python 2/3 compatibility
-if sys.version_info.major == 2:
-    from StringIO import StringIO as IOStream
-elif sys.version_info.major == 3:
-    # In Py3k, chunks are passed as raw bytes. Hence we can't use StringIO
-    from io import BytesIO as IOStream
 
 import requests
 import tinys3
@@ -16,6 +10,13 @@ import tinys3
 from onitu.plug import Plug, DriverError, ServiceError
 from onitu.escalator.client import EscalatorClosed
 from onitu.utils import u  # Unicode helpers
+
+# Python 2/3 compatibility
+if sys.version_info.major == 2:
+    from StringIO import StringIO as IOStream
+else:
+    # In Py3k, chunks are passed as raw bytes. Hence we can't use StringIO
+    from io import BytesIO as IOStream
 
 plug = Plug()
 

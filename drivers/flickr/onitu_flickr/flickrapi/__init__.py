@@ -12,6 +12,14 @@ See `the FlickrAPI homepage`_ for more info.
 '''
 from __future__ import unicode_literals
 
+# Import the core functionality into the flickrapi namespace
+from .core import FlickrAPI
+from .xmlnode import XMLNode
+from .exceptions import IllegalArgumentException, \
+    FlickrError, CancelUpload, LockingError
+from .cache import SimpleCache
+from .tokencache import TokenCache, SimpleTokenCache, LockingTokenCache
+
 __version__ = '2.0.1'
 __all__ = ('FlickrAPI', 'IllegalArgumentException', 'FlickrError',
            'CancelUpload', 'LockingError', 'XMLNode', 'set_log_level',
@@ -46,15 +54,6 @@ __author__ = 'Sybren Stüvel'
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-# Import the core functionality into the flickrapi namespace
-
-from .core import FlickrAPI
-from .xmlnode import XMLNode
-from .exceptions import IllegalArgumentException, \
-    FlickrError, CancelUpload, LockingError
-from .cache import SimpleCache
-from .tokencache import TokenCache, SimpleTokenCache, LockingTokenCache
 
 
 def set_log_level(level):

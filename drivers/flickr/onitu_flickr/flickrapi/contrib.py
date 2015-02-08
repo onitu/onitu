@@ -9,9 +9,10 @@ import logging
 import threading
 
 import six
-http_client = six.moves.http_client
 
 from flickrapi import core
+
+http_client = six.moves.http_client
 
 LOG = logging.getLogger(__name__)
 
