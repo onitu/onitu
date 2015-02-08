@@ -147,21 +147,20 @@ def get_logs_dispatcher(config_dir, uri, debug=False):
     """Configure the dispatcher that will print the logs received
     on the ZeroMQ channel.
     """
-    handlers = []
+    handlers = (
+        NullHandler(),
+        RotatingFileHandler(
+            os.path.join(config_dir, 'onitu.log'),
+            level=INFO,
+            max_size=1048576,  # 1 Mb
+            bubble=True
+        ),
+        ColorizedStderrHandler(
+            level=DEBUG if debug else INFO,
+            bubble=True
+        ),
+    )
 
-    if not debug:
-        handlers.append(NullHandler(level=DEBUG))
-    else:
-        handlers.append(NullHandler())
-
-    handlers.append(RotatingFileHandler(
-        os.path.join(config_dir, 'onitu.log'),
-        level=INFO,
-        max_size=1048576,  # 1 Mb
-        bubble=True
-    ))
-
-    handlers.append(ColorizedStderrHandler(level=INFO, bubble=True))
     subscriber = ZeroMQSubscriber(uri, multi=True)
     return subscriber.dispatch_in_background(setup=NestedSetup(handlers))
 
