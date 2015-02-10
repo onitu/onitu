@@ -213,3 +213,16 @@ def dirname(path):
     """
     split_path = path.split('/')
     return '/'.join(split_path[:-1])
+
+
+def cpu_count(default=1):
+    """
+    Return the number of CPUs in the system, with the given default
+    if this number is not available
+    """
+    import multiprocessing
+
+    try:
+        return multiprocessing.cpu_count()
+    except NotImplementedError:
+        return default
