@@ -1,13 +1,22 @@
-import zmq
-from logbook import Logger
+import functools
 
-from onitu.utils import b, get_events_uri, log_traceback
+import zmq
+
+from concurrent.futures import ThreadPoolExecutor
+
+from tornado import gen
+from logbook import Logger
+from zmq.eventloop import ioloop, zmqstream
+
+from onitu.utils import b, get_events_uri, log_traceback, cpu_count
 from onitu.escalator.client import EscalatorClosed
 from onitu.brocker.commands import GET_CHUNK, GET_FILE
 from onitu.brocker.responses import CHUNK, FILE, OK, ERROR
 
 from .metadata import Metadata
 from .exceptions import AbortOperation
+
+ioloop.install()
 
 
 class Router(object):
@@ -22,10 +31,10 @@ class Router(object):
 
         self.plug = plug
         self.name = plug.name
-        self.call = plug.call
-        self.router = None
         self.logger = Logger(u"{} - Router".format(self.name))
         self.context = plug.context
+        self.stream = None
+        self.loop = None
 
         self.handlers = {
             GET_CHUNK: self._handle_get_chunk,
@@ -34,53 +43,80 @@ class Router(object):
 
     def run(self):
         try:
+            self.loop = ioloop.IOLoop.instance()
+            # We create a thread pool with a *lot* of threads because
+            # they will block on IO bound stuff
+            self.pool = ThreadPoolExecutor(cpu_count() * 3)
+
             uri = get_events_uri(self.plug.session, self.name, 'router')
-            self.router = self.context.socket(zmq.ROUTER)
-            self.router.bind(uri)
+            router = self.context.socket(zmq.ROUTER)
+            router.bind(uri)
+
+            self.stream = zmqstream.ZMQStream(router, self.loop)
+            self.stream.on_recv(self.handle)
 
             self.logger.info("Started")
 
-            self.listen()
-        except EscalatorClosed:
-            pass
+            self.loop.start()
         except zmq.ZMQError:
             pass
         except Exception:
             log_traceback(self.logger)
         finally:
-            if self.router:
-                self.router.close(linger=0)
+            if self.stream:
+                self.stream.close()
 
-    def listen(self):
-        while True:
-            msg = self.router.recv_multipart()
+    def handle(self, msg):
+        try:
+            identity, cmd, fid = msg[:3]
+            args = msg[3:]
 
-            try:
-                resp = [ERROR]
-                identity = msg[0]
-                resp = self.handle(*msg[1:]) or [OK]
-            except AbortOperation:
-                pass
-            except RuntimeError as e:
-                self.logger.error(e)
-            except Exception:
+            handler = self.handlers.get(cmd)
+
+            if not handler:
+                raise RuntimeError("Received an unknown command")
+
+            metadata = Metadata.get_by_id(self.plug, fid.decode())
+
+            if not metadata:
+                raise RuntimeError(
+                    "Cannot get metadata for fid {}".format(fid)
+                )
+
+            self.loop.add_future(
+                handler(metadata, *args),
+                functools.partial(self.reply, identity)
+            )
+        except EscalatorClosed:
+            self.loop.stop()
+        except RuntimeError as e:
+            self.logger.error(e)
+        except Exception:
+            log_traceback(self.logger)
+
+    def reply(self, identity, future):
+        try:
+            if future.exception():
+                self.stream.send_multipart([identity] + [ERROR])
+                raise future.exception()
+
+            self.stream.send_multipart([identity] + future.result() or [OK])
+        except zmq.ZMQError as e:
+            if e.errno == zmq.ETERM:
+                self.loop.stop()
+            else:
                 log_traceback(self.logger)
+        except (AbortOperation, EscalatorClosed):
+            self.loop.stop()
+        except Exception:
+            log_traceback(self.logger)
 
-            self.router.send_multipart([identity] + resp)
+    @gen.coroutine
+    def call(self, *args):
+        result = yield self.pool.submit(self.plug.call, *args)
+        raise gen.Return(result)
 
-    def handle(self, cmd, fid, *args):
-        handler = self.handlers.get(cmd)
-
-        if not handler:
-            raise RuntimeError("Received an unknown command")
-
-        metadata = Metadata.get_by_id(self.plug, fid.decode())
-
-        if not metadata:
-            raise RuntimeError("Cannot get metadata for fid {}".format(fid))
-
-        return handler(metadata, *args)
-
+    @gen.coroutine
     def _handle_get_chunk(self, metadata, offset, size):
         """Calls the `get_chunk` handler defined by the driver to get
         the chunk and send it to the addressee.
@@ -93,24 +129,28 @@ class Router(object):
                 "Getting chunk of size {} from offset {} in '{}'",
                 size, offset, metadata.filename
             )
-            chunk = self.call('get_chunk', metadata, offset, size)
+            chunk = yield self.call('get_chunk', metadata, offset, size)
             if chunk is not None:
-                return [CHUNK, chunk]
+                raise gen.Return([CHUNK, chunk])
             else:
-                return [ERROR]
+                raise gen.Return([ERROR])
         elif self.plug.has_handler('get_file'):
-            return self._handle_get_file(metadata)
+            result = yield self._handle_get_file(metadata)
+            raise gen.Return(result)
 
+    @gen.coroutine
     def _handle_get_file(self, metadata):
         if self.plug.has_handler('get_file'):
             self.logger.debug(
                 "Getting file '{}'", metadata.filename
             )
-            content = self.call('get_file', metadata)
+            content = yield self.call('get_file', metadata)
             if content is not None:
-                return [FILE, content]
+                raise gen.Return([FILE, content])
             else:
-                return [ERROR]
+                raise gen.Return([ERROR])
         elif self.plug.has_handler('get_chunk'):
-            return self._handle_get_chunk(metadata, b'0',
-                                          b(str(metadata.size)))
+            result = yield self._handle_get_chunk(
+                metadata, b'0', b(str(metadata.size))
+            )
+            raise gen.Return(result)
