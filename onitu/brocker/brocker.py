@@ -1,12 +1,19 @@
+import functools
+
 import zmq
 
+from concurrent.futures import ThreadPoolExecutor
+
 from logbook import Logger
+from zmq.eventloop import ioloop, zmqstream
 
 from onitu.escalator.client import Escalator, EscalatorClosed
-
 from onitu.utils import log_traceback, get_brocker_uri, get_events_uri
+from onitu.utils import cpu_count
 
-from .responses import OK, ERROR
+from .responses import ERROR
+
+ioloop.install()
 
 
 class Brocker(object):
@@ -15,14 +22,28 @@ class Brocker(object):
         self.context = zmq.Context.instance()
         self.escalator = Escalator(session)
         self.session = session
+        self.futures = {}
+        self.stream = None
+        self.loop = None
+        self.pool = None
 
     def start(self):
-        self.logger.info("Started")
+        router = None
 
         try:
+            self.loop = ioloop.IOLoop.instance()
+            # We create a thread pool with a *lot* of threads because
+            # they will block on IO bound stuff
+            self.pool = ThreadPoolExecutor(cpu_count() * 3)
+
             router = self.context.socket(zmq.ROUTER)
             router.bind(get_brocker_uri(self.session))
-            self.listen(router)
+
+            self.stream = zmqstream.ZMQStream(router, self.loop)
+            self.stream.on_recv(self.handle)
+
+            self.logger.info("Started")
+            self.loop.start()
         except zmq.ZMQError as e:
             if e.errno == zmq.ETERM:
                 pass
@@ -33,29 +54,49 @@ class Brocker(object):
         except Exception:
             log_traceback(self.logger)
         finally:
-            if router:
-                router.close()
+            if self.stream:
+                self.stream.close()
 
-    def listen(self, router):
-        while True:
-            msg = router.recv_multipart()
+    def handle(self, msg):
+        identity = msg[0]
+        args = tuple(msg[1:])
 
-            try:
-                resp = [ERROR]
-                identity = msg[0]
-                resp = self.handle(*msg[1:]) or [OK]
-            except RuntimeError as e:
-                self.logger.error(e)
-            except Exception:
+        if args in self.futures:
+            future = self.futures[args]
+        else:
+            future = self.pool.submit(self.get_response, *args)
+            self.futures[args] = future
+
+        self.loop.add_future(
+            future, functools.partial(self.reply, identity)
+        )
+
+    def reply(self, identity, future):
+        try:
+            if future.exception():
+                self.stream.send_multipart([identity] + [ERROR])
+                raise future.exception()
+
+            self.stream.send_multipart([identity] + future.result())
+        except zmq.ZMQError as e:
+            if e.errno == zmq.ETERM:
+                self.loop.stop()
+            else:
                 log_traceback(self.logger)
-
-            router.send_multipart([identity] + resp)
+        except EscalatorClosed:
+            self.loop.stop()
+        except Exception:
+            log_traceback(self.logger)
+        finally:
+            self.futures = {
+                k: v for k, v in self.futures.items() if v != future
+            }
 
     def close(self):
         self.escalator.close()
         self.context.term()
 
-    def handle(self, cmd, fid, *args):
+    def get_response(self, cmd, fid, *args):
         for source in self.select_best_source(fid.decode()):
             dealer = None
 
