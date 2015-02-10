@@ -134,7 +134,7 @@ class Brocker(object):
 
             sources = services - excluded
 
-            max_velocity = None
+            max_velocity = 0.
             source = None
 
             for candidate in sources:
