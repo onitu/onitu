@@ -6,6 +6,7 @@ from onitu.referee import UP, DEL, MOV
 from onitu.utils import get_brocker_uri, log_traceback
 from onitu.brocker.commands import GET_CHUNK, GET_FILE
 from onitu.brocker.responses import ERROR
+from onitu.escalator.client import EscalatorClosed
 
 from .metadata import Metadata
 from .exceptions import AbortOperation
@@ -39,6 +40,8 @@ class Worker(object):
             self.do()
         except Exception:
             log_traceback(self.logger)
+        except EscalatorClosed:
+            pass
         finally:
             self.escalator.close()
             self.context.destroy()
