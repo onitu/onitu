@@ -23,19 +23,13 @@ def crash(launcher, filename, src, dest):
         start_loop = BooleanLoop()
         end_loop = CounterLoop(2)
         launcher.on_transfer_started(
-            start_loop.stop,
-            d_from=src, d_to=dest,
-            filename=filename
+            start_loop.stop, d_to=dest, filename=filename
         )
         launcher.on_transfer_restarted(
-            end_loop.check,
-            d_from=src, d_to=dest,
-            filename=filename
+            end_loop.check, d_to=dest, filename=filename
         )
         launcher.on_transfer_ended(
-            end_loop.check,
-            d_from=src, d_to=dest,
-            filename=filename
+            end_loop.check, d_to=dest, filename=filename
         )
 
         src.generate(src.path('default', filename), 100)

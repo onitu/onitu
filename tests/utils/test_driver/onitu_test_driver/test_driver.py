@@ -39,6 +39,10 @@ def move(old_metadata, new_metadata):
 @plug.handler()
 def get_chunk(metadata, offset, size):
     plug.logger.debug("get_chunk called")
+
+    if metadata.path not in files:
+        return None
+
     return read(metadata)[offset:offset + size]
 
 
@@ -81,6 +85,10 @@ def upload_file(metadata, content):
 @plug.handler()
 def get_file(metadata):
     plug.logger.debug("get_file called")
+
+    if metadata.path not in files:
+        return None
+
     return read(metadata)
 
 
@@ -115,6 +123,10 @@ class Watcher(Thread):
 
         self.req_socket = self.context.socket(zmq.REP)
         self.notif_socket = self.context.socket(zmq.PULL)
+
+        for folder in plug.folders.values():
+            for path in plug.list(folder).keys():
+                files.add(folder.join(path))
 
         self.handlers = {
             'write': self.handle_write,
@@ -178,10 +190,12 @@ class Watcher(Thread):
     def handle_exists(self, filename):
         return filename in files
 
-    def handle_delete(self, filename):
+    def handle_delete(self, filename, notify=True):
         metadata = plug.get_metadata(filename)
         delete(metadata)
-        plug.delete_file(metadata)
+
+        if notify:
+            plug.delete_file(metadata)
 
     def handle_move(self, source, target):
         if source not in files:

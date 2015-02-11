@@ -159,6 +159,10 @@ def get_events_uri(session, name, suffix=None):
     return _get_uri(session, name)
 
 
+def get_brocker_uri(session):
+    return _get_uri(session, 'brocker')
+
+
 def get_logs_uri(session):
     return _get_uri(session, 'logs')
 
@@ -209,3 +213,16 @@ def dirname(path):
     """
     split_path = path.split('/')
     return '/'.join(split_path[:-1])
+
+
+def cpu_count(default=1):
+    """
+    Return the number of CPUs in the system, with the given default
+    if this number is not available
+    """
+    import multiprocessing
+
+    try:
+        return multiprocessing.cpu_count()
+    except NotImplementedError:
+        return default

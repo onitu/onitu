@@ -1,6 +1,7 @@
 {
   "name": "Local Storage",
   "description": "Store files on your local filesystem.",
+  "velocity": 0.9,
   "options": {
   }
 }

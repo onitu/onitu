@@ -1,9 +1,25 @@
+import sys
+
 from setuptools import setup, find_packages
 
 import onitu
 
 with open('README.rst') as f:
     readme = f.read()
+
+
+requirements = [
+    "circus>=0.11",
+    "pyzmq>=14.1.1",
+    "logbook>=0.7",
+    "plyvel",
+    "pyyaml",
+    "msgpack-python",
+    "bottle"
+]
+
+if sys.version_info[0] == 2:
+    requirements.append('futures')
 
 setup(
     name="onitu",
@@ -16,15 +32,7 @@ setup(
     long_description=readme,
     packages=find_packages(exclude=['drivers', 'tests', 'docs']),
     zip_safe=False,
-    install_requires=[
-        "circus>=0.11",
-        "pyzmq>=14.1.1",
-        "logbook>=0.7",
-        "plyvel",
-        "pyyaml",
-        "msgpack-python",
-        "bottle"
-    ],
+    install_requires=requirements,
     extras_require={
         'dev': ['flake8', 'tox'],
         'doc': ['sphinx', 'sphinxcontrib-httpdomain'],

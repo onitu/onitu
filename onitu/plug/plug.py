@@ -63,15 +63,16 @@ class Plug(object):
         self.publisher = self.context.socket(zmq.PUSH)
         self.publisher.connect(get_events_uri(session, 'referee'))
 
-        self.options = self.escalator.get(
+        options = self.escalator.get(
             u'service:{}:options'.format(name), default={}
         )
+        self.validate_options(manifest, options)
+        self.options = options
+
+        self.escalator.put(u'service:{}:options'.format(name), options)
+        self.escalator.put(u'drivers:{}:manifest'.format(name), manifest)
 
         self.folders = Folder.get_folders(self)
-
-        self.validate_options(manifest)
-
-        self.escalator.put(u'drivers:{}:manifest'.format(name), manifest)
 
         self.logger.info("Started")
 
@@ -253,7 +254,7 @@ class Plug(object):
         """
         return self.escalator.exists(u'path:{}:{}'.format(folder, path))
 
-    def validate_options(self, manifest):
+    def validate_options(self, manifest, service_options):
         """
         Validate the options and set the default values using informations
         from the manifest.
@@ -267,6 +268,10 @@ class Plug(object):
             'chunk_size': {
                 'type': 'integer',
                 'default': 1 << 20  # 1 MB
+            },
+            'velocity': {
+                'type': 'float',
+                'default': manifest.get('velocity', 0.5)
             }
         })
 
@@ -279,7 +284,7 @@ class Plug(object):
             'enumerate': lambda v: v in options[name].get('values', []),
         }
 
-        for name, value in self.options.items():
+        for name, value in service_options.items():
             if name not in options:
                 raise RuntimeError("Unknown option '{}'".format(name))
 
@@ -300,16 +305,14 @@ class Plug(object):
                 )
 
         for name, props in options.items():
-            if name not in self.options:
+            if name not in service_options:
                 if 'default' in props:
-                    self.options[name] = props['default']
+                    service_options[name] = props['default']
                 else:
                     raise RuntimeError(
                         "Mandatory option '{}' not present in the "
                         "configuration.".format(name)
                     )
-
-        return True
 
     def call(self, handler_name, *args, **kwargs):
         """Call a handler registered by the driver.

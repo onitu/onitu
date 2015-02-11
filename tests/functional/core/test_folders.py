@@ -272,9 +272,7 @@ def test_rename(setup, launcher):
         loop.run(timeout=1)
 
         loop = BooleanLoop()
-        launcher.on_transfer_ended(
-            loop.stop, d_from=A, d_to=B, filename='bar/test'
-        )
+        launcher.on_transfer_ended(loop.stop, d_to=B, filename='bar/test')
         A.rename(A.path('dir', 'foo/test'), B.path('dir', 'bar/test'))
         loop.run(1)
 

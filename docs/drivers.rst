@@ -163,6 +163,8 @@ The type of the options will be used by Onitu to validate them, and by the inter
 
 An option can have a `default` field which represents the default value (it can be `null`). If this field is present, the option is not mandatory. All the options without a default value are mandatory.
 
+The manifest can also define a "velocity". This is a value between 0 and 1 which describes how fast the driver is supposed to be, 1 being the fastest. This is useful to know where to download a file when it is available on several services. If you cannot guess this value, set it to `0.5`. Note that this value is here to provide a relevant default, it can be overridden by the user for each service.
+
 Here is an example of what your manifest should look like :
 
 .. literalinclude:: examples/manifest.json

@@ -22,11 +22,11 @@ def corruption(launcher, filename, size, newcontent):
     content_hash = hashlib.md5(newcontent.encode()).hexdigest()
     start_loop = BooleanLoop()
     launcher.on_transfer_started(
-        start_loop.stop, d_from=rep1.name, d_to=rep2.name, filename=filename
+        start_loop.stop, d_to=rep2.name, filename=filename
     )
     end_loop = BooleanLoop()
     launcher.on_transfer_ended(
-        end_loop.stop, d_from=rep2, d_to=rep1, filename=filename
+        end_loop.stop, d_to=rep1, filename=filename
     )
     rep1.generate(rep1.path('default', filename), size)
     start_loop.run(timeout=5)

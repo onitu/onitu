@@ -21,7 +21,7 @@ def test_move_file_not_watched(module_launcher):
 
     loop = CounterLoop(1)
     module_launcher.on_transfer_ended(
-        loop.check, d_from=d_target, d_to=d_test, filename='moved1'
+        loop.check, d_to=d_test, filename='moved1'
     )
     d_target.rename('to_move1', d_target.path('default', 'moved1'))
     loop.run(5)
@@ -36,13 +36,13 @@ def test_move_dir_not_watched(module_launcher):
 
     loop = CounterLoop(3)
     module_launcher.on_transfer_ended(
-        loop.check, d_from=d_target, d_to=d_test, filename='moved2/foo'
+        loop.check, d_to=d_test, filename='moved2/foo'
     )
     module_launcher.on_transfer_ended(
-        loop.check, d_from=d_target, d_to=d_test, filename='moved2/bar'
+        loop.check, d_to=d_test, filename='moved2/bar'
     )
     module_launcher.on_transfer_ended(
-        loop.check, d_from=d_target, d_to=d_test, filename='moved2/lol'
+        loop.check, d_to=d_test, filename='moved2/lol'
     )
     d_target.rename('to_move2', d_target.path('default', 'moved2'))
     loop.run(5)
@@ -56,7 +56,7 @@ def test_create_and_move_file(module_launcher):
         loop.stop, driver=d_test, src='to_move3', dest='moved3'
     )
     module_launcher.on_transfer_ended(
-        loop.stop, d_from=d_target, d_to=d_test, filename='moved3'
+        loop.stop, d_to=d_test, filename='moved3'
     )
 
     d_target.generate(d_target.path('default', 'to_move3'), 100)
@@ -81,13 +81,12 @@ def test_create_and_move_file_during_transfer(module_launcher):
         loop.stop, driver=d_test, src='to_move3', dest='moved3'
     )
     module_launcher.on_transfer_ended(
-        loop.stop, d_from=d_target, d_to=d_test, filename='moved3'
+        loop.stop, d_to=d_test, filename='moved3'
     )
 
     intermediate_loop = BooleanLoop()
     module_launcher.on_transfer_started(
-        intermediate_loop.stop, d_from=d_target, d_to=d_test,
-        filename='to_move3'
+        intermediate_loop.stop, d_to=d_test, filename='to_move3'
     )
 
     d_target.generate(d_target.path('default', 'to_move3'), 100)

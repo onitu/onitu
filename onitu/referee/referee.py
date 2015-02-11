@@ -152,7 +152,7 @@ class Referee(object):
             metadata['filename'], source, folder
         )
 
-        self.notify(folder.targets(metadata, source), UP, fid, source)
+        self.notify(folder.targets(metadata, source), UP, fid)
 
     def notify(self, services, cmd, fid, *args):
         if not services:

@@ -1,0 +1,2 @@
+GET_CHUNK = b'1'
+GET_FILE = b'2'
