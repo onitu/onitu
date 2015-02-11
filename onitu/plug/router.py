@@ -101,12 +101,14 @@ class Router(object):
                 raise future.exception()
 
             self.stream.send_multipart([identity] + future.result() or [OK])
+        except AbortOperation:
+            pass
         except zmq.ZMQError as e:
             if e.errno == zmq.ETERM:
                 self.loop.stop()
             else:
                 log_traceback(self.logger)
-        except (AbortOperation, EscalatorClosed):
+        except EscalatorClosed:
             self.loop.stop()
         except Exception:
             log_traceback(self.logger)
