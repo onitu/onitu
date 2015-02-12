@@ -79,8 +79,8 @@ def get_fid(folder, filename):
     The purpose of the file-id is to avoid using filenames as a direct
     references to files inside Onitu.
     """
-    folder = b(folder)
-    filename = b(filename)
+    folder = n(folder)
+    filename = n(filename)
 
     return str(uuid.uuid5(NAMESPACE_ONITU, "{}:{}".format(folder, filename)))
 
