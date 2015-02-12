@@ -266,7 +266,6 @@ def abort_upload(metadata):
         multipart_upload = get_multipart_upload(metadata)
         # Cancel the upload on remote server before getting rid of the
         # multipart upload ID
-        remove_from_cache(multipart_upload)
         multipart_upload.cancel_upload()
         # Delete the mp id from cache
         remove_from_cache(multipart_upload)
