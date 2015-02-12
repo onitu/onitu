@@ -270,8 +270,8 @@ def move_file(old_metadata, new_metadata):
     now = int((datetime.utcnow() - datetime(1970, 1, 1)).total_seconds())
     new_metadata.extra['last_update'] = now
     new_metadata.write()
-    plug.logger.debug(u"Successfully moved {} to {}"
-                      .format(old_metadata.filename, new_metadata.filename))
+    plug.logger.debug(u"Successfully moved {} to {}",
+                      old_metadata.filename, new_metadata.filename)
 
 
 class CheckChanges(threading.Thread):
@@ -288,13 +288,13 @@ class CheckChanges(threading.Thread):
         try:
             self.photosetID = flickr.get_photoset_ID(self.folder.path)
         except DriverError:
-            plug.logger.warning(u"The given album {} doesn't exist"
-                                u" on Flickr.", folder.path)
+            plug.logger.info(u"The given album {} doesn't exist"
+                             u" on Flickr.", folder.path)
         # Set default as 1 for the last update timestamp because Flickr throws
         # an error if we start from 0... -.-
         self.lastUpdateTimestamp = plug.service_db.get('timestamp', default=1)
-        plug.logger.debug("Getting timestamp {} out of database"
-                          .format(self.lastUpdateTimestamp))
+        plug.logger.debug("Getting timestamp {} out of database",
+                          self.lastUpdateTimestamp)
 
     def run(self):
         while not self.stopEvent.isSet():
@@ -319,8 +319,8 @@ class CheckChanges(threading.Thread):
                 return
             finally:
                 if albumNotFound:
-                    warn = (u"The album {} doesn't exist on Flickr."
-                            .format(self.folder.path))
+                    plug.logger.info(u"The album {} doesn't exist on Flickr.",
+                                     self.folder.path)
                 if warn is not None:
                     plug.logger.warning(warn)
             plug.logger.debug(u"Re-check album {} in {} seconds",
