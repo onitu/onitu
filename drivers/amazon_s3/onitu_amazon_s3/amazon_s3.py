@@ -63,6 +63,7 @@ def get_file_timestamp(filename):
     """Returns the float timestamp based on the
     date format timestamp stored by Amazon.
     Prefixes the given filename with Onitu's root."""
+    plug.logger.debug(u"Getting timestamp of {}", filename)
     metadata = S3Conn.head_object(u(filename))
     timestamp = metadata.headers['last-modified']
     # convert timestamp to timestruct...
@@ -93,6 +94,9 @@ def get_multipart_upload(metadata):
     multipart_upload = None
     metadata_mp_id = None
     filename = metadata.path
+    if filename.startswith(u"/"):
+        filename = filename[1:]
+    plug.logger.debug(u"Getting multipart upload of {}", filename)
     # Retrieve the stored multipart upload ID
     try:
         metadata_mp_id = metadata.extra['mp_id']
@@ -114,6 +118,8 @@ def get_multipart_upload(metadata):
     if multipart_upload is None:
         raise DriverError("Cannot find upload for file '{}'"
                           .format(filename))
+    plug.logger.debug(u"Found multipart upload of {} - ID {}",
+                      filename, multipart_upload.uploadId)
     return multipart_upload
 
 
@@ -216,23 +222,35 @@ def upload_file(metadata, data):
 def end_upload(metadata):
     multipart_upload = get_multipart_upload(metadata)
     filename = metadata.path
+    if filename.startswith(u"/"):
+        filename = filename[1:]
     # Finish the upload on remote server before getting rid of the
     # multipart upload ID
     try:
-        multipart_upload.complete_upload()
+        plug.logger.debug(u"Completing upload of {}", filename)
+        if multipart_upload.number_of_parts() == 0:
+            # Since we initialise the multipart upload in start_upload, it
+            # may be useless since we may have called upload_file instead of
+            # get_chunk, hence having sent no chunk at all. So in that case we
+            # must cancel instead of complete.
+            plug.logger.debug(u"Cancelling empty multipart upload of {}",
+                              filename)
+            multipart_upload.cancel_upload()
+        else:
+            multipart_upload.complete_upload()
     # If the file is left empty (i.e. for tests),
     # an exception is raised
     except requests.HTTPError as exc:
+        # don't pollute S3 server with a void MP upload
+        multipart_upload.cancel_upload()
         if metadata.size == 0:
-            # don't pollute S3 server with a void MP upload
-            multipart_upload.cancel_upload()
             # Explicitly set this file contents to "nothing"
             fp = IOStream(b"")
             S3Conn.upload(filename, fp)
         else:
-            # Delete the mp id from cache
             remove_from_cache(multipart_upload)
-            raise DriverError(u"Error: {}".format(exc))
+            raise DriverError(u"Error while ending upload of {}: {}"
+                              .format(filename, exc))
     # From here we're sure that's OK for Amazon
     new_timestamp = get_file_timestamp(filename)
     del metadata.extra['mp_id']  # erases the upload ID
@@ -244,15 +262,20 @@ def end_upload(metadata):
 
 @plug.handler()
 def abort_upload(metadata):
-    multipart_upload = get_multipart_upload(metadata)
-    # Cancel the upload on remote server before getting rid of the
-    # multipart upload ID
-    multipart_upload.cancel_upload()
+    try:
+        multipart_upload = get_multipart_upload(metadata)
+        # Cancel the upload on remote server before getting rid of the
+        # multipart upload ID
+        remove_from_cache(multipart_upload)
+        multipart_upload.cancel_upload()
+        # Delete the mp id from cache
+        remove_from_cache(multipart_upload)
+    except DriverError:
+        plug.logger.info(u"Multipart upload of {} already cancelled",
+                         metadata.filename)
     # From here we're sure that's OK for Amazon
     del metadata.extra['mp_id']  # erases the upload ID
     metadata.write()
-    # Delete the mp id from cache
-    remove_from_cache(multipart_upload)
 
 
 @plug.handler()
@@ -313,7 +336,10 @@ class CheckChanges(threading.Thread):
         self.timer = timer
         self.folder = folder
         self.prefix = folder.path.lstrip(u"/")  # strip leading slashes
-        if not self.prefix.endswith(u"/"):
+        # If the user provided '/' as root, self.prefix is "". But filtering
+        # with '/' as prefix on Amazon S3 gives no result, so we absolutely
+        # must not append a slash if the string's empty !!
+        if not self.prefix.endswith(u"/") and self.prefix != u"":
             self.prefix += u"/"
 
     def check_bucket(self):
@@ -322,7 +348,7 @@ class CheckChanges(threading.Thread):
                           u" {} for changes".format(prfx))
         # We need to unroll the generator to be able to check for folders
         keys = [key for key in S3Conn.list(prefix=prfx)]
-        plug.logger.debug(u"Processing files under '{}'".format(prfx))
+        plug.logger.debug(u"Processing {} files under '{}'", len(keys), prfx)
         # Getting multipart uploads once for all files under this folder
         # is WAY faster than re-getting them for each file
         multipart_uploads = S3Conn.get_all_multipart_uploads(prefix=prfx)
@@ -359,8 +385,8 @@ class CheckChanges(threading.Thread):
                 metadata.size = int(key['size'])
                 metadata.extra['timestamp'] = remote_ts
                 plug.update_file(metadata)
-        plug.logger.debug(u"Done checking bucket - next check in {} seconds"
-                          .format(self.timer))
+        plug.logger.debug(u"Next check in folder {} in {} seconds",
+                          self.folder.path, self.timer)
 
     def run(self):
         while not self.stopEvent.isSet():
@@ -417,7 +443,8 @@ def start():
         else:  # no error - root already exists
             # Amazon S3 has no concept of directories, they're just 0-size
             # files. So if root hasn't a size of 0, it is a regular file.
-            if len(folder_key.content) != 0:
+            if (len(folder_key.content) != 0 and folder.path != u"/"
+               and len(folder.path) != 0):
                 raise DriverError(u"Folder {} is a regular file on the"
                                   u"'{}' bucket. Please delete it"
                                   .format(folder.path,
