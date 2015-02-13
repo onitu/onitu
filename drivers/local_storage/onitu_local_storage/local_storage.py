@@ -1,4 +1,6 @@
 import os
+import json
+import tempfile
 
 from onitu.plug import Plug, DriverError, ServiceError
 from onitu.escalator.client import EscalatorClosed
@@ -35,6 +37,9 @@ def walkfiles(root):
 
 
 def update(metadata, mtime=None):
+    if os.path.exists(to_tmp(metadata.path)):
+        return
+
     try:
         metadata.size = os.path.getsize(metadata.path)
 
@@ -47,6 +52,7 @@ def update(metadata, mtime=None):
         )
     else:
         plug.update_file(metadata)
+        set_status(metadata.path, 'synced')
 
 
 def delete(metadata):
@@ -55,6 +61,7 @@ def delete(metadata):
         return
 
     plug.delete_file(metadata)
+    set_status(metadata.path, None)
 
 
 def move(old_metadata, new_filename):
@@ -68,6 +75,8 @@ def move(old_metadata, new_filename):
     # so the old metadata are not up-to-date
     new_metadata.size = os.path.getsize(new_metadata.path)
     new_metadata.write()
+    set_status(old_metadata.path, None)
+    set_status(new_metadata.path, 'synced')
 
 
 def check_changes(folder):
@@ -97,10 +106,54 @@ def check_changes(folder):
 
         if mtime > revision:
             update(metadata, mtime)
+        else:
+            set_status(metadata.path, "synced")
 
     for filename in expected_files:
         metadata = plug.get_metadata(filename, folder)
         plug.delete_file(metadata)
+
+
+def set_status(abs_path, status):
+
+    tmp_dir = tempfile.gettempdir()
+    tmp_filename = tmp_dir + os.sep + 'onitu_synced_files'
+
+    try:
+        with open(tmp_filename, "r") as jsonFile:
+            data = json.load(jsonFile)
+    except (IOError, ValueError) as e:
+        data = dict()
+
+    if abs_path in data:
+        old_status = data[abs_path]
+    else:
+        old_status = None
+
+    if "onitu_nb_of_pending_files" in data:
+        old_nb_of_pending = data["onitu_nb_of_pending_files"]
+    else:
+        old_nb_of_pending = 0
+
+    if old_status == "pending" and status != "pending":
+        data["onitu_nb_of_pending_files"] = old_nb_of_pending - 1
+    elif status == "pending" and old_status != "pending":
+        data["onitu_nb_of_pending_files"] = old_nb_of_pending + 1
+    else:
+        data["onitu_nb_of_pending_files"] = old_nb_of_pending
+
+    if status is None:
+        data.pop(abs_path, None)
+    else:
+        data[abs_path] = status
+
+    try:
+        with open(tmp_filename, "w") as jsonFile:
+            jsonFile.write(json.dumps(data, indent=4))
+    except IOError as e:
+        raise ServiceError(
+            u"Error to write in status file '{}': {}".format(tmp_filename, e)
+        )
 
 
 @plug.handler()
@@ -135,6 +188,7 @@ def start_upload(metadata):
             pass
 
         open(tmp_file, 'wb').close()
+        set_status(metadata.path, "pending")
 
         if IS_WINDOWS:
             win32api.SetFileAttributes(
@@ -185,6 +239,8 @@ def end_upload(metadata):
     metadata.extra['revision'] = mtime
     metadata.write()
 
+    set_status(metadata.path, "synced")
+
 
 @plug.handler()
 def abort_upload(metadata):
@@ -195,6 +251,8 @@ def abort_upload(metadata):
         raise ServiceError(
             u"Error deleting file '{}': {}".format(tmp_file, e)
         )
+
+    set_status(metadata.path, None)
 
 
 @plug.handler()
@@ -207,6 +265,7 @@ def delete_file(metadata):
         raise ServiceError(
             u"Error deleting file '{}': {}".format(metadata.path, e)
         )
+    set_status(metadata.path, None)
 
 
 @plug.handler()
@@ -219,6 +278,9 @@ def move_file(old_metadata, new_metadata):
         raise ServiceError(
             u"Error moving file '{}': {}".format(old_metadata.path, e)
         )
+
+    set_status(old_metadata.path, None)
+    set_status(old_metadata.path, "synced")
 
 
 if IS_WINDOWS:
