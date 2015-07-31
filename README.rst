@@ -12,12 +12,12 @@ Some of these challenges were manageable but others were out of reach, making On
 
 We don't think that any project has reached all of Onitu's goals. However, there are plenty of amazing solutions out there with a different scope. Here is a non-exhaustive list of Open-Source projects we love:
 
-- [Cozy](http://cozy.io/)
-- [Owncloud](https://owncloud.org/)
-- [Syncany](https://www.syncany.org/)
-- [SparkleShare](http://sparkleshare.org/)
-- [Syncthing](http://syncthing.net)
-- [Pydio](https://pyd.io/)
+- `Cozy <http://cozy.io/>`_
+- `Owncloud <https://owncloud.org/>`_
+- `Syncany <https://www.syncany.org/>`_
+- `SparkleShare <http://sparkleshare.org/>`_
+- `Syncthing <http://syncthing.net>`_
+- `Pydio <https://pyd.io/>`_
 
 Feel free to contact us if you have any question. You can reach us by mail (onitu_2015@labeip.epitech.eu), in the issues, or on IRC at #onitu on irc.freenode.org.
 
